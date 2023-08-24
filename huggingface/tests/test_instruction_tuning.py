@@ -19,10 +19,11 @@ import tempfile
 
 import pytest
 from datasets import Dataset
-from transformers import BartForConditionalGeneration, BartTokenizer
-
-from geniusrise.bolts.huggingface.instruction_tuning import HuggingFaceInstructionTuningFineTuner
+from geniusrise.bolts.huggingface.instruction_tuning import (
+    HuggingFaceInstructionTuningFineTuner,
+)
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import BartForConditionalGeneration, BartTokenizer
 
 
 def create_synthetic_data(size: int, temp_dir: str):

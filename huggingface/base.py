@@ -21,6 +21,7 @@ from typing import Dict, Optional
 
 import numpy as np
 from datasets import DatasetDict
+from geniusrise.core import BatchInputConfig, BatchOutputConfig, Bolt, StateManager
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.data import Dataset
 from transformers import (
@@ -32,8 +33,6 @@ from transformers import (
     TrainingArguments,
     get_linear_schedule_with_warmup,
 )
-
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, Bolt, StateManager
 
 
 class HuggingFaceBatchFineTuner(Bolt):
@@ -143,7 +142,13 @@ class HuggingFaceBatchFineTuner(Bolt):
 
         return optimizer, scheduler
 
-    def fine_tune(self, output_dir: str, num_train_epochs: int, per_device_train_batch_size: int, **kwargs):
+    def fine_tune(
+        self,
+        output_dir: str,
+        num_train_epochs: int,
+        per_device_train_batch_size: int,
+        **kwargs,
+    ):
         """
         Fine-tune the model.
 

@@ -51,7 +51,11 @@ class TranslationFineTuner(HuggingFaceBatchFineTuner):
         dataset = load_from_disk(dataset_path)
 
         # Preprocess the dataset
-        tokenized_dataset = dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
+        tokenized_dataset = dataset.map(
+            self.prepare_train_features,
+            batched=True,
+            remove_columns=dataset.column_names,
+        )
 
         return tokenized_dataset
 
@@ -67,10 +71,16 @@ class TranslationFineTuner(HuggingFaceBatchFineTuner):
         """
         # Tokenize the examples
         tokenized_inputs = self.tokenizer(
-            [x["en"] for x in examples["translation"]], truncation=True, padding="max_length", max_length=512
+            [x["en"] for x in examples["translation"]],
+            truncation=True,
+            padding="max_length",
+            max_length=512,
         )
         tokenized_targets = self.tokenizer(
-            [x["fr"] for x in examples["translation"]], truncation=True, padding="max_length", max_length=512
+            [x["fr"] for x in examples["translation"]],
+            truncation=True,
+            padding="max_length",
+            max_length=512,
         )
 
         # Replace padding token id by -100

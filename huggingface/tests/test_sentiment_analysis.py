@@ -20,10 +20,9 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from transformers import BertForSequenceClassification, BertTokenizer, EvalPrediction
-
 from geniusrise.bolts.huggingface.sentiment_analysis import SentimentAnalysisFineTuner
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import BertForSequenceClassification, BertTokenizer, EvalPrediction
 
 
 def create_synthetic_data(size: int, temp_dir: str):

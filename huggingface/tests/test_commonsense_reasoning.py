@@ -19,10 +19,11 @@ import tempfile
 
 import pytest
 from datasets import Dataset
-from transformers import BertForSequenceClassification, BertTokenizer
-
-from geniusrise.bolts.huggingface.commonsense_reasoning import CommonsenseReasoningFineTuner
+from geniusrise.bolts.huggingface.commonsense_reasoning import (
+    CommonsenseReasoningFineTuner,
+)
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import BertForSequenceClassification, BertTokenizer
 
 
 def create_synthetic_data(directory, num_examples):
@@ -95,7 +96,11 @@ def test_commonsense_bolt_fine_tune(commonsense_bolt):
 
 def test_commonsense_prepare_train_features(commonsense_bolt):
     # Mocking examples
-    examples = {"premise": ["This is a premise."], "hypothesis": ["This is a hypothesis."], "label": [0]}
+    examples = {
+        "premise": ["This is a premise."],
+        "hypothesis": ["This is a hypothesis."],
+        "label": [0],
+    }
 
     features = commonsense_bolt.prepare_train_features(examples)
 

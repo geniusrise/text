@@ -19,10 +19,14 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import torch
 from datasets import DatasetDict, load_from_disk
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from transformers import DataCollatorForTokenClassification, EvalPrediction, PreTrainedModel, PreTrainedTokenizerBase
-
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, StateManager
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from transformers import (
+    DataCollatorForTokenClassification,
+    EvalPrediction,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+)
 
 from .base import HuggingFaceBatchFineTuner
 
@@ -88,7 +92,11 @@ class NamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         dataset = load_from_disk(dataset_path)
 
         # Preprocess the dataset
-        tokenized_dataset = dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
+        tokenized_dataset = dataset.map(
+            self.prepare_train_features,
+            batched=True,
+            remove_columns=dataset.column_names,
+        )
 
         return tokenized_dataset
 

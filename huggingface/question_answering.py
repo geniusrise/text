@@ -19,10 +19,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from datasets import Dataset, load_from_disk
+from geniusrise.core import BatchInputConfig, BatchOutputConfig, StateManager
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
-
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, StateManager
 
 from .base import HuggingFaceBatchFineTuner
 
@@ -111,7 +110,9 @@ class QuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         # Preprocess the dataset
         try:
             tokenized_dataset = dataset.map(
-                self.prepare_train_features, batched=True, remove_columns=dataset.column_names
+                self.prepare_train_features,
+                batched=True,
+                remove_columns=dataset.column_names,
             )
         except Exception as e:
             logger.error(f"Error tokenizing dataset: {e}")

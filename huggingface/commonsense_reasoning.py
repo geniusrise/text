@@ -53,7 +53,9 @@ class CommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
 
             # Preprocess the dataset
             tokenized_dataset = dataset.map(
-                self.prepare_train_features, batched=True, remove_columns=dataset.column_names
+                self.prepare_train_features,
+                batched=True,
+                remove_columns=dataset.column_names,
             )
 
             return tokenized_dataset
@@ -74,7 +76,10 @@ class CommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
         try:
             # Tokenize the examples
             tokenized_inputs = self.tokenizer(
-                examples["premise"], examples["hypothesis"], truncation=True, padding=False
+                examples["premise"],
+                examples["hypothesis"],
+                truncation=True,
+                padding=False,
             )
 
             # Prepare the labels

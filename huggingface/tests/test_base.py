@@ -19,10 +19,14 @@ import tempfile
 
 import pytest
 from datasets import load_dataset
-from transformers import BertForSequenceClassification, BertTokenizer
-
 from geniusrise.bolts.huggingface.base import HuggingFaceBatchFineTuner
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager, StateManager
+from geniusrise.core import (
+    BatchInputConfig,
+    BatchOutputConfig,
+    InMemoryStateManager,
+    StateManager,
+)
+from transformers import BertForSequenceClassification, BertTokenizer
 
 
 class TestHuggingFaceBatchFineTuner(HuggingFaceBatchFineTuner):
@@ -45,7 +49,10 @@ class TestHuggingFaceBatchFineTuner(HuggingFaceBatchFineTuner):
         dataset = load_dataset("glue", "mrpc", split="train[:100]")  # using only first 100 samples for speed
         dataset = dataset.map(
             lambda examples: self.tokenizer(
-                examples["sentence1"], examples["sentence2"], truncation=True, padding="max_length"
+                examples["sentence1"],
+                examples["sentence2"],
+                truncation=True,
+                padding="max_length",
             ),
             batched=True,
         ).map(lambda examples: {"labels": examples["label"]}, batched=True)

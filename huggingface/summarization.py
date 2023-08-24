@@ -19,7 +19,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from datasets import DatasetDict, load_from_disk, load_metric
-from transformers import AdamW, DataCollatorForSeq2Seq, EvalPrediction, get_linear_schedule_with_warmup
+from transformers import (
+    AdamW,
+    DataCollatorForSeq2Seq,
+    EvalPrediction,
+    get_linear_schedule_with_warmup,
+)
 
 from .base import HuggingFaceBatchFineTuner
 
@@ -61,7 +66,9 @@ class SummarizationFineTuner(HuggingFaceBatchFineTuner):
         # Preprocess the dataset
         try:
             tokenized_dataset = dataset.map(
-                self.prepare_train_features, batched=True, remove_columns=dataset.column_names
+                self.prepare_train_features,
+                batched=True,
+                remove_columns=dataset.column_names,
             )
         except Exception as e:
             logger.error(f"Error tokenizing dataset: {e}")

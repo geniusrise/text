@@ -20,10 +20,9 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from transformers import BertForTokenClassification, BertTokenizerFast, EvalPrediction
-
 from geniusrise.bolts.huggingface.ner import NamedEntityRecognitionFineTuner
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import BertForTokenClassification, BertTokenizerFast, EvalPrediction
 
 
 def create_synthetic_data(size: int, temp_dir: str):

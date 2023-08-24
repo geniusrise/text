@@ -20,17 +20,19 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from transformers import EvalPrediction, MarianMTModel, MarianTokenizer
-
 from geniusrise.bolts.huggingface.translation import TranslationFineTuner
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import EvalPrediction, MarianMTModel, MarianTokenizer
 
 
 def create_synthetic_data(size: int, temp_dir: str):
     # Generate synthetic data
     data = {
         "translation": [
-            {"en": f"This is a synthetic text example {i}", "fr": f"C'est un exemple de texte synthétique {i}"}
+            {
+                "en": f"This is a synthetic text example {i}",
+                "fr": f"C'est un exemple de texte synthétique {i}",
+            }
             for i in range(size)
         ],
     }

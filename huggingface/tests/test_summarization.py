@@ -20,10 +20,9 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from transformers import BartForConditionalGeneration, BartTokenizerFast, EvalPrediction
-
 from geniusrise.bolts.huggingface.summarization import SummarizationFineTuner
 from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from transformers import BartForConditionalGeneration, BartTokenizerFast, EvalPrediction
 
 
 def create_synthetic_data(size: int, temp_dir: str):

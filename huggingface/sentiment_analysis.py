@@ -48,7 +48,11 @@ class SentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
             DatasetDict: The loaded dataset.
         """
         dataset = load_from_disk(dataset_path)
-        tokenized_dataset = dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
+        tokenized_dataset = dataset.map(
+            self.prepare_train_features,
+            batched=True,
+            remove_columns=dataset.column_names,
+        )
         return tokenized_dataset
 
     def prepare_train_features(self, examples: Dict[str, Union[str, int]]) -> Dict[str, Union[List[int], int]]:
