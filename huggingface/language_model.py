@@ -20,6 +20,11 @@ from transformers import DataCollatorForLanguageModeling
 import os
 import json
 import pandas as pd
+import pyarrow.parquet as pq
+import pyarrow.feather as feather
+import sqlite3
+import yaml
+import xml.etree.ElementTree as ET
 
 from .base import HuggingFaceBatchFineTuner
 
@@ -28,12 +33,12 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
-    This bolt extends the HuggingFaceBatchFineTuner to handle the specifics of language modeling tasks,
-    such as the specific format of the datasets and the specific metrics for evaluation.
-
-    The dataset should be in the following format:
-    - Each example is a dictionary with the following keys:
-        - 'text': a string representing the text to be used for language modeling.
+    Args:
+        model: The pre-trained model to fine-tune.
+        tokenizer: The tokenizer associated with the model.
+        input_config (BatchInput): The batch input configuration.
+        output_config (OutputConfig): The output configuration.
+        state_manager (State): The state manager.
     """
 
     def load_dataset(self, dataset_path, **kwargs):

@@ -14,12 +14,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Union
 import json
 import os
 import pandas as pd
 import pyarrow.parquet as pq
-import yaml
+import yaml  # type: ignore
 import xml.etree.ElementTree as ET
 from pyarrow import feather
 from datasets import load_from_disk, Dataset, DatasetDict
@@ -31,6 +31,13 @@ from .base import HuggingFaceBatchFineTuner
 class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on commonsense reasoning tasks.
+
+    Args:
+        model: The pre-trained model to fine-tune.
+        tokenizer: The tokenizer associated with the model.
+        input_config (BatchInput): The batch input configuration.
+        output_config (OutputConfig): The output configuration.
+        state_manager (State): The state manager.
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[Dataset, DatasetDict, None]:

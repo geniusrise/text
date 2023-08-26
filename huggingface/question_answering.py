@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 from typing import Any, Dict, List, Optional, Union
 import os
 import json
@@ -37,8 +36,12 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
-    This bolt extends the HuggingFaceBatchFineTuner to handle the specifics of question answering tasks,
-    such as the specific format of the datasets and the specific metrics for evaluation.
+    Args:
+        model: The pre-trained model to fine-tune.
+        tokenizer: The tokenizer associated with the model.
+        input_config (BatchInput): The batch input configuration.
+        output_config (OutputConfig): The output configuration.
+        state_manager (State): The state manager.
     """
 
     def __init__(

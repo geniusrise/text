@@ -34,13 +34,12 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 
-    This bolt extends the HuggingFaceBatchFineTuner to handle the specifics of sentiment analysis tasks,
-    such as the specific format of the datasets and the specific metrics for evaluation.
-
-    The dataset should be in the following format:
-    - Each example is a dictionary with the following keys:
-        - 'text': a string representing the text to classify.
-        - 'label': an integer representing the sentiment of the text.
+    Args:
+        model: The pre-trained model to fine-tune.
+        tokenizer: The tokenizer associated with the model.
+        input_config (BatchInput): The batch input configuration.
+        output_config (OutputConfig): The output configuration.
+        state_manager (State): The state manager.
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dataset | DatasetDict:
