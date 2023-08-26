@@ -22,7 +22,7 @@ from transformers import DataCollatorForSeq2Seq
 from .base import HuggingFaceBatchFineTuner
 
 
-class TranslationFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceTranslationFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on translation tasks.
 

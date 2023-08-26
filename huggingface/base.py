@@ -21,7 +21,7 @@ from typing import Dict, Optional
 
 import numpy as np
 from datasets import DatasetDict
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, Bolt, StateManager
+from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.data import Dataset
 from transformers import (
@@ -47,9 +47,9 @@ class HuggingFaceBatchFineTuner(Bolt):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        input_config: BatchInputConfig,
-        output_config: BatchOutputConfig,
-        state_manager: StateManager,
+        input_config: BatchInput,
+        output_config: BatchOutput,
+        state_manager: State,
         eval: bool = False,
         **kwargs,
     ) -> None:
@@ -59,9 +59,9 @@ class HuggingFaceBatchFineTuner(Bolt):
         Args:
             model (PreTrainedModel): The pre-trained model to fine-tune.
             tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-            input_config (BatchInputConfig): The batch input configuration.
+            input_config (BatchInput): The batch input configuration.
             output_config (OutputConfig): The output configuration.
-            state_manager (StateManager): The state manager.
+            state_manager (State): The state manager.
             eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments.
         """

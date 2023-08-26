@@ -20,9 +20,9 @@ import tempfile
 import pytest
 from datasets import Dataset
 from geniusrise.bolts.huggingface.commonsense_reasoning import (
-    CommonsenseReasoningFineTuner,
+    HuggingFaceCommonsenseReasoningFineTuner,
 )
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForSequenceClassification, BertTokenizer
 
 
@@ -54,11 +54,11 @@ def commonsense_bolt():
     create_synthetic_data(input_dir + "/train", 10)
     create_synthetic_data(input_dir + "/eval", 10)
 
-    input_config = BatchInputConfig(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutputConfig(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryStateManager()
+    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state_manager = InMemoryState()
 
-    return CommonsenseReasoningFineTuner(
+    return HuggingFaceCommonsenseReasoningFineTuner(
         model=model,
         tokenizer=tokenizer,
         input_config=input_config,

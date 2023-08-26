@@ -20,8 +20,8 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.summarization import SummarizationFineTuner
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from geniusrise.bolts.huggingface.summarization import HuggingFaceSummarizationFineTuner
+from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BartForConditionalGeneration, BartTokenizerFast, EvalPrediction
 
 
@@ -52,11 +52,11 @@ def summarization_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInputConfig(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutputConfig(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryStateManager()
+    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state_manager = InMemoryState()
 
-    return SummarizationFineTuner(
+    return HuggingFaceSummarizationFineTuner(
         model=model,
         tokenizer=tokenizer,
         input_config=input_config,

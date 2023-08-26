@@ -84,9 +84,9 @@ class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInputConfig): The batch input configuration.
+        input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
-        state_manager (StateManager): The state manager.
+        state_manager (State): The state manager.
     """
 
     def load_dataset(self, dataset_path: str, **kwargs) -> Dataset:

@@ -24,7 +24,7 @@ from transformers import DataCollatorWithPadding
 from .base import HuggingFaceBatchFineTuner
 
 
-class SentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 

@@ -32,7 +32,7 @@ from .base import HuggingFaceBatchFineTuner
 logger = logging.getLogger(__name__)
 
 
-class SummarizationFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on summarization tasks.
 

@@ -22,7 +22,7 @@ from datasets import Dataset
 from geniusrise.bolts.huggingface.instruction_tuning import (
     HuggingFaceInstructionTuningFineTuner,
 )
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BartForConditionalGeneration, BartTokenizer
 
 
@@ -53,9 +53,9 @@ def instruction_tuning_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInputConfig(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutputConfig(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryStateManager()
+    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state_manager = InMemoryState()
 
     return HuggingFaceInstructionTuningFineTuner(
         model=model,

@@ -21,18 +21,16 @@ import pytest
 from datasets import load_dataset
 from geniusrise.bolts.huggingface.base import HuggingFaceBatchFineTuner
 from geniusrise.core import (
-    BatchInputConfig,
-    BatchOutputConfig,
-    InMemoryStateManager,
-    StateManager,
+    BatchInput,
+    BatchOutput,
+    InMemoryState,
+    State,
 )
 from transformers import BertForSequenceClassification, BertTokenizer
 
 
 class TestHuggingFaceBatchFineTuner(HuggingFaceBatchFineTuner):
-    def __init__(
-        self, input_config: BatchInputConfig, output_config: BatchOutputConfig, state_manager: StateManager, **kwargs
-    ):
+    def __init__(self, input_config: BatchInput, output_config: BatchOutput, state_manager: State, **kwargs):
         self.model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         super().__init__(
@@ -65,9 +63,9 @@ def bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
 
-    input_config = BatchInputConfig(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutputConfig(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryStateManager()
+    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state_manager = InMemoryState()
 
     return TestHuggingFaceBatchFineTuner(
         input_config=input_config,

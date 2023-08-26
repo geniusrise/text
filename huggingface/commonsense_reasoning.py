@@ -22,7 +22,7 @@ from transformers import DataCollatorWithPadding
 from .base import HuggingFaceBatchFineTuner
 
 
-class CommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on commonsense reasoning tasks.
 

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from datasets import Dataset, load_from_disk
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, StateManager
+from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
 
@@ -29,7 +29,7 @@ from .base import HuggingFaceBatchFineTuner
 logger = logging.getLogger(__name__)
 
 
-class QuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
@@ -41,9 +41,9 @@ class QuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        input_config: BatchInputConfig,
-        output_config: BatchOutputConfig,
-        state_manager: StateManager,
+        input_config: BatchInput,
+        output_config: BatchOutput,
+        state_manager: State,
         pad_on_right: bool,
         max_length: int,
         doc_stride: int,
@@ -56,9 +56,9 @@ class QuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         Args:
             model (PreTrainedModel): The pre-trained model to fine-tune.
             tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-            input_config (BatchInputConfig): The batch input configuration.
+            input_config (BatchInput): The batch input configuration.
             output_config (OutputConfig): The output configuration.
-            state_manager (StateManager): The state manager.
+            state_manager (State): The state manager.
             pad_on_right (bool): Whether to pad on the right.
             max_length (int): The maximum length of the sequences.
             doc_stride (int): The document stride.

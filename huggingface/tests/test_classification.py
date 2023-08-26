@@ -22,7 +22,7 @@ import pytest
 from geniusrise.bolts.huggingface.classification import (
     HuggingFaceClassificationFineTuner,
 )
-from geniusrise.core import BatchInputConfig, BatchOutputConfig, InMemoryStateManager
+from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForSequenceClassification, BertTokenizer, EvalPrediction
 
 
@@ -49,9 +49,9 @@ def classification_bolt():
     create_synthetic_data(input_dir + "/train", ["class1", "class2"], 10)
     create_synthetic_data(input_dir + "/eval", ["class1", "class2"], 10)
 
-    input_config = BatchInputConfig(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutputConfig(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryStateManager()
+    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state_manager = InMemoryState()
 
     return HuggingFaceClassificationFineTuner(
         model=model,
