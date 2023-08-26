@@ -20,7 +20,9 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.question_answering import HuggingFaceQuestionAnsweringFineTuner
+from geniusrise.bolts.huggingface.question_answering import (
+    HuggingFaceQuestionAnsweringFineTuner,
+)
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForQuestionAnswering, BertTokenizerFast, EvalPrediction
 

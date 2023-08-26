@@ -14,15 +14,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, Dict, Union
 import json
 import os
+import xml.etree.ElementTree as ET
+from typing import Any, Dict, Union
+
 import pandas as pd
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-import xml.etree.ElementTree as ET
+from datasets import Dataset, DatasetDict, load_from_disk
 from pyarrow import feather
-from datasets import load_from_disk, Dataset, DatasetDict
 from transformers import DataCollatorWithPadding
 
 from .base import HuggingFaceBatchFineTuner

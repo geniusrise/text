@@ -19,7 +19,9 @@ import tempfile
 
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.lanuage_model import HuggingFaceLanguageModelingFineTuner
+from geniusrise.bolts.huggingface.lanuage_model import (
+    HuggingFaceLanguageModelingFineTuner,
+)
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForMaskedLM, BertTokenizer
 

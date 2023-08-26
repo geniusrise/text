@@ -14,18 +14,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, Dict, List, Optional, Union
-import os
 import json
-import pandas as pd
-import numpy as np
-from datasets import Dataset, load_from_disk
-from pyarrow import parquet as pq
-from pyarrow import feather
+import os
 import sqlite3
-import yaml
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
+import pandas as pd
+import yaml
+from datasets import Dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
+from pyarrow import feather
+from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
 
@@ -158,7 +159,13 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
                             context = record.find("context").text  # type: ignore
                             question = record.find("question").text  # type: ignore
                             answers = record.find("answers").text  # type: ignore
-                            data.append({"context": context, "question": question, "answers": answers})
+                            data.append(
+                                {
+                                    "context": context,
+                                    "question": question,
+                                    "answers": answers,
+                                }
+                            )
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
                             yaml_data = yaml.safe_load(f)

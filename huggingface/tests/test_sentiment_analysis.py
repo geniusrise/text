@@ -20,7 +20,9 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.sentiment_analysis import HuggingFaceSentimentAnalysisFineTuner
+from geniusrise.bolts.huggingface.sentiment_analysis import (
+    HuggingFaceSentimentAnalysisFineTuner,
+)
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForSequenceClassification, BertTokenizer, EvalPrediction
 
