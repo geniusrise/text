@@ -14,9 +14,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, Dict
-
-from datasets import load_from_disk
+from typing import Any, Dict, Union
+import json
+import os
+import pandas as pd
+from datasets import load_from_disk, Dataset, DatasetDict
 from transformers import DataCollatorWithPadding
 
 from .base import HuggingFaceBatchFineTuner
@@ -25,18 +27,9 @@ from .base import HuggingFaceBatchFineTuner
 class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models on commonsense reasoning tasks.
-
-    This bolt extends the HuggingFaceBatchFineTuner to handle the specifics of commonsense reasoning tasks,
-    such as the specific format of the datasets and the specific metrics for evaluation.
-
-    The dataset should be in the following format:
-    - Each example is a dictionary with the following keys:
-        - 'premise': a string representing the premise.
-        - 'hypothesis': a string representing the hypothesis.
-        - 'label': an integer representing the label (0 for entailment, 1 for neutral, 2 for contradiction).
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dict:
+    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[Dataset, DatasetDict]:
         """
         Load a dataset from a directory.
 
@@ -48,8 +41,19 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
             Dataset: The loaded dataset.
         """
         try:
-            # Load the dataset from the directory
-            dataset = load_from_disk(dataset_path)
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Preprocess the dataset
             tokenized_dataset = dataset.map(
@@ -102,6 +106,7 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
         """
         try:
             return DataCollatorWithPadding(self.tokenizer)(examples)
+
         except Exception as e:
             print(f"Error in data collation: {e}")
             raise

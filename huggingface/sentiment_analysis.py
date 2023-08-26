@@ -15,10 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import Any, Dict, List, Union
-
+import pandas as pd
+import os
+import json
 import torch
-from datasets import DatasetDict, load_from_disk
-from torch.utils.data import Dataset
+from datasets import DatasetDict, load_from_disk, Dataset
 from transformers import DataCollatorWithPadding
 
 from .base import HuggingFaceBatchFineTuner
@@ -47,7 +48,20 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
         Returns:
             DatasetDict: The loaded dataset.
         """
-        dataset = load_from_disk(dataset_path)
+        if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            # Load dataset saved by Hugging Face datasets library
+            dataset = load_from_disk(dataset_path)
+        else:
+            # Load dataset from JSONL files
+            data = []
+            for filename in os.listdir(dataset_path):
+                if filename.endswith(".jsonl"):
+                    with open(os.path.join(dataset_path, filename), "r") as f:
+                        for line in f:
+                            example = json.loads(line)
+                            data.append(example)
+            dataset = Dataset.from_pandas(pd.DataFrame(data))
+
         tokenized_dataset = dataset.map(
             self.prepare_train_features,
             batched=True,

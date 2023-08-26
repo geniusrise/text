@@ -14,72 +14,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
+import json
 import os
-from pathlib import Path
-from typing import Dict
-
-import torch
-from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizerBase
+import logging
+from typing import Optional
+import pandas as pd
+from datasets import Dataset, load_from_disk
 
 from .base import HuggingFaceBatchFineTuner
-
-
-class ClassificationDataset(Dataset):
-    """
-    A PyTorch Dataset for text classification tasks.
-
-    This class represents a text classification dataset. It expects the dataset to be structured such that
-    each subdirectory represents a class, and contains text files for that class.
-
-    Args:
-        root_dir (str): The root directory of the dataset.
-        tokenizer (PreTrainedTokenizerBase): The tokenizer to use for encoding the text.
-        max_length (int, optional): The maximum length for the sequences. Defaults to 512.
-    """
-
-    def __init__(self, root_dir: str, tokenizer: PreTrainedTokenizerBase, max_length: int = 512):
-        self.root_dir = Path(root_dir)
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.classes = sorted(os.listdir(self.root_dir))
-        self.files = [f for c in self.classes for f in (self.root_dir / c).iterdir()]
-        self.labels = [self.classes.index(c) for c in self.classes for f in (self.root_dir / c).iterdir()]
-
-    def __len__(self) -> int:
-        """Return the number of examples in the dataset."""
-        return len(self.files)
-
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Get an example from the dataset.
-
-        Args:
-            idx (int): The index of the example.
-
-        Returns:
-            Dict[str, torch.Tensor]: The encoded example.
-
-        Raises:
-            Exception: If there was an error reading the file.
-        """
-        try:
-            text = self.files[idx].read_text().strip()
-            encoding = self.tokenizer(text, truncation=True, padding="max_length", max_length=self.max_length)
-            encoding["labels"] = self.labels[idx]
-            return {key: torch.tensor(val) for key, val in encoding.items()}
-        except Exception as e:
-            logging.error(f"Error occurred when getting item {idx} from the dataset. Error: {e}")
-            raise
 
 
 class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
     """
     A bolt for fine-tuning Hugging Face models for text classification tasks.
-
-    This bolt uses the Hugging Face Transformers library to fine-tune a pre-trained model for text classification.
-    It uses the `Trainer` class from the Transformers library to handle the training.
 
     Args:
         model: The pre-trained model to fine-tune.
@@ -89,9 +36,18 @@ class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
         state_manager (State): The state manager.
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs) -> Dataset:
+    def load_dataset(self, dataset_path: str, **kwargs) -> Optional[Dataset]:
         """
         Load a classification dataset from a directory.
+
+        The directory can contain either:
+        - Dataset files saved by the Hugging Face datasets library, or
+        - JSONL files where each line is a JSON object representing an example. Each JSON object should have the
+          following structure:
+            {
+                "text": "The text content",
+                "label": "The label"
+            }
 
         Args:
             dataset_path (str): The path to the dataset directory.
@@ -104,7 +60,19 @@ class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
         """
         try:
             logging.info(f"Loading dataset from {dataset_path}")
-            return ClassificationDataset(dataset_path, self.tokenizer)
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                return load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                return Dataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
             logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise

@@ -16,7 +16,9 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import json
+import os
+import pandas as pd
 import numpy as np
 from datasets import DatasetDict, load_from_disk, load_metric
 from transformers import (
@@ -45,36 +47,43 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
         - 'summary': a string representing the summary of the document.
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs: Any) -> DatasetDict:
+    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Optional[DatasetDict]:
         """
         Load a dataset from a directory.
 
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
-            **kwargs: Additional keyword arguments to pass to the `load_dataset` method.
+            **kwargs: Additional keyword arguments.
 
         Returns:
-            Dataset: The loaded dataset.
+            DatasetDict: The loaded dataset.
         """
-        # Load the dataset from the directory
         try:
-            dataset = load_from_disk(dataset_path)
-        except Exception as e:
-            logger.error(f"Error loading dataset from {dataset_path}: {e}")
-            return None
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                dataset = DatasetDict({"train": pd.DataFrame(data)})
 
-        # Preprocess the dataset
-        try:
+            # Tokenize and preprocess the dataset
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
                 batched=True,
                 remove_columns=dataset.column_names,
             )
-        except Exception as e:
-            logger.error(f"Error tokenizing dataset: {e}")
-            return None
+            return tokenized_dataset
 
-        return tokenized_dataset
+        except Exception as e:
+            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            return None
 
     def prepare_train_features(self, examples: Dict[str, Union[str, List[str]]]) -> Optional[Dict[str, List[int]]]:
         """

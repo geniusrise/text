@@ -16,7 +16,9 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Union
-
+import os
+import json
+import pandas as pd
 import numpy as np
 from datasets import Dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
@@ -102,7 +104,19 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
 
         # Load the dataset from the directory
         try:
-            dataset = load_from_disk(dataset_path)
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
             logger.error(f"Error loading dataset from {dataset_path}: {e}")
             return None

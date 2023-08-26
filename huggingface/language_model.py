@@ -14,8 +14,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from datasets import load_from_disk
+from datasets import load_from_disk, Dataset
 from transformers import DataCollatorForLanguageModeling
+import os
+import json
+import pandas as pd
 
 from .base import HuggingFaceBatchFineTuner
 
@@ -33,27 +36,32 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceBatchFineTuner):
     """
 
     def load_dataset(self, dataset_path, **kwargs):
-        """
-        Load a dataset from a directory.
+        try:
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
 
-        Args:
-            dataset_path (str): The path to the directory containing the dataset files.
-            **kwargs: Additional keyword arguments to pass to the `load_dataset` method.
+            # Preprocess the dataset
+            tokenized_dataset = dataset.map(
+                self.prepare_train_features,
+                batched=True,
+                remove_columns=dataset.column_names,
+            )
 
-        Returns:
-            Dataset: The loaded dataset.
-        """
-        # Load the dataset from the directory
-        dataset = load_from_disk(dataset_path)
-
-        # Preprocess the dataset
-        tokenized_dataset = dataset.map(
-            self.prepare_train_features,
-            batched=True,
-            remove_columns=dataset.column_names,
-        )
-
-        return tokenized_dataset
+            return tokenized_dataset
+        except Exception as e:
+            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            raise
 
     def prepare_train_features(self, examples):
         """

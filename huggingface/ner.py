@@ -18,7 +18,10 @@ from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
-from datasets import DatasetDict, load_from_disk
+import os
+import json
+import pandas as pd
+from datasets import Dataset, DatasetDict, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import (
@@ -88,17 +91,33 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         Returns:
             DatasetDict: The loaded dataset.
         """
-        # Load the dataset from the directory
-        dataset = load_from_disk(dataset_path)
+        try:
+            self.log.info(f"Loading dataset from {dataset_path}")
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+            else:
+                # Load dataset from JSONL files
+                data = []
+                for filename in os.listdir(dataset_path):
+                    if filename.endswith(".jsonl"):
+                        with open(os.path.join(dataset_path, filename), "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
 
-        # Preprocess the dataset
-        tokenized_dataset = dataset.map(
-            self.prepare_train_features,
-            batched=True,
-            remove_columns=dataset.column_names,
-        )
+            # Preprocess the dataset
+            tokenized_dataset = dataset.map(
+                self.prepare_train_features,
+                batched=True,
+                remove_columns=dataset.column_names,
+            )
 
-        return tokenized_dataset
+            return tokenized_dataset
+        except Exception as e:
+            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            raise
 
     def prepare_train_features(
         self, examples: Dict[str, Union[List[str], List[int]]]
