@@ -15,12 +15,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from typing import Any, Dict, List, Union
-
 import numpy as np
 import torch
 import os
 import json
 import pandas as pd
+import pyarrow.parquet as pq
+import pyarrow.feather as feather
+import sqlite3
+import yaml
+import xml.etree.ElementTree as ET
 from datasets import Dataset, DatasetDict, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -83,28 +87,84 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> DatasetDict:
         """
-        Load a dataset from a directory.
+        Load a named entity recognition dataset from a directory.
+
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library.
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "tokens": ["token1", "token2", ...],
+                "ner_tags": [0, 1, ...]
+            }
+        - CSV files: Should contain 'tokens' and 'ner_tags' columns.
+        - Parquet files: Should contain 'tokens' and 'ner_tags' columns.
+        - JSON files: Should be an array of objects with 'tokens' and 'ner_tags' keys.
+        - XML files: Each 'record' element should contain 'tokens' and 'ner_tags' child elements.
+        - YAML/YML files: Each document should be a dictionary with 'tokens' and 'ner_tags' keys.
+        - TSV files: Should contain 'tokens' and 'ner_tags' columns separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain 'tokens' and 'ner_tags' columns.
+        - SQLite files (.db): Should contain a table with 'tokens' and 'ner_tags' columns.
+        - Feather files: Should contain 'tokens' and 'ner_tags' columns.
 
         Args:
-            dataset_path (str): The path to the directory containing the dataset files.
+            dataset_path (str): The path to the dataset directory.
 
         Returns:
             DatasetDict: The loaded dataset.
+
+        Raises:
+            Exception: If there was an error loading the dataset.
         """
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
-                # Load dataset from JSONL files
                 data = []
                 for filename in os.listdir(dataset_path):
+                    filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
-                        with open(os.path.join(dataset_path, filename), "r") as f:
+                        with open(filepath, "r") as f:
                             for line in f:
                                 example = json.loads(line)
                                 data.append(example)
+                    # Additional file types support
+                    elif filename.endswith(".csv"):
+                        df = pd.read_csv(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".parquet"):
+                        df = pq.read_table(filepath).to_pandas()
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".json"):
+                        with open(filepath, "r") as f:
+                            json_data = json.load(f)
+                            data.extend(json_data)
+                    elif filename.endswith(".xml"):
+                        tree = ET.parse(filepath)
+                        root = tree.getroot()
+                        for record in root.findall("record"):
+                            tokens = record.find("tokens").text.split()  # type: ignore
+                            ner_tags = list(map(int, record.find("ner_tags").text.split()))  # type: ignore
+                            data.append({"tokens": tokens, "ner_tags": ner_tags})
+                    elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                        with open(filepath, "r") as f:
+                            yaml_data = yaml.safe_load(f)
+                            data.extend(yaml_data)
+                    elif filename.endswith(".tsv"):
+                        df = pd.read_csv(filepath, sep="\t")
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith((".xls", ".xlsx")):
+                        df = pd.read_excel(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT tokens, ner_tags FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".feather"):
+                        df = feather.read_feather(filepath)
+                        data.extend(df.to_dict("records"))
+
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Preprocess the dataset

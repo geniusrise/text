@@ -14,12 +14,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
-import json
-import os
 import pandas as pd
+import os
+import json
 import numpy as np
+from pyarrow import parquet as pq
+from pyarrow import feather
+import sqlite3
+import yaml
+import xml.etree.ElementTree as ET
 from datasets import DatasetDict, load_from_disk, load_metric
 from transformers import (
     AdamW,
@@ -29,9 +33,6 @@ from transformers import (
 )
 
 from .base import HuggingFaceBatchFineTuner
-
-# Set up logging
-logger = logging.getLogger(__name__)
 
 
 class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
@@ -51,6 +52,23 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
         """
         Load a dataset from a directory.
 
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library.
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "document": "The document content",
+                "summary": "The summary"
+            }
+        - CSV files: Should contain 'document' and 'summary' columns.
+        - Parquet files: Should contain 'document' and 'summary' columns.
+        - JSON files: Should contain an array of objects with 'document' and 'summary' keys.
+        - XML files: Each 'record' element should contain 'document' and 'summary' child elements.
+        - YAML files: Each document should be a dictionary with 'document' and 'summary' keys.
+        - TSV files: Should contain 'document' and 'summary' columns separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain 'document' and 'summary' columns.
+        - SQLite files (.db): Should contain a table with 'document' and 'summary' columns.
+        - Feather files: Should contain 'document' and 'summary' columns.
+
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
             **kwargs: Additional keyword arguments.
@@ -60,20 +78,53 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
         """
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
-                # Load dataset from JSONL files
                 data = []
                 for filename in os.listdir(dataset_path):
+                    filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
-                        with open(os.path.join(dataset_path, filename), "r") as f:
+                        with open(filepath, "r") as f:
                             for line in f:
                                 example = json.loads(line)
                                 data.append(example)
+                    elif filename.endswith(".csv"):
+                        df = pd.read_csv(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".parquet"):
+                        df = pq.read_table(filepath).to_pandas()
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".json"):
+                        with open(filepath, "r") as f:
+                            json_data = json.load(f)
+                            data.extend(json_data)
+                    elif filename.endswith(".xml"):
+                        tree = ET.parse(filepath)
+                        root = tree.getroot()
+                        for record in root.findall("record"):
+                            document = record.find("document").text  # type: ignore
+                            summary = record.find("summary").text  # type: ignore
+                            data.append({"document": document, "summary": summary})
+                    elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                        with open(filepath, "r") as f:
+                            yaml_data = yaml.safe_load(f)
+                            data.extend(yaml_data)
+                    elif filename.endswith(".tsv"):
+                        df = pd.read_csv(filepath, sep="\t")
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith((".xls", ".xlsx")):
+                        df = pd.read_excel(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT document, summary FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".feather"):
+                        df = feather.read_feather(filepath)
+                        data.extend(df.to_dict("records"))
                 dataset = DatasetDict({"train": pd.DataFrame(data)})
 
-            # Tokenize and preprocess the dataset
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
                 batched=True,
@@ -100,7 +151,7 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
             tokenized_inputs = self.tokenizer(examples["document"], truncation=True, padding=False)
             tokenized_targets = self.tokenizer(examples["summary"], truncation=True, padding=False)
         except Exception as e:
-            logger.error(f"Error tokenizing examples: {e}")
+            self.log.error(f"Error tokenizing examples: {e}")
             return None
 
         # Prepare the labels

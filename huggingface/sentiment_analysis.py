@@ -19,6 +19,11 @@ import pandas as pd
 import os
 import json
 import torch
+from pyarrow import parquet as pq
+from pyarrow import feather
+import sqlite3
+import yaml
+import xml.etree.ElementTree as ET
 from datasets import DatasetDict, load_from_disk, Dataset
 from transformers import DataCollatorWithPadding
 
@@ -40,26 +45,84 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dataset | DatasetDict:
         """
-        Load a dataset from a directory.
+            Load a dataset from a directory.
+
+            Args:
+                dataset_path (str): The path to the directory containing the dataset files.
+
+            Returns:
+                DatasetDict: The loaded dataset.
+
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library.
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "text": "The text content",
+                "label": "The label"
+            }
+        - CSV files: Should contain 'text' and 'label' columns.
+        - Parquet files: Should contain 'text' and 'label' columns.
+        - JSON files: Should contain an array of objects with 'text' and 'label' keys.
+        - XML files: Each 'record' element should contain 'text' and 'label' child elements.
+        - YAML files: Each document should be a dictionary with 'text' and 'label' keys.
+        - TSV files: Should contain 'text' and 'label' columns separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain 'text' and 'label' columns.
+        - SQLite files (.db): Should contain a table with 'text' and 'label' columns.
+        - Feather files: Should contain 'text' and 'label' columns.
 
         Args:
-            dataset_path (str): The path to the directory containing the dataset files.
-
-        Returns:
-            DatasetDict: The loaded dataset.
+            model: The pre-trained model to fine-tune.
+            tokenizer: The tokenizer associated with the model.
+            input_config (BatchInput): The batch input configuration.
+            output_config (OutputConfig): The output configuration.
+            state_manager (State): The state manager.
         """
         if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-            # Load dataset saved by Hugging Face datasets library
             dataset = load_from_disk(dataset_path)
         else:
-            # Load dataset from JSONL files
             data = []
             for filename in os.listdir(dataset_path):
+                filepath = os.path.join(dataset_path, filename)
                 if filename.endswith(".jsonl"):
-                    with open(os.path.join(dataset_path, filename), "r") as f:
+                    with open(filepath, "r") as f:
                         for line in f:
                             example = json.loads(line)
                             data.append(example)
+                elif filename.endswith(".csv"):
+                    df = pd.read_csv(filepath)
+                    data.extend(df.to_dict("records"))
+                elif filename.endswith(".parquet"):
+                    df = pq.read_table(filepath).to_pandas()
+                    data.extend(df.to_dict("records"))
+                elif filename.endswith(".json"):
+                    with open(filepath, "r") as f:
+                        json_data = json.load(f)
+                        data.extend(json_data)
+                elif filename.endswith(".xml"):
+                    tree = ET.parse(filepath)
+                    root = tree.getroot()
+                    for record in root.findall("record"):
+                        text = record.find("text").text  # type: ignore
+                        label = record.find("label").text  # type: ignore
+                        data.append({"text": text, "label": label})
+                elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                    with open(filepath, "r") as f:
+                        yaml_data = yaml.safe_load(f)
+                        data.extend(yaml_data)
+                elif filename.endswith(".tsv"):
+                    df = pd.read_csv(filepath, sep="\t")
+                    data.extend(df.to_dict("records"))
+                elif filename.endswith((".xls", ".xlsx")):
+                    df = pd.read_excel(filepath)
+                    data.extend(df.to_dict("records"))
+                elif filename.endswith(".db"):
+                    conn = sqlite3.connect(filepath)
+                    query = "SELECT text, label FROM dataset_table;"
+                    df = pd.read_sql_query(query, conn)
+                    data.extend(df.to_dict("records"))
+                elif filename.endswith(".feather"):
+                    df = feather.read_feather(filepath)
+                    data.extend(df.to_dict("records"))
             dataset = Dataset.from_pandas(pd.DataFrame(data))
 
         tokenized_dataset = dataset.map(

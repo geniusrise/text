@@ -21,14 +21,16 @@ import json
 import pandas as pd
 import numpy as np
 from datasets import Dataset, load_from_disk
+from pyarrow import parquet as pq
+from pyarrow import feather
+import sqlite3
+import yaml
+import xml.etree.ElementTree as ET
 from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
 
 from .base import HuggingFaceBatchFineTuner
-
-# Set up logging
-logger = logging.getLogger(__name__)
 
 
 class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
@@ -91,6 +93,27 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         """
         Load a dataset from a directory.
 
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library.
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "context": "The context content",
+                "question": "The question",
+                "answers": {
+                    "answer_start": [int],
+                    "text": [str]
+                }
+            }
+        - CSV files: Should contain 'context', 'question', and 'answers' columns.
+        - Parquet files: Should contain 'context', 'question', and 'answers' columns.
+        - JSON files: Should contain an array of objects with 'context', 'question', and 'answers' keys.
+        - XML files: Each 'record' element should contain 'context', 'question', and 'answers' child elements.
+        - YAML files: Each document should be a dictionary with 'context', 'question', and 'answers' keys.
+        - TSV files: Should contain 'context', 'question', and 'answers' columns separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain 'context', 'question', and 'answers' columns.
+        - SQLite files (.db): Should contain a table with 'context', 'question', and 'answers' columns.
+        - Feather files: Should contain 'context', 'question', and 'answers' columns.
+
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
 
@@ -105,20 +128,55 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         # Load the dataset from the directory
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
-                # Load dataset from JSONL files
                 data = []
                 for filename in os.listdir(dataset_path):
+                    filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
-                        with open(os.path.join(dataset_path, filename), "r") as f:
+                        with open(filepath, "r") as f:
                             for line in f:
                                 example = json.loads(line)
                                 data.append(example)
+                    elif filename.endswith(".csv"):
+                        df = pd.read_csv(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".parquet"):
+                        df = pq.read_table(filepath).to_pandas()
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".json"):
+                        with open(filepath, "r") as f:
+                            json_data = json.load(f)
+                            data.extend(json_data)
+                    elif filename.endswith(".xml"):
+                        tree = ET.parse(filepath)
+                        root = tree.getroot()
+                        for record in root.findall("record"):
+                            context = record.find("context").text  # type: ignore
+                            question = record.find("question").text  # type: ignore
+                            answers = record.find("answers").text  # type: ignore
+                            data.append({"context": context, "question": question, "answers": answers})
+                    elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                        with open(filepath, "r") as f:
+                            yaml_data = yaml.safe_load(f)
+                            data.extend(yaml_data)
+                    elif filename.endswith(".tsv"):
+                        df = pd.read_csv(filepath, sep="\t")
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith((".xls", ".xlsx")):
+                        df = pd.read_excel(filepath)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT context, question, answers FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
+                    elif filename.endswith(".feather"):
+                        df = feather.read_feather(filepath)
+                        data.extend(df.to_dict("records"))
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
-            logger.error(f"Error loading dataset from {dataset_path}: {e}")
+            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             return None
 
         # Preprocess the dataset
@@ -129,7 +187,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
                 remove_columns=dataset.column_names,
             )
         except Exception as e:
-            logger.error(f"Error tokenizing dataset: {e}")
+            self.log.error(f"Error tokenizing dataset: {e}")
             return None
 
         return tokenized_dataset
@@ -159,7 +217,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
                 padding="max_length",
             )
         except Exception as e:
-            logger.error(f"Error tokenizing examples: {e}")
+            self.log.error(f"Error tokenizing examples: {e}")
             return None
 
         # Since one example might give us several features if it has a long context, we need a map from a feature to
@@ -246,5 +304,5 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
 
             return {"accuracy": accuracy_score(labels, predictions)}
         except Exception as e:
-            logger.error(f"Error computing metrics: {e}")
+            self.log.error(f"Error computing metrics: {e}")
             return None

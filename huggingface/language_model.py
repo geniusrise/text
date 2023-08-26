@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 from datasets import load_from_disk, Dataset
 from transformers import DataCollatorForLanguageModeling
 import os
@@ -36,19 +37,91 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceBatchFineTuner):
     """
 
     def load_dataset(self, dataset_path, **kwargs):
+        """
+        Load a language modeling dataset from a directory.
+
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library.
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "text": "The text content"
+            }
+        - CSV files: Should contain a 'text' column.
+        - Parquet files: Should contain a 'text' column.
+        - JSON files: Should be an array of objects with a 'text' key.
+        - XML files: Each 'record' element should contain a 'text' child element.
+        - YAML/YML files: Each document should be a dictionary with a 'text' key.
+        - TSV files: Should contain a 'text' column separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain a 'text' column.
+        - SQLite files (.db): Should contain a table with a 'text' column.
+        - Feather files: Should contain a 'text' column.
+
+        Args:
+            dataset_path (str): The path to the dataset directory.
+
+        Returns:
+            Dataset: The loaded dataset.
+
+        Raises:
+            Exception: If there was an error loading the dataset.
+        """
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
-                # Load dataset from JSONL files
                 data = []
                 for filename in os.listdir(dataset_path):
+                    filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
-                        with open(os.path.join(dataset_path, filename), "r") as f:
+                        with open(filepath, "r") as f:
                             for line in f:
                                 example = json.loads(line)
                                 data.append(example)
+
+                    elif filename.endswith(".csv"):
+                        df = pd.read_csv(filepath)
+                        data.extend(df.to_dict("records"))
+
+                    elif filename.endswith(".parquet"):
+                        df = pq.read_table(filepath).to_pandas()
+                        data.extend(df.to_dict("records"))
+
+                    elif filename.endswith(".json"):
+                        with open(filepath, "r") as f:
+                            json_data = json.load(f)
+                            data.extend(json_data)
+
+                    elif filename.endswith(".xml"):
+                        tree = ET.parse(filepath)
+                        root = tree.getroot()
+                        for record in root.findall("record"):
+                            text = record.find("text").text
+                            data.append({"text": text})
+
+                    elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                        with open(filepath, "r") as f:
+                            yaml_data = yaml.safe_load(f)
+                            data.extend(yaml_data)
+
+                    elif filename.endswith(".tsv"):
+                        df = pd.read_csv(filepath, sep="\t")
+                        data.extend(df.to_dict("records"))
+
+                    elif filename.endswith((".xls", ".xlsx")):
+                        df = pd.read_excel(filepath)
+                        data.extend(df.to_dict("records"))
+
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT text FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
+
+                    elif filename.endswith(".feather"):
+                        df = feather.read_feather(filepath)
+                        data.extend(df.to_dict("records"))
+
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Preprocess the dataset

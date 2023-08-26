@@ -19,52 +19,117 @@ from transformers import PreTrainedTokenizerBase
 import glob
 import json
 import logging
-from typing import Dict
-
-# import pandas as pd
+import pandas as pd
+import pyarrow.parquet as pq
+import yaml
+import xml.etree.ElementTree as ET
+from pyarrow import feather
+import os
+import sqlite3
+from typing import Dict, Any, Union
 import torch
 
 from .base import HuggingFaceBatchFineTuner
 
 
-class InstructionTuningDataset:
-    def __init__(self, dir_path: str, tokenizer: PreTrainedTokenizerBase, max_length: int = 512):
-        self.data = []
-        for file_path in glob.glob(f"{dir_path}/*"):
-            if file_path.endswith(".jsonl"):
-                with open(file_path, "r") as file:
-                    self.data.extend([json.loads(line) for line in file])
-            elif file_path.endswith(".arrow"):
-                dataset = HFDataset.from_file(file_path)
-                self.data.extend(dataset)
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info(f"Loaded {len(self.data)} examples from {dir_path}")
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        example = self.data[idx]
-        encoding = self.tokenizer(
-            example["instruction"],
-            example["output"],
-            truncation=True,
-            padding="max_length",
-            max_length=self.max_length,
-            return_tensors="pt",
-        )
-        encoding = {key: tensor.squeeze(0) for key, tensor in encoding.items()}
-        encoding["labels"] = encoding["input_ids"].clone()
-        return encoding
-
-
 class HuggingFaceInstructionTuningFineTuner(HuggingFaceBatchFineTuner):
-    def load_dataset(self, dataset_path: str, **kwargs):
+    """
+    A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
+
+    Args:
+        model: The pre-trained model to fine-tune.
+        tokenizer: The tokenizer associated with the model.
+        input_config (BatchInput): The batch input configuration.
+        output_config (OutputConfig): The output configuration.
+        state_manager (State): The state manager.
+    """
+
+    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[HFDataset, Dict]:
+        """
+        Load an instruction tuning dataset from a directory.
+
+        The directory can contain any of the following file types:
+        - Dataset files saved by the Hugging Face datasets library (.arrow).
+        - JSONL files: Each line is a JSON object representing an example. Structure:
+            {
+                "instruction": "The instruction",
+                "output": "The output"
+            }
+        - CSV files: Should contain 'instruction' and 'output' columns.
+        - Parquet files: Should contain 'instruction' and 'output' columns.
+        - JSON files: Should be an array of objects with 'instruction' and 'output' keys.
+        - XML files: Each 'record' element should contain 'instruction' and 'output' child elements.
+        - YAML/YML files: Each document should be a dictionary with 'instruction' and 'output' keys.
+        - TSV files: Should contain 'instruction' and 'output' columns separated by tabs.
+        - Excel files (.xls, .xlsx): Should contain 'instruction' and 'output' columns.
+        - SQLite files (.db): Should contain a table with 'instruction' and 'output' columns.
+        - Feather files: Should contain 'instruction' and 'output' columns.
+
+        Args:
+            dataset_path (str): The path to the dataset directory.
+
+        Returns:
+            Dataset: The loaded dataset.
+
+        Raises:
+            Exception: If there was an error loading the dataset.
+        """
         try:
             logging.info(f"Loading dataset from {dataset_path}")
-            return InstructionTuningDataset(dataset_path, self.tokenizer)
+            data = []
+            for filename in glob.glob(f"{dataset_path}/*"):
+                filepath = os.path.join(dataset_path, filename)
+                if filename.endswith(".jsonl"):
+                    with open(filepath, "r") as f:
+                        for line in f:
+                            example = json.loads(line)
+                            data.append(example)
+
+                elif filename.endswith(".csv"):
+                    df = pd.read_csv(filepath)
+                    data.extend(df.to_dict("records"))
+
+                elif filename.endswith(".parquet"):
+                    df = pq.read_table(filepath).to_pandas()
+                    data.extend(df.to_dict("records"))
+
+                elif filename.endswith(".json"):
+                    with open(filepath, "r") as f:
+                        json_data = json.load(f)
+                        data.extend(json_data)
+
+                elif filename.endswith(".xml"):
+                    tree = ET.parse(filepath)
+                    root = tree.getroot()
+                    for record in root.findall("record"):
+                        instruction = record.find("instruction").text  # type: ignore
+                        output = record.find("output").text  # type: ignore
+                        data.append({"instruction": instruction, "output": output})
+
+                elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                    with open(filepath, "r") as f:
+                        yaml_data = yaml.safe_load(f)
+                        data.extend(yaml_data)
+
+                elif filename.endswith(".tsv"):
+                    df = pd.read_csv(filepath, sep="\t")
+                    data.extend(df.to_dict("records"))
+
+                elif filename.endswith((".xls", ".xlsx")):
+                    df = pd.read_excel(filepath)
+                    data.extend(df.to_dict("records"))
+
+                elif filename.endswith(".db"):
+                    conn = sqlite3.connect(filepath)
+                    query = "SELECT instruction, output FROM dataset_table;"
+                    df = pd.read_sql_query(query, conn)
+                    data.extend(df.to_dict("records"))
+
+                elif filename.endswith(".feather"):
+                    df = feather.read_feather(filepath)
+                    data.extend(df.to_dict("records"))
+
+            return HFDataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
             logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
