@@ -34,21 +34,24 @@ from .base import HuggingFaceBatchFineTuner
 
 
 class HuggingFaceInstructionTuningFineTuner(HuggingFaceBatchFineTuner):
-    """
+    r"""
     A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
 
+    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
         state_manager (State): The state manager.
+    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[HFDataset, Dict]:
-        """
+        r"""
         Load an instruction tuning dataset from a directory.
 
+        ```
         The directory can contain any of the following file types:
         - Dataset files saved by the Hugging Face datasets library (.arrow).
         - JSONL files: Each line is a JSON object representing an example. Structure:
@@ -65,6 +68,7 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceBatchFineTuner):
         - Excel files (.xls, .xlsx): Should contain 'instruction' and 'output' columns.
         - SQLite files (.db): Should contain a table with 'instruction' and 'output' columns.
         - Feather files: Should contain 'instruction' and 'output' columns.
+        ```
 
         Args:
             dataset_path (str): The path to the dataset directory.

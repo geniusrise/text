@@ -37,21 +37,24 @@ from .base import HuggingFaceBatchFineTuner
 
 
 class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
-    """
+    r"""
     A bolt for fine-tuning Hugging Face models on summarization tasks.
 
+    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
         state_manager (State): The state manager.
+    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Optional[DatasetDict]:
-        """
+        r"""
         Load a dataset from a directory.
 
+        ```
         The directory can contain any of the following file types:
         - Dataset files saved by the Hugging Face datasets library.
         - JSONL files: Each line is a JSON object representing an example. Structure:
@@ -68,6 +71,7 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
         - Excel files (.xls, .xlsx): Should contain 'document' and 'summary' columns.
         - SQLite files (.db): Should contain a table with 'document' and 'summary' columns.
         - Feather files: Should contain 'document' and 'summary' columns.
+        ```
 
         Args:
             dataset_path (str): The path to the directory containing the dataset files.

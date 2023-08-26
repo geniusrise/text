@@ -40,15 +40,17 @@ from .base import HuggingFaceBatchFineTuner
 
 
 class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
-    """
+    r"""
     A bolt for fine-tuning Hugging Face models on named entity recognition tasks.
 
+    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
         state_manager (State): The state manager.
+    ```
     """
 
     def __init__(
@@ -61,9 +63,10 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         label_list: List[str],
         **kwargs,
     ):
-        """
+        r"""
         Initialize the NamedEntityRecognitionFineTuner.
 
+        ```
         Args:
             model: The pre-trained model to fine-tune.
             tokenizer: The tokenizer associated with the model.
@@ -72,6 +75,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
             state_manager (State): The state manager.
             label_list (List[str]): The list of labels for the NER task.
             **kwargs: Additional arguments for the superclass.
+        ```
         """
         self.label_list = label_list
         self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
@@ -85,9 +89,10 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         )
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> DatasetDict:
-        """
+        r"""
         Load a named entity recognition dataset from a directory.
 
+        ```
         The directory can contain any of the following file types:
         - Dataset files saved by the Hugging Face datasets library.
         - JSONL files: Each line is a JSON object representing an example. Structure:
@@ -104,6 +109,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         - Excel files (.xls, .xlsx): Should contain 'tokens' and 'ner_tags' columns.
         - SQLite files (.db): Should contain a table with 'tokens' and 'ner_tags' columns.
         - Feather files: Should contain 'tokens' and 'ner_tags' columns.
+        ```
 
         Args:
             dataset_path (str): The path to the dataset directory.

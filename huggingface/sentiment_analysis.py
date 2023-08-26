@@ -32,19 +32,21 @@ from .base import HuggingFaceBatchFineTuner
 
 
 class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
-    """
+    r"""
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 
+    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
         state_manager (State): The state manager.
+    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dataset | DatasetDict:
-        """
+        r"""
             Load a dataset from a directory.
 
             Args:
@@ -53,6 +55,7 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
             Returns:
                 DatasetDict: The loaded dataset.
 
+        ```
         The directory can contain any of the following file types:
         - Dataset files saved by the Hugging Face datasets library.
         - JSONL files: Each line is a JSON object representing an example. Structure:
@@ -69,6 +72,7 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
         - Excel files (.xls, .xlsx): Should contain 'text' and 'label' columns.
         - SQLite files (.db): Should contain a table with 'text' and 'label' columns.
         - Feather files: Should contain 'text' and 'label' columns.
+        ```
 
         Args:
             model: The pre-trained model to fine-tune.

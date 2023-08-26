@@ -34,15 +34,17 @@ from .base import HuggingFaceBatchFineTuner
 
 
 class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
-    """
+    r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
+    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input_config (BatchInput): The batch input configuration.
         output_config (OutputConfig): The output configuration.
         state_manager (State): The state manager.
+    ```
     """
 
     def __init__(
@@ -58,9 +60,10 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         eval: bool = False,
         **kwargs: Dict[str, Any],
     ) -> None:
-        """
+        r"""
         Initialize the bolt.
 
+        ```
         Args:
             model (PreTrainedModel): The pre-trained model to fine-tune.
             tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
@@ -72,6 +75,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
             doc_stride (int): The document stride.
             eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments.
+        ```
         """
         self.pad_on_right = pad_on_right
         self.max_length = max_length
@@ -94,9 +98,10 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         doc_stride: Optional[int] = None,
         **kwargs: Dict[str, Any],
     ) -> Optional[Dataset]:
-        """
+        r"""
         Load a dataset from a directory.
 
+        ```
         The directory can contain any of the following file types:
         - Dataset files saved by the Hugging Face datasets library.
         - JSONL files: Each line is a JSON object representing an example. Structure:
@@ -117,6 +122,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         - Excel files (.xls, .xlsx): Should contain 'context', 'question', and 'answers' columns.
         - SQLite files (.db): Should contain a table with 'context', 'question', and 'answers' columns.
         - Feather files: Should contain 'context', 'question', and 'answers' columns.
+        ```
 
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
