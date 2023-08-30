@@ -54,32 +54,32 @@ def commonsense_bolt():
     create_synthetic_data(input_dir + "/train", 10)
     create_synthetic_data(input_dir + "/eval", 10)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceCommonsenseReasoningFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
     )
 
 
 def test_commonsense_bolt_init(commonsense_bolt):
     assert commonsense_bolt.model is not None
     assert commonsense_bolt.tokenizer is not None
-    assert commonsense_bolt.input_config is not None
-    assert commonsense_bolt.output_config is not None
-    assert commonsense_bolt.state_manager is not None
+    assert commonsense_bolt.input is not None
+    assert commonsense_bolt.output is not None
+    assert commonsense_bolt.state is not None
 
 
 def test_commonsense_load_dataset(commonsense_bolt):
-    dataset = commonsense_bolt.load_dataset(commonsense_bolt.input_config.get() + "/train")
+    dataset = commonsense_bolt.load_dataset(commonsense_bolt.input.get() + "/train")
     assert dataset is not None
 
-    eval_dataset = commonsense_bolt.load_dataset(commonsense_bolt.input_config.get() + "/eval")
+    eval_dataset = commonsense_bolt.load_dataset(commonsense_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 

@@ -25,7 +25,7 @@ import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import torch
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset, DatasetDict, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -36,10 +36,10 @@ from transformers import (
     PreTrainedTokenizerBase,
 )
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on named entity recognition tasks.
 
@@ -47,9 +47,9 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 
@@ -57,9 +57,9 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizerBase,
-        input_config: BatchInput,
-        output_config: BatchOutput,
-        state_manager: State,
+        input: BatchInput,
+        output: BatchOutput,
+        state: State,
         label_list: List[str],
         **kwargs,
     ):
@@ -70,9 +70,9 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         Args:
             model: The pre-trained model to fine-tune.
             tokenizer: The tokenizer associated with the model.
-            input_config (BatchInput): The batch input configuration.
-            output_config (BatchOutput): The batch output configuration.
-            state_manager (State): The state manager.
+            input (BatchInput): The batch input data.
+            output (BatchOutput): The batch output data.
+            state (State): The state manager.
             label_list (List[str]): The list of labels for the NER task.
             **kwargs: Additional arguments for the superclass.
         ```
@@ -82,9 +82,9 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceBatchFineTuner):
         super().__init__(
             model=model,
             tokenizer=tokenizer,
-            input_config=input_config,
-            output_config=output_config,
-            state_manager=state_manager,
+            input=input,
+            output=output,
+            state=state,
             **kwargs,
         )
 

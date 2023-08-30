@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import yaml
+import yaml  # type: ignore
 from datasets import DatasetDict, load_from_disk, load_metric
 from pyarrow import feather
 from pyarrow import parquet as pq
@@ -33,10 +33,10 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on summarization tasks.
 
@@ -44,9 +44,9 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 

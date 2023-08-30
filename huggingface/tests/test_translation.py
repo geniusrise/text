@@ -57,16 +57,16 @@ def translation_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceTranslationFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
         eval=True,
     )
 
@@ -74,16 +74,16 @@ def translation_bolt():
 def test_translation_bolt_init(translation_bolt):
     assert translation_bolt.model is not None
     assert translation_bolt.tokenizer is not None
-    assert translation_bolt.input_config is not None
-    assert translation_bolt.output_config is not None
-    assert translation_bolt.state_manager is not None
+    assert translation_bolt.input is not None
+    assert translation_bolt.output is not None
+    assert translation_bolt.state is not None
 
 
 def test_load_dataset(translation_bolt):
-    train_dataset = translation_bolt.load_dataset(translation_bolt.input_config.get() + "/train")
+    train_dataset = translation_bolt.load_dataset(translation_bolt.input.get() + "/train")
     assert train_dataset is not None
 
-    eval_dataset = translation_bolt.load_dataset(translation_bolt.input_config.get() + "/eval")
+    eval_dataset = translation_bolt.load_dataset(translation_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 

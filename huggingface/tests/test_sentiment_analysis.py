@@ -54,16 +54,16 @@ def sentiment_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceSentimentAnalysisFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
         eval=True,
     )
 
@@ -71,16 +71,16 @@ def sentiment_bolt():
 def test_sentiment_bolt_init(sentiment_bolt):
     assert sentiment_bolt.model is not None
     assert sentiment_bolt.tokenizer is not None
-    assert sentiment_bolt.input_config is not None
-    assert sentiment_bolt.output_config is not None
-    assert sentiment_bolt.state_manager is not None
+    assert sentiment_bolt.input is not None
+    assert sentiment_bolt.output is not None
+    assert sentiment_bolt.state is not None
 
 
 def test_load_dataset(sentiment_bolt):
-    train_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input_config.get() + "/train")
+    train_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input.get() + "/train")
     assert train_dataset is not None
 
-    eval_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input_config.get() + "/eval")
+    eval_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 

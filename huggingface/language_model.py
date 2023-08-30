@@ -23,14 +23,14 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from transformers import DataCollatorForLanguageModeling
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceLanguageModelingFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
@@ -38,9 +38,9 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 

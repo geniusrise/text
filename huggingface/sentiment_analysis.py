@@ -22,16 +22,16 @@ from typing import Any, Dict, List, Union
 
 import pandas as pd
 import torch
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset, DatasetDict, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorWithPadding
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 
@@ -39,9 +39,9 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 
@@ -77,9 +77,9 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceBatchFineTuner):
         Args:
             model: The pre-trained model to fine-tune.
             tokenizer: The tokenizer associated with the model.
-            input_config (BatchInput): The batch input configuration.
-            output_config (OutputConfig): The output configuration.
-            state_manager (State): The state manager.
+            input (BatchInput): The batch input data.
+            output (OutputConfig): The output data.
+            state (State): The state manager.
         """
         if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
             dataset = load_from_disk(dataset_path)

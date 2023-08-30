@@ -52,16 +52,16 @@ def ner_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceNamedEntityRecognitionFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
         label_list=[0, 1],
         eval=True,
     )
@@ -70,16 +70,16 @@ def ner_bolt():
 def test_ner_bolt_init(ner_bolt):
     assert ner_bolt.model is not None
     assert ner_bolt.tokenizer is not None
-    assert ner_bolt.input_config is not None
-    assert ner_bolt.output_config is not None
-    assert ner_bolt.state_manager is not None
+    assert ner_bolt.input is not None
+    assert ner_bolt.output is not None
+    assert ner_bolt.state is not None
 
 
 def test_load_dataset(ner_bolt):
-    train_dataset = ner_bolt.load_dataset(ner_bolt.input_config.get() + "/train")
+    train_dataset = ner_bolt.load_dataset(ner_bolt.input.get() + "/train")
     assert train_dataset is not None
 
-    eval_dataset = ner_bolt.load_dataset(ner_bolt.input_config.get() + "/eval")
+    eval_dataset = ner_bolt.load_dataset(ner_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 

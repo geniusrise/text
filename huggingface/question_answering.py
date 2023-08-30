@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from pyarrow import feather
@@ -30,10 +30,10 @@ from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
@@ -41,9 +41,9 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 
@@ -51,9 +51,9 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        input_config: BatchInput,
-        output_config: BatchOutput,
-        state_manager: State,
+        input: BatchInput,
+        output: BatchOutput,
+        state: State,
         pad_on_right: bool,
         max_length: int,
         doc_stride: int,
@@ -67,9 +67,9 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         Args:
             model (PreTrainedModel): The pre-trained model to fine-tune.
             tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-            input_config (BatchInput): The batch input configuration.
-            output_config (OutputConfig): The output configuration.
-            state_manager (State): The state manager.
+            input (BatchInput): The batch input data.
+            output (OutputConfig): The output data.
+            state (State): The state manager.
             pad_on_right (bool): Whether to pad on the right.
             max_length (int): The maximum length of the sequences.
             doc_stride (int): The document stride.
@@ -83,9 +83,9 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceBatchFineTuner):
         super().__init__(
             model=model,
             tokenizer=tokenizer,
-            input_config=input_config,
-            output_config=output_config,
-            state_manager=state_manager,
+            input=input,
+            output=output,
+            state=state,
             eval=eval,
             **kwargs,
         )

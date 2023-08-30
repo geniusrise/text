@@ -19,23 +19,16 @@ import tempfile
 
 import pytest
 from datasets import load_dataset
-from geniusrise.bolts.huggingface.base import HuggingFaceBatchFineTuner
+from geniusrise.bolts.huggingface.base import HuggingFaceFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState, State
 from transformers import BertForSequenceClassification, BertTokenizer
 
 
-class TestHuggingFaceBatchFineTuner(HuggingFaceBatchFineTuner):
-    def __init__(self, input_config: BatchInput, output_config: BatchOutput, state_manager: State, **kwargs):
+class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
+    def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs):
         self.model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-        super().__init__(
-            model=self.model,
-            tokenizer=self.tokenizer,
-            input_config=input_config,
-            output_config=output_config,
-            state_manager=state_manager,
-            **kwargs
-        )
+        super().__init__(model=self.model, tokenizer=self.tokenizer, input=input, output=output, state=state, **kwargs)
 
     def load_dataset(self, dataset_path, **kwargs):
         # Load the 'train' split of the MRPC dataset
@@ -58,14 +51,14 @@ def bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
-    return TestHuggingFaceBatchFineTuner(
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+    return TestHuggingFaceFineTuner(
+        input=input,
+        output=output,
+        state=state,
         eval=False,
     )
 
@@ -73,9 +66,9 @@ def bolt():
 def test_bolt_init(bolt):
     assert bolt.model is not None
     assert bolt.tokenizer is not None
-    assert bolt.input_config is not None
-    assert bolt.output_config is not None
-    assert bolt.state_manager is not None
+    assert bolt.input is not None
+    assert bolt.output is not None
+    assert bolt.state is not None
 
 
 def test_load_dataset(bolt):

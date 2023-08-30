@@ -49,33 +49,33 @@ def classification_bolt():
     create_synthetic_data(input_dir + "/train", ["class1", "class2"], 10)
     create_synthetic_data(input_dir + "/eval", ["class1", "class2"], 10)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceClassificationFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
     )
 
 
 def test_classification_bolt_init(classification_bolt):
     assert classification_bolt.model is not None
     assert classification_bolt.tokenizer is not None
-    assert classification_bolt.input_config is not None
-    assert classification_bolt.output_config is not None
-    assert classification_bolt.state_manager is not None
+    assert classification_bolt.input is not None
+    assert classification_bolt.output is not None
+    assert classification_bolt.state is not None
 
 
 def test_load_dataset(classification_bolt):
-    dataset = classification_bolt.load_dataset(classification_bolt.input_config.get() + "/train")
+    dataset = classification_bolt.load_dataset(classification_bolt.input.get() + "/train")
     assert dataset is not None
     assert len(dataset) == 20  # 2 classes * 10 files
 
-    eval_dataset = classification_bolt.load_dataset(classification_bolt.input_config.get() + "/eval")
+    eval_dataset = classification_bolt.load_dataset(classification_bolt.input.get() + "/eval")
     assert eval_dataset is not None
     assert len(eval_dataset) == 20  # 2 classes * 10 files
 

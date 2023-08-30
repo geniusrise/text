@@ -24,16 +24,14 @@ from typing import Any, Dict, Union
 
 import pandas as pd
 import pyarrow.parquet as pq
-import torch
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset as HFDataset
 from pyarrow import feather
-from transformers import PreTrainedTokenizerBase
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceInstructionTuningFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
 
@@ -41,9 +39,9 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 

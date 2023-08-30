@@ -22,15 +22,15 @@ import xml.etree.ElementTree as ET
 from typing import Optional
 
 import pandas as pd
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
@@ -38,9 +38,9 @@ class HuggingFaceClassificationFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 

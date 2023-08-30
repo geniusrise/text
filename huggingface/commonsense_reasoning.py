@@ -26,10 +26,10 @@ from datasets import Dataset, DatasetDict, load_from_disk
 from pyarrow import feather
 from transformers import DataCollatorWithPadding
 
-from .base import HuggingFaceBatchFineTuner
+from .base import HuggingFaceFineTuner
 
 
-class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
+class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on commonsense reasoning tasks.
 
@@ -37,9 +37,9 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceBatchFineTuner):
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
-        input_config (BatchInput): The batch input configuration.
-        output_config (OutputConfig): The output configuration.
-        state_manager (State): The state manager.
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
     ```
     """
 

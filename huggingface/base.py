@@ -34,7 +34,7 @@ from transformers import (
 )
 
 
-class HuggingFaceBatchFineTuner(Bolt):
+class HuggingFaceFineTuner(Bolt):
     """
     A bolt for fine-tuning Hugging Face models.
 
@@ -46,9 +46,9 @@ class HuggingFaceBatchFineTuner(Bolt):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        input_config: BatchInput,
-        output_config: BatchOutput,
-        state_manager: State,
+        input: BatchInput,
+        output: BatchOutput,
+        state: State,
         eval: bool = False,
         **kwargs,
     ) -> None:
@@ -58,31 +58,31 @@ class HuggingFaceBatchFineTuner(Bolt):
         Args:
             model (PreTrainedModel): The pre-trained model to fine-tune.
             tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-            input_config (BatchInput): The batch input configuration.
-            output_config (OutputConfig): The output configuration.
-            state_manager (State): The state manager.
+            input (BatchInput): The batch input data.
+            output (OutputConfig): The output data.
+            state (State): The state manager.
             eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments.
         """
         super().__init__(
-            input_config=input_config,
-            output_config=output_config,
-            state_manager=state_manager,
+            input=input,
+            output=output,
+            state=state,
         )
         self.model = model
         self.tokenizer = tokenizer
-        self.input_config = input_config
-        self.output_config = output_config
-        self.state_manager = state_manager
+        self.input = input
+        self.output = output
+        self.state = state
         self.eval = eval
         self.log = logging.getLogger(self.__class__.__name__)
 
         # Copy the datasets from S3 to the local input folder
-        self.input_config.copy_from_remote()
+        self.input.copy_from_remote()
 
         # Load the datasets from the local input folder
-        train_dataset_path = os.path.join(self.input_config.get(), "train")
-        eval_dataset_path = os.path.join(self.input_config.get(), "eval")
+        train_dataset_path = os.path.join(self.input.get(), "train")
+        eval_dataset_path = os.path.join(self.input.get(), "eval")
         self.train_dataset = self.load_dataset(train_dataset_path)
         if self.eval:
             self.eval_dataset = self.load_dataset(eval_dataset_path)

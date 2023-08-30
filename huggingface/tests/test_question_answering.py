@@ -55,16 +55,16 @@ def qa_bolt():
     # Create synthetic data
     create_synthetic_data(100, input_dir)
 
-    input_config = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output_config = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
-    state_manager = InMemoryState()
+    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    state = InMemoryState()
 
     return HuggingFaceQuestionAnsweringFineTuner(
         model=model,
         tokenizer=tokenizer,
-        input_config=input_config,
-        output_config=output_config,
-        state_manager=state_manager,
+        input=input,
+        output=output,
+        state=state,
         pad_on_right=True,
         max_length=384,
         doc_stride=128,
@@ -75,16 +75,16 @@ def qa_bolt():
 def test_qa_bolt_init(qa_bolt):
     assert qa_bolt.model is not None
     assert qa_bolt.tokenizer is not None
-    assert qa_bolt.input_config is not None
-    assert qa_bolt.output_config is not None
-    assert qa_bolt.state_manager is not None
+    assert qa_bolt.input is not None
+    assert qa_bolt.output is not None
+    assert qa_bolt.state is not None
 
 
 def test_load_dataset(qa_bolt):
-    train_dataset = qa_bolt.load_dataset(qa_bolt.input_config.get() + "/train", True, 384, 128)
+    train_dataset = qa_bolt.load_dataset(qa_bolt.input.get() + "/train", True, 384, 128)
     assert train_dataset is not None
 
-    eval_dataset = qa_bolt.load_dataset(qa_bolt.input_config.get() + "/eval", True, 384, 128)
+    eval_dataset = qa_bolt.load_dataset(qa_bolt.input.get() + "/eval", True, 384, 128)
     assert eval_dataset is not None
 
 
