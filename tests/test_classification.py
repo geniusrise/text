@@ -19,7 +19,7 @@ import tempfile
 
 import numpy as np
 import pytest
-from geniusrise.bolts.huggingface.classification import (
+from huggingface.classification import (
     HuggingFaceClassificationFineTuner,
 )
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState

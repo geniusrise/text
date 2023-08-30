@@ -17,20 +17,21 @@
 import os
 import tempfile
 
+import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.instruction_tuning import (
-    HuggingFaceInstructionTuningFineTuner,
+from huggingface.sentiment_analysis import (
+    HuggingFaceSentimentAnalysisFineTuner,
 )
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import BartForConditionalGeneration, BartTokenizer
+from transformers import BertForSequenceClassification, BertTokenizer, EvalPrediction
 
 
 def create_synthetic_data(size: int, temp_dir: str):
     # Generate synthetic data
     data = {
-        "instruction": [f"This is a synthetic instruction example {i}" for i in range(size)],
-        "output": [f"This is a synthetic output example {i}" for i in range(size)],
+        "text": [f"This is a synthetic text example {i}" for i in range(size)],
+        "label": [i % 2 for i in range(size)],  # Alternating 0s and 1s for labels
     }
 
     # Create a Hugging Face Dataset object from the data
@@ -42,9 +43,9 @@ def create_synthetic_data(size: int, temp_dir: str):
 
 
 @pytest.fixture
-def instruction_tuning_bolt():
-    model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+def sentiment_bolt():
+    model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
     # Use temporary directories for input and output
     input_dir = tempfile.mkdtemp()
@@ -57,7 +58,7 @@ def instruction_tuning_bolt():
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
 
-    return HuggingFaceInstructionTuningFineTuner(
+    return HuggingFaceSentimentAnalysisFineTuner(
         model=model,
         tokenizer=tokenizer,
         input=input,
@@ -67,26 +68,46 @@ def instruction_tuning_bolt():
     )
 
 
-def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
-    assert instruction_tuning_bolt.model is not None
-    assert instruction_tuning_bolt.tokenizer is not None
-    assert instruction_tuning_bolt.input is not None
-    assert instruction_tuning_bolt.output is not None
-    assert instruction_tuning_bolt.state is not None
+def test_sentiment_bolt_init(sentiment_bolt):
+    assert sentiment_bolt.model is not None
+    assert sentiment_bolt.tokenizer is not None
+    assert sentiment_bolt.input is not None
+    assert sentiment_bolt.output is not None
+    assert sentiment_bolt.state is not None
 
 
-def test_load_dataset(instruction_tuning_bolt):
-    train_dataset = instruction_tuning_bolt.load_dataset(instruction_tuning_bolt.input.get() + "/train")
+def test_load_dataset(sentiment_bolt):
+    train_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input.get() + "/train")
     assert train_dataset is not None
 
-    eval_dataset = instruction_tuning_bolt.load_dataset(instruction_tuning_bolt.input.get() + "/eval")
+    eval_dataset = sentiment_bolt.load_dataset(sentiment_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 
-def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt):
+def test_sentiment_bolt_compute_metrics(sentiment_bolt):
+    # Mocking an EvalPrediction object
+    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
+    labels = np.array([0, 1])
+    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
+
+    metrics = sentiment_bolt.compute_metrics(eval_pred)
+
+    assert "accuracy" in metrics
+    assert "precision" in metrics
+    assert "recall" in metrics
+    assert "f1" in metrics
+
+
+def test_sentiment_bolt_create_optimizer_and_scheduler(sentiment_bolt):
+    optimizer, scheduler = sentiment_bolt.create_optimizer_and_scheduler(10)
+    assert optimizer is not None
+    assert scheduler is not None
+
+
+def test_sentiment_bolt_fine_tune(sentiment_bolt):
     with tempfile.TemporaryDirectory() as tmpdir:
         # Fine-tuning with minimum epochs and batch size for speed
-        instruction_tuning_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
+        sentiment_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
 
         # Check that model files are created in the output directory
         assert os.path.isfile(os.path.join(tmpdir, "pytorch_model.bin"))

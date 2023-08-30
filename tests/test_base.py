@@ -19,7 +19,7 @@ import tempfile
 
 import pytest
 from datasets import load_dataset
-from geniusrise.bolts.huggingface.base import HuggingFaceFineTuner
+from huggingface.base import HuggingFaceFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState, State
 from transformers import BertForSequenceClassification, BertTokenizer
 

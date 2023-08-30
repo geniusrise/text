@@ -20,7 +20,7 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.translation import HuggingFaceTranslationFineTuner
+from huggingface.translation import HuggingFaceTranslationFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction, MarianMTModel, MarianTokenizer
 

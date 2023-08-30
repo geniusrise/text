@@ -19,7 +19,7 @@ import tempfile
 
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.commonsense_reasoning import (
+from huggingface.commonsense_reasoning import (
     HuggingFaceCommonsenseReasoningFineTuner,
 )
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState

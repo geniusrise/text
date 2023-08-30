@@ -20,7 +20,7 @@ import tempfile
 import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.ner import HuggingFaceNamedEntityRecognitionFineTuner
+from huggingface.ner import HuggingFaceNamedEntityRecognitionFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import BertForTokenClassification, BertTokenizerFast, EvalPrediction
 

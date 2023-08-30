@@ -17,19 +17,20 @@
 import os
 import tempfile
 
-import numpy as np
 import pytest
 from datasets import Dataset
-from geniusrise.bolts.huggingface.summarization import HuggingFaceSummarizationFineTuner
+from huggingface.instruction_tuning import (
+    HuggingFaceInstructionTuningFineTuner,
+)
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import BartForConditionalGeneration, BartTokenizerFast, EvalPrediction
+from transformers import BartForConditionalGeneration, BartTokenizer
 
 
 def create_synthetic_data(size: int, temp_dir: str):
     # Generate synthetic data
     data = {
-        "document": [f"This is a synthetic text example {i}" for i in range(size)],
-        "summary": [f"Synthetic text {i}" for i in range(size)],
+        "instruction": [f"This is a synthetic instruction example {i}" for i in range(size)],
+        "output": [f"This is a synthetic output example {i}" for i in range(size)],
     }
 
     # Create a Hugging Face Dataset object from the data
@@ -41,9 +42,9 @@ def create_synthetic_data(size: int, temp_dir: str):
 
 
 @pytest.fixture
-def summarization_bolt():
+def instruction_tuning_bolt():
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    tokenizer = BartTokenizerFast.from_pretrained("facebook/bart-base")
+    tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
 
     # Use temporary directories for input and output
     input_dir = tempfile.mkdtemp()
@@ -56,7 +57,7 @@ def summarization_bolt():
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
 
-    return HuggingFaceSummarizationFineTuner(
+    return HuggingFaceInstructionTuningFineTuner(
         model=model,
         tokenizer=tokenizer,
         input=input,
@@ -66,46 +67,26 @@ def summarization_bolt():
     )
 
 
-def test_summarization_bolt_init(summarization_bolt):
-    assert summarization_bolt.model is not None
-    assert summarization_bolt.tokenizer is not None
-    assert summarization_bolt.input is not None
-    assert summarization_bolt.output is not None
-    assert summarization_bolt.state is not None
+def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
+    assert instruction_tuning_bolt.model is not None
+    assert instruction_tuning_bolt.tokenizer is not None
+    assert instruction_tuning_bolt.input is not None
+    assert instruction_tuning_bolt.output is not None
+    assert instruction_tuning_bolt.state is not None
 
 
-def test_load_dataset(summarization_bolt):
-    train_dataset = summarization_bolt.load_dataset(summarization_bolt.input.get() + "/train")
+def test_load_dataset(instruction_tuning_bolt):
+    train_dataset = instruction_tuning_bolt.load_dataset(instruction_tuning_bolt.input.get() + "/train")
     assert train_dataset is not None
 
-    eval_dataset = summarization_bolt.load_dataset(summarization_bolt.input.get() + "/eval")
+    eval_dataset = instruction_tuning_bolt.load_dataset(instruction_tuning_bolt.input.get() + "/eval")
     assert eval_dataset is not None
 
 
-def test_summarization_bolt_compute_metrics(summarization_bolt):
-    # Mocking an EvalPrediction object
-    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-    labels = np.array([0, 1])
-    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-
-    metrics = summarization_bolt.compute_metrics(eval_pred)
-
-    # Check for appropriate summarization metrics, like ROUGE scores
-    assert "rouge1" in metrics
-    assert "rouge2" in metrics
-    assert "rougeL" in metrics
-
-
-def test_summarization_bolt_create_optimizer_and_scheduler(summarization_bolt):
-    optimizer, scheduler = summarization_bolt.create_optimizer_and_scheduler(10)
-    assert optimizer is not None
-    assert scheduler is not None
-
-
-def test_summarization_bolt_fine_tune(summarization_bolt):
+def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt):
     with tempfile.TemporaryDirectory() as tmpdir:
         # Fine-tuning with minimum epochs and batch size for speed
-        summarization_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
+        instruction_tuning_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
 
         # Check that model files are created in the output directory
         assert os.path.isfile(os.path.join(tmpdir, "pytorch_model.bin"))
