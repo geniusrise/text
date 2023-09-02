@@ -96,30 +96,38 @@ class HuggingFaceFineTuner(Bolt):
 
     def preprocess_data(self):
         """Load and preprocess the dataset"""
-        self.input.copy_from_remote()
-        train_dataset_path = os.path.join(self.input.get(), "train")
-        eval_dataset_path = os.path.join(self.input.get(), "eval")
-        self.train_dataset = self.load_dataset(train_dataset_path)
-        if self.eval:
-            self.eval_dataset = self.load_dataset(eval_dataset_path)
+        try:
+            self.input.copy_from_remote()
+            train_dataset_path = os.path.join(self.input.get(), "train")
+            eval_dataset_path = os.path.join(self.input.get(), "eval")
+            self.train_dataset = self.load_dataset(train_dataset_path)
+            if self.eval:
+                self.eval_dataset = self.load_dataset(eval_dataset_path)
+        except Exception as e:
+            self.log.error(f"Failed to preprocess data: {e}")
+            raise
 
     def load_models(self):
         """Load the model and tokenizer"""
-        if self.model_name.lower() == "local":
-            self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
-                os.path.join(self.input.get(), "/model")
-            )
-        else:
-            self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(self.model_name)
+        try:
+            if self.model_name.lower() == "local":
+                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                    os.path.join(self.input.get(), "/model")
+                )
+            else:
+                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(self.model_name)
 
-        if self.tokenizer_name.lower() == "local":
-            self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
-                os.path.join(self.input.get(), "/model")
-            )
-        else:
-            self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
-                self.tokenizer_name
-            )
+            if self.tokenizer_name.lower() == "local":
+                self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                    os.path.join(self.input.get(), "/model")
+                )
+            else:
+                self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                    self.tokenizer_name
+                )
+        except Exception as e:
+            self.log.error(f"Failed to load model: {e}")
+            raise
 
     def upload_to_hf_hub(self):
         """Upload the model and tokenizer to Hugging Face Hub.
@@ -129,22 +137,26 @@ class HuggingFaceFineTuner(Bolt):
             organization (str, optional): The organization name if uploading to an organization. Defaults to None.
             private (bool, optional): Whether to make the repository private. Defaults to False.
         """
-        if self.model:
-            self.model.push_to_hub(
-                repo_id=self.hf_repo_id,
-                commit_message=self.hf_commit_message,
-                token=self.hf_token,
-                private=self.hf_private,
-                create_pr=self.hf_create_pr,
-            )
-        if self.tokenizer:
-            self.tokenizer.push_to_hub(
-                repo_id=self.hf_repo_id,
-                commit_message=self.hf_commit_message,
-                token=self.hf_token,
-                private=self.hf_private,
-                create_pr=self.hf_create_pr,
-            )
+        try:
+            if self.model:
+                self.model.push_to_hub(
+                    repo_id=self.hf_repo_id,
+                    commit_message=self.hf_commit_message,
+                    token=self.hf_token,
+                    private=self.hf_private,
+                    create_pr=self.hf_create_pr,
+                )
+            if self.tokenizer:
+                self.tokenizer.push_to_hub(
+                    repo_id=self.hf_repo_id,
+                    commit_message=self.hf_commit_message,
+                    token=self.hf_token,
+                    private=self.hf_private,
+                    create_pr=self.hf_create_pr,
+                )
+        except Exception as e:
+            self.log.error(f"Failed to upload model to huggingface hub: {e}")
+            raise
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]] | Dict[str, float]:
         """
@@ -197,48 +209,54 @@ class HuggingFaceFineTuner(Bolt):
         Raises:
             FileNotFoundError: If the output directory does not exist.
         """
-        self.model_name = model_name
-        self.tokenizer_name = tokenizer_name
-        self.output_dir = self.output.output_folder
-        self.num_train_epochs = num_train_epochs
-        self.per_device_train_batch_size = per_device_train_batch_size
-        self.model_class = model_class
-        self.tokenizer_class = tokenizer_class
-        self.eval = eval
-        self.hf_repo_id = hf_repo_id
-        self.hf_commit_message = hf_commit_message
-        self.hf_token = hf_token
-        self.hf_private = hf_private
-        self.hf_create_pr = hf_create_pr
+        try:
+            self.model_name = model_name
+            self.tokenizer_name = tokenizer_name
+            self.output_dir = self.output.output_folder
+            self.num_train_epochs = num_train_epochs
+            self.per_device_train_batch_size = per_device_train_batch_size
+            self.model_class = model_class
+            self.tokenizer_class = tokenizer_class
+            self.eval = eval
+            self.hf_repo_id = hf_repo_id
+            self.hf_commit_message = hf_commit_message
+            self.hf_token = hf_token
+            self.hf_private = hf_private
+            self.hf_create_pr = hf_create_pr
 
-        # Load model and tokenizer
-        self.load_models()
+            # Load model and tokenizer
+            self.load_models()
 
-        # Load dataset
-        self.preprocess_data()
+            # Load dataset
+            self.preprocess_data()
 
-        training_args = TrainingArguments(
-            output_dir=os.path.join(self.output_dir, "model"),
-            num_train_epochs=num_train_epochs,
-            per_device_train_batch_size=per_device_train_batch_size,
-            **kwargs,
-        )
+            training_args = TrainingArguments(
+                output_dir=os.path.join(self.output_dir, "model"),
+                num_train_epochs=num_train_epochs,
+                per_device_train_batch_size=per_device_train_batch_size,
+                **kwargs,
+            )
 
-        trainer = Trainer(
-            model=self.model,
-            args=training_args,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset if self.eval else None,
-            tokenizer=self.tokenizer,
-            compute_metrics=self.compute_metrics,
-        )
+            trainer = Trainer(
+                model=self.model,
+                args=training_args,
+                train_dataset=self.train_dataset,
+                eval_dataset=self.eval_dataset if self.eval else None,
+                tokenizer=self.tokenizer,
+                compute_metrics=self.compute_metrics,
+            )
 
-        trainer.train()
-        trainer.save_model()
+            trainer.train()
+            trainer.save_model()
 
-        if self.eval:
-            eval_result = trainer.evaluate()
-            self.log.info(f"Evaluation results: {eval_result}")
+            if self.eval:
+                eval_result = trainer.evaluate()
+                self.log.info(f"Evaluation results: {eval_result}")
 
-        if self.hf_repo_id:
-            self.upload_to_hf_hub()
+            if self.hf_repo_id:
+                self.upload_to_hf_hub()
+        except Exception as e:
+            self.log.error(f"Failed to fine tune model: {e}")
+            self.state.set_state(self.id, {"success": False, "exception": str(e)})
+            raise
+        self.state.set_state(self.id, {"success": True})
