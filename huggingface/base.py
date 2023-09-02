@@ -24,13 +24,9 @@ from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import (
-    AdamW,
     EvalPrediction,
-    PreTrainedModel,
-    PreTrainedTokenizer,
     Trainer,
     TrainingArguments,
-    get_linear_schedule_with_warmup,
 )
 
 
@@ -44,24 +40,18 @@ class HuggingFaceFineTuner(Bolt):
 
     def __init__(
         self,
-        model: PreTrainedModel,
-        tokenizer: PreTrainedTokenizer,
         input: BatchInput,
         output: BatchOutput,
         state: State,
-        eval: bool = False,
         **kwargs,
     ) -> None:
         """
         Initialize the bolt.
 
         Args:
-            model (PreTrainedModel): The pre-trained model to fine-tune.
-            tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
             input (BatchInput): The batch input data.
             output (OutputConfig): The output data.
             state (State): The state manager.
-            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments.
         """
         super().__init__(
@@ -69,23 +59,23 @@ class HuggingFaceFineTuner(Bolt):
             output=output,
             state=state,
         )
-        self.model = model
-        self.tokenizer = tokenizer
+        super().__init__(input=input, output=output, state=state)
         self.input = input
         self.output = output
         self.state = state
-        self.eval = eval
+
+        self.model_name: Optional[str] = None
+        self.tokenizer_name: Optional[str] = None
+        self.model_class: Optional[str] = None
+        self.tokenizer_class: Optional[str] = None
+        self.eval: bool = False
+
+        self.tokenizer = None
+        self.model = None
+        self.train_dataset = None
+        self.eval_dataset = None
+
         self.log = logging.getLogger(self.__class__.__name__)
-
-        # Copy the datasets from S3 to the local input folder
-        self.input.copy_from_remote()
-
-        # Load the datasets from the local input folder
-        train_dataset_path = os.path.join(self.input.get(), "train")
-        eval_dataset_path = os.path.join(self.input.get(), "eval")
-        self.train_dataset = self.load_dataset(train_dataset_path)
-        if self.eval:
-            self.eval_dataset = self.load_dataset(eval_dataset_path)
 
     @abstractmethod
     def load_dataset(self, dataset_path: str, **kwargs) -> Dataset | DatasetDict | Optional[Dataset]:
@@ -103,6 +93,58 @@ class HuggingFaceFineTuner(Bolt):
             NotImplementedError: This method should be overridden by subclasses.
         """
         raise NotImplementedError("Subclasses should implement this!")
+
+    def preprocess_data(self):
+        """Load and preprocess the dataset"""
+        self.input.copy_from_remote()
+        train_dataset_path = os.path.join(self.input.get(), "train")
+        eval_dataset_path = os.path.join(self.input.get(), "eval")
+        self.train_dataset = self.load_dataset(train_dataset_path)
+        if self.eval:
+            self.eval_dataset = self.load_dataset(eval_dataset_path)
+
+    def load_models(self):
+        """Load the model and tokenizer"""
+        if self.model_name.lower() == "local":
+            self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                os.path.join(self.input.get(), "/model")
+            )
+        else:
+            self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(self.model_name)
+
+        if self.tokenizer_name.lower() == "local":
+            self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                os.path.join(self.input.get(), "/model")
+            )
+        else:
+            self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                self.tokenizer_name
+            )
+
+    def upload_to_hf_hub(self):
+        """Upload the model and tokenizer to Hugging Face Hub.
+
+        Args:
+            repo_name (str): The repository name on Hugging Face Hub.
+            organization (str, optional): The organization name if uploading to an organization. Defaults to None.
+            private (bool, optional): Whether to make the repository private. Defaults to False.
+        """
+        if self.model:
+            self.model.push_to_hub(
+                repo_id=self.hf_repo_id,
+                commit_message=self.hf_commit_message,
+                token=self.hf_token,
+                private=self.hf_private,
+                create_pr=self.hf_create_pr,
+            )
+        if self.tokenizer:
+            self.tokenizer.push_to_hub(
+                repo_id=self.hf_repo_id,
+                commit_message=self.hf_commit_message,
+                token=self.hf_token,
+                private=self.hf_private,
+                create_pr=self.hf_create_pr,
+            )
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]] | Dict[str, float]:
         """
@@ -124,54 +166,64 @@ class HuggingFaceFineTuner(Bolt):
             "f1": precision_recall_fscore_support(labels, predictions, average="binary")[2],
         }
 
-    def create_optimizer_and_scheduler(self, num_training_steps: int) -> tuple:
-        """
-        Customize the optimizer and the learning rate scheduler.
-
-        Args:
-            num_training_steps (int): The total number of training steps.
-
-        Returns:
-            tuple: The optimizer and the learning rate scheduler.
-        """
-        optimizer = AdamW(self.model.parameters(), lr=5e-5)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
-        )
-
-        return optimizer, scheduler
-
     def fine_tune(
         self,
-        output_dir: str,
+        model_name: str,
+        tokenizer_name: str,
         num_train_epochs: int,
         per_device_train_batch_size: int,
+        model_class: str = "AutoModel",
+        tokenizer_class: str = "AutoTokenizer",
+        eval: bool = False,
+        hf_repo_id: Optional[str] = None,
+        hf_commit_message: Optional[str] = None,
+        hf_token: Optional[str] = None,
+        hf_private: bool = True,
+        hf_create_pr: bool = False,
         **kwargs,
     ):
         """
         Fine-tune the model.
 
         Args:
+            model (PreTrainedModel): The pre-trained model to fine-tune.
+            tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
             output_dir (str): The output directory where the model predictions and checkpoints will be written.
             num_train_epochs (int): Total number of training epochs to perform.
             per_device_train_batch_size (int): Batch size per device during training.
+            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments for training.
 
         Raises:
             FileNotFoundError: If the output directory does not exist.
         """
-        if not os.path.exists(output_dir):
-            raise FileNotFoundError(f"Output directory {output_dir} does not exist.")
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.output_dir = self.output.output_folder
+        self.num_train_epochs = num_train_epochs
+        self.per_device_train_batch_size = per_device_train_batch_size
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
+        self.eval = eval
+        self.hf_repo_id = hf_repo_id
+        self.hf_commit_message = hf_commit_message
+        self.hf_token = hf_token
+        self.hf_private = hf_private
+        self.hf_create_pr = hf_create_pr
 
-        # Define the training arguments
+        # Load model and tokenizer
+        self.load_models()
+
+        # Load dataset
+        self.preprocess_data()
+
         training_args = TrainingArguments(
-            output_dir=output_dir,
+            output_dir=os.path.join(self.output_dir, "model"),
             num_train_epochs=num_train_epochs,
             per_device_train_batch_size=per_device_train_batch_size,
             **kwargs,
         )
 
-        # Initialize the trainer
         trainer = Trainer(
             model=self.model,
             args=training_args,
@@ -181,15 +233,12 @@ class HuggingFaceFineTuner(Bolt):
             compute_metrics=self.compute_metrics,
         )
 
-        # Train the model
         trainer.train()
-
-        # Save the model
         trainer.save_model()
 
-        # Evaluate the model
         if self.eval:
             eval_result = trainer.evaluate()
-
-            # Log the evaluation results
             self.log.info(f"Evaluation results: {eval_result}")
+
+        if self.hf_repo_id:
+            self.upload_to_hf_hub()
