@@ -130,13 +130,7 @@ class HuggingFaceFineTuner(Bolt):
             raise
 
     def upload_to_hf_hub(self):
-        """Upload the model and tokenizer to Hugging Face Hub.
-
-        Args:
-            repo_name (str): The repository name on Hugging Face Hub.
-            organization (str, optional): The organization name if uploading to an organization. Defaults to None.
-            private (bool, optional): Whether to make the repository private. Defaults to False.
-        """
+        """Upload the model and tokenizer to Hugging Face Hub."""
         try:
             if self.model:
                 self.model.push_to_hub(
@@ -198,16 +192,22 @@ class HuggingFaceFineTuner(Bolt):
         Fine-tune the model.
 
         Args:
-            model (PreTrainedModel): The pre-trained model to fine-tune.
-            tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
-            output_dir (str): The output directory where the model predictions and checkpoints will be written.
+            model_name (str): The pre-trained model name.
+            tokenizer_name (str): The pre-trained tokenizer name.
             num_train_epochs (int): Total number of training epochs to perform.
             per_device_train_batch_size (int): Batch size per device during training.
+            model_class (str, optional): The model class to use. Defaults to "AutoModel".
+            tokenizer_class (str, optional): The tokenizer class to use. Defaults to "AutoTokenizer".
             eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
+            hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
+            hf_token (str, optional): The Hugging Face token. Defaults to None.
+            hf_private (bool, optional): Whether to make the repo private. Defaults to True.
+            hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
             **kwargs: Additional keyword arguments for training.
 
         Raises:
-            FileNotFoundError: If the output directory does not exist.
+            Exception: If any step in the fine-tuning process fails.
         """
         try:
             self.model_name = model_name
