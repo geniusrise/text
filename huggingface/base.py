@@ -244,6 +244,7 @@ class HuggingFaceFineTuner(Bolt):
                 eval_dataset=self.eval_dataset if self.eval else None,
                 tokenizer=self.tokenizer,
                 compute_metrics=self.compute_metrics,
+                data_collator=self.data_collator if hasattr(self, "data_collator") else None,
             )
 
             trainer.train()

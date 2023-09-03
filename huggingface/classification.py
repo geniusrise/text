@@ -26,6 +26,7 @@ import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
+from transformers import DataCollatorWithPadding
 
 from .base import HuggingFaceFineTuner
 
@@ -73,11 +74,21 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         Raises:
             Exception: If there was an error loading the dataset.
         """
+
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+
+        self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else None  # type: ignore
+
+        def tokenize_function(examples):
+            tokenized_data = self.tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+            tokenized_data["label"] = [self.label_to_id[label] for label in examples["label"]]
+            return tokenized_data
+
         try:
             logging.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
-                return load_from_disk(dataset_path)
+                return load_from_disk(dataset_path).map(tokenize_function, batched=True)
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -131,7 +142,17 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
-                return Dataset.from_pandas(pd.DataFrame(data))
+
+                # Create label_to_id mapping and save it in model config
+                unique_labels = (example["label"] for example in data)
+                self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
+                if self.model:
+                    if self.model.config.label2id != self.label_to_id:
+                        self.log.warning("New labels detected, ignore if fine-tuning")
+                    self.model.config.label2id = self.label_to_id
+                    self.model.config.id2label = {i: label for label, i in self.label_to_id.items()}
+
+                return Dataset.from_pandas(pd.DataFrame(data)).map(tokenize_function, batched=True)
         except Exception as e:
             logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
