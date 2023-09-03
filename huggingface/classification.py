@@ -45,7 +45,7 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     ```
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs) -> Optional[Dataset]:
+    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
         r"""
         Load a classification dataset from a directory.
 
@@ -76,11 +76,14 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         """
 
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        self.max_length = max_length
 
         self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else None  # type: ignore
 
         def tokenize_function(examples):
-            tokenized_data = self.tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
+            tokenized_data = self.tokenizer(
+                examples["text"], padding="max_length", truncation=True, max_length=self.max_length
+            )
             tokenized_data["label"] = [self.label_to_id[label] for label in examples["label"]]
             return tokenized_data
 

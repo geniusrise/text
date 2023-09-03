@@ -20,12 +20,15 @@ import logging
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Optional
+from nltk.translate.bleu_score import corpus_bleu
+from transformers import EvalPrediction
+import numpy as np
 
 import pandas as pd
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset as HFDataset
+from datasets import Dataset as HFDataset, load_from_disk
 from pyarrow import feather
 
 from .base import HuggingFaceFineTuner
@@ -45,7 +48,7 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
     ```
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[HFDataset, Dict]:
+    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs: Any) -> Union[HFDataset, Dict]:
         r"""
         Load an instruction tuning dataset from a directory.
 
@@ -79,60 +82,146 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
         """
         try:
             logging.info(f"Loading dataset from {dataset_path}")
-            data = []
-            for filename in glob.glob(f"{dataset_path}/*"):
-                filepath = os.path.join(dataset_path, filename)
-                if filename.endswith(".jsonl"):
-                    with open(filepath, "r") as f:
-                        for line in f:
-                            example = json.loads(line)
-                            data.append(example)
+            self.max_length = max_length
+            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+                # Load dataset saved by Hugging Face datasets library
+                dataset = load_from_disk(dataset_path)
+                return dataset.map(self.prepare_train_features, batched=True)
+            else:
+                data = []
+                for filename in glob.glob(f"{dataset_path}/*"):
+                    filepath = os.path.join(dataset_path, filename)
+                    if filename.endswith(".jsonl"):
+                        with open(filepath, "r") as f:
+                            for line in f:
+                                example = json.loads(line)
+                                data.append(example)
 
-                elif filename.endswith(".csv"):
-                    df = pd.read_csv(filepath)
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith(".csv"):
+                        df = pd.read_csv(filepath)
+                        data.extend(df.to_dict("records"))
 
-                elif filename.endswith(".parquet"):
-                    df = pq.read_table(filepath).to_pandas()
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith(".parquet"):
+                        df = pq.read_table(filepath).to_pandas()
+                        data.extend(df.to_dict("records"))
 
-                elif filename.endswith(".json"):
-                    with open(filepath, "r") as f:
-                        json_data = json.load(f)
-                        data.extend(json_data)
+                    elif filename.endswith(".json"):
+                        with open(filepath, "r") as f:
+                            json_data = json.load(f)
+                            data.extend(json_data)
 
-                elif filename.endswith(".xml"):
-                    tree = ET.parse(filepath)
-                    root = tree.getroot()
-                    for record in root.findall("record"):
-                        instruction = record.find("instruction").text  # type: ignore
-                        output = record.find("output").text  # type: ignore
-                        data.append({"instruction": instruction, "output": output})
+                    elif filename.endswith(".xml"):
+                        tree = ET.parse(filepath)
+                        root = tree.getroot()
+                        for record in root.findall("record"):
+                            instruction = record.find("instruction").text  # type: ignore
+                            output = record.find("output").text  # type: ignore
+                            data.append({"instruction": instruction, "output": output})
 
-                elif filename.endswith(".yaml") or filename.endswith(".yml"):
-                    with open(filepath, "r") as f:
-                        yaml_data = yaml.safe_load(f)
-                        data.extend(yaml_data)
+                    elif filename.endswith(".yaml") or filename.endswith(".yml"):
+                        with open(filepath, "r") as f:
+                            yaml_data = yaml.safe_load(f)
+                            data.extend(yaml_data)
 
-                elif filename.endswith(".tsv"):
-                    df = pd.read_csv(filepath, sep="\t")
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith(".tsv"):
+                        df = pd.read_csv(filepath, sep="\t")
+                        data.extend(df.to_dict("records"))
 
-                elif filename.endswith((".xls", ".xlsx")):
-                    df = pd.read_excel(filepath)
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith((".xls", ".xlsx")):
+                        df = pd.read_excel(filepath)
+                        data.extend(df.to_dict("records"))
 
-                elif filename.endswith(".db"):
-                    conn = sqlite3.connect(filepath)
-                    query = "SELECT instruction, output FROM dataset_table;"
-                    df = pd.read_sql_query(query, conn)
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT instruction, output FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
 
-                elif filename.endswith(".feather"):
-                    df = feather.read_feather(filepath)
-                    data.extend(df.to_dict("records"))
+                    elif filename.endswith(".feather"):
+                        df = feather.read_feather(filepath)
+                        data.extend(df.to_dict("records"))
 
-            return HFDataset.from_pandas(pd.DataFrame(data))
+                dataset = HFDataset.from_pandas(pd.DataFrame(data))
+                return dataset.map(self.prepare_train_features, batched=True)
         except Exception as e:
             logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
+
+    def prepare_train_features(self, examples: Dict) -> Dict:
+        """
+        Tokenize the examples and prepare the features for training.
+
+        Args:
+            examples (dict): A dictionary of examples.
+
+        Returns:
+            dict: The processed features.
+        """
+        try:
+            if not self.tokenizer:
+                raise Exception("Tokenizer not initialized")
+
+            # Tokenize the examples
+            encoding = self.tokenizer(
+                examples["instruction"],
+                examples["output"],
+                truncation=True,
+                padding="max_length",
+                max_length=self.max_length,
+                return_tensors="pt",
+            )
+
+            encoding["labels"] = encoding["input_ids"].clone()  # Assuming that 'output' is the labels
+
+            return encoding
+        except Exception as e:
+            print(f"Error preparing train features: {e}")
+            raise
+
+    def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]]:
+        """
+        Compute evaluation metrics for the model's predictions.
+
+        This method takes the model's predictions and ground truth labels, converts them to text,
+        and then computes the BLEU score for evaluation.
+
+        Args:
+            eval_pred (EvalPrediction): A named tuple containing `predictions` and `label_ids`.
+                - `predictions`: The logits predicted by the model of shape (batch_size, sequence_length, num_classes).
+                - `label_ids`: The ground truth labels of shape (batch_size, sequence_length).
+
+        Returns:
+            Optional[Dict[str, float]]: A dictionary containing the BLEU score. Returns None if an exception occurs.
+
+        Raises:
+            Exception: If the tokenizer is not initialized.
+        """
+        predictions, labels = eval_pred
+        predictions = predictions[0] if isinstance(predictions, tuple) else predictions
+        labels = labels[0] if isinstance(labels, tuple) else labels
+
+        # Get the most likely token IDs from the logits (predictions)
+        predictions = np.argmax(predictions, axis=1)
+
+        # Convert labels and predictions to text
+        if self.tokenizer:
+            if len(labels.shape) == 1:
+                labels = labels.reshape(-1, 1)
+            if len(predictions.shape) == 1:
+                predictions = predictions.reshape(-1, 1)
+
+            labels_text = [
+                [self.tokenizer.decode(label, skip_special_tokens=True) for label in example] for example in labels
+            ]
+            predictions_text = [
+                [self.tokenizer.decode(pred, skip_special_tokens=True) for pred in example] for example in predictions
+            ]
+        else:
+            raise Exception("No tokenizer found, how did we even get here, please raise a PR.")
+
+        # Compute BLEU score
+        bleu_score = corpus_bleu(labels_text, predictions_text)
+
+        return {
+            "bleu": bleu_score,
+        }

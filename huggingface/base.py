@@ -110,6 +110,7 @@ class HuggingFaceFineTuner(Bolt):
     def load_models(self):
         """Load the model and tokenizer"""
         try:
+            # TODO: also use autoconfig to load configs
             if self.model_name.lower() == "local":
                 self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
                     os.path.join(self.input.get(), "/model")
@@ -154,7 +155,7 @@ class HuggingFaceFineTuner(Bolt):
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]] | Dict[str, float]:
         """
-        Compute metrics for evaluation.
+        Compute metrics for evaluation. This class implements a simple classification evaluation, tasks should ideally override this.
 
         Args:
             eval_pred (EvalPrediction): The evaluation predictions.
@@ -163,6 +164,8 @@ class HuggingFaceFineTuner(Bolt):
             dict: The computed metrics.
         """
         predictions, labels = eval_pred
+        predictions = predictions[0] if isinstance(predictions, tuple) else predictions
+        labels = labels[0] if isinstance(labels, tuple) else labels
         predictions = np.argmax(predictions, axis=1)
 
         return {

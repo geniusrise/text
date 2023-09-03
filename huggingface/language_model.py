@@ -19,12 +19,16 @@ import json
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
+from typing import Dict, Optional
+import numpy as np
+from nltk.translate.bleu_score import corpus_bleu
 
 import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
+from transformers import EvalPrediction
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk
+from datasets import Dataset, load_from_disk, load_metric
 from transformers import DataCollatorForLanguageModeling
 
 from .base import HuggingFaceFineTuner
@@ -179,3 +183,60 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
             dict: The collated data.
         """
         return DataCollatorForLanguageModeling(self.tokenizer, model=self.model)(examples)
+
+    def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]]:
+        """
+        Compute evaluation metrics for the model's predictions.
+
+        This method takes the model's predictions and ground truth labels, converts them to text,
+        and then computes the BLEU score for evaluation.
+
+        Args:
+            eval_pred (EvalPrediction): A named tuple containing `predictions` and `label_ids`.
+                - `predictions`: The logits predicted by the model of shape (batch_size, sequence_length, num_classes).
+                - `label_ids`: The ground truth labels of shape (batch_size, sequence_length).
+
+        Returns:
+            Optional[Dict[str, float]]: A dictionary containing the BLEU score. Returns None if an exception occurs.
+
+        Raises:
+            Exception: If the tokenizer is not initialized.
+        """
+        predictions, labels = eval_pred
+        predictions = predictions[0] if isinstance(predictions, tuple) else predictions
+        labels = labels[0] if isinstance(labels, tuple) else labels
+
+        # Get the most likely token IDs from the logits (predictions)
+        predictions = np.argmax(predictions, axis=1)
+
+        # Convert labels and predictions to text
+        if self.tokenizer:
+            if len(labels.shape) == 1:
+                labels = labels.reshape(-1, 1)
+            if len(predictions.shape) == 1:
+                predictions = predictions.reshape(-1, 1)
+
+            labels_text = [
+                [self.tokenizer.decode(label, skip_special_tokens=True) for label in example] for example in labels
+            ]
+            predictions_text = [
+                [self.tokenizer.decode(pred, skip_special_tokens=True) for pred in example] for example in predictions
+            ]
+
+            # Flatten the lists to compute sacrebleu
+            flat_labels_text = [" ".join(example) for example in labels_text]
+            flat_predictions_text = [" ".join(example) for example in predictions_text]
+        else:
+            raise Exception("No tokenizer found, how did we even get here, please raise a PR.")
+
+        # Compute BLEU score using sacrebleu
+        sacrebleu_score = load_metric("sacrebleu").compute(
+            predictions=flat_predictions_text, references=[[ref] for ref in flat_labels_text]
+        )
+        # Compute BLEU score
+        bleu_score = corpus_bleu(labels_text, predictions_text)
+
+        return {
+            "sacrebleu": sacrebleu_score,
+            "blue": bleu_score,
+        }
