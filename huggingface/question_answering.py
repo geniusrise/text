@@ -19,16 +19,17 @@ import os
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Union
-
+import ast
 import numpy as np
 import pandas as pd
+import evaluate
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score
-from transformers import EvalPrediction, PreTrainedModel, PreTrainedTokenizer
+from transformers import EvalPrediction
 
 from .base import HuggingFaceFineTuner
 
@@ -49,15 +50,9 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
 
     def __init__(
         self,
-        model: PreTrainedModel,
-        tokenizer: PreTrainedTokenizer,
         input: BatchInput,
         output: BatchOutput,
         state: State,
-        pad_on_right: bool,
-        max_length: int,
-        doc_stride: int,
-        eval: bool = False,
         **kwargs: Dict[str, Any],
     ) -> None:
         r"""
@@ -65,24 +60,18 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
 
         ```
         Args:
-            model (PreTrainedModel): The pre-trained model to fine-tune.
-            tokenizer (PreTrainedTokenizer): The tokenizer associated with the model.
             input (BatchInput): The batch input data.
             output (OutputConfig): The output data.
             state (State): The state manager.
-            pad_on_right (bool): Whether to pad on the right.
-            max_length (int): The maximum length of the sequences.
-            doc_stride (int): The document stride.
-            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
             **kwargs: Additional keyword arguments.
         ```
         """
-        self.pad_on_right = pad_on_right
-        self.max_length = max_length
-        self.doc_stride = doc_stride
+        self.pad_on_right = True
+        self.max_length = 0
+        self.doc_stride = 0
+        self.evaluate_squadv2 = False
+
         super().__init__(
-            model=model,
-            tokenizer=tokenizer,
             input=input,
             output=output,
             state=state,
@@ -93,9 +82,10 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
     def load_dataset(
         self,
         dataset_path: str,
-        pad_on_right: Optional[bool] = None,
+        pad_on_right: bool = True,
         max_length: Optional[int] = None,
         doc_stride: Optional[int] = None,
+        evaluate_squadv2: bool = False,
         **kwargs: Dict[str, Any],
     ) -> Optional[Dataset]:
         r"""
@@ -126,14 +116,19 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
 
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
+            pad_on_right (bool): Whether to pad on the right.
+            max_length (int): The maximum length of the sequences.
+            doc_stride (int): The document stride.
+            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
 
         Returns:
             Dataset: The loaded dataset.
         """
         # Update padding, max_length, and doc_stride if provided
-        self.pad_on_right = pad_on_right if pad_on_right is not None else self.pad_on_right
+        self.pad_on_right = pad_on_right
         self.max_length = max_length if max_length is not None else self.max_length
         self.doc_stride = doc_stride if doc_stride is not None else self.doc_stride
+        self.evaluate_squadv2 = evaluate_squadv2
 
         # Load the dataset from the directory
         try:
@@ -192,7 +187,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
                         data.extend(df.to_dict("records"))
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
-            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             return None
 
         # Preprocess the dataset
@@ -203,8 +198,8 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
                 remove_columns=dataset.column_names,
             )
         except Exception as e:
-            self.log.error(f"Error tokenizing dataset: {e}")
-            return None
+            self.log.exception(f"Error tokenizing dataset: {e}")
+            raise
 
         return tokenized_dataset
 
@@ -220,6 +215,13 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
         Returns:
             The tokenized examples.
         """
+        if not self.tokenizer:
+            raise Exception("No tokenizer found, please call load_models first.")
+
+        examples["answers"] = [
+            ast.literal_eval(example) if type(example) is str else example for example in examples["answers"]
+        ]
+
         # Tokenize the examples
         try:
             tokenized_examples = self.tokenizer(
@@ -258,7 +260,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
 
             # One example can give several spans, this is the index of the example containing this span of text.
             sample_index = sample_mapping[i]
-            answers = examples["answers"][sample_index]
+            answers = examples["answers"][sample_index][0]
             # If no answers are given, set the cls_index as answer.
             if len(answers["answer_start"]) == 0:  # type: ignore
                 tokenized_examples["start_positions"].append(cls_index)
@@ -318,7 +320,13 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
             # Convert predictions from list of 1D arrays to 1D array
             predictions = np.array([np.argmax(p) for p in predictions])
 
+            if self.evaluate_squadv2:
+                metric = evaluate.load("squad_v2" if self.evaluate_squadv2 else "squad")
+                squad = metric.compute(predictions=predictions, references=eval_pred.label_ids)
+            else:
+                squad = {}
+
             return {"accuracy": accuracy_score(labels, predictions)}
         except Exception as e:
-            self.log.error(f"Error computing metrics: {e}")
-            return None
+            self.log.exception(f"Error computing metrics: {e}")
+            raise

@@ -23,6 +23,7 @@ import json
 import sqlite3
 import xml.etree.ElementTree as ET
 import yaml
+from datasets import Dataset
 from pyarrow import feather, parquet as pq
 from huggingface import HuggingFaceClassificationFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
@@ -35,7 +36,10 @@ def create_dataset_in_format(directory, ext):
     data = [{"text": f"text_{i}", "label": f"label_{i % 2}"} for i in range(10)]
     df = pd.DataFrame(data)
 
-    if ext == "csv":
+    if ext == "huggingface":
+        dataset = Dataset.from_pandas(df)
+        dataset.save_to_disk(directory)
+    elif ext == "csv":
         df.to_csv(os.path.join(directory, "data.csv"), index=False)
     elif ext == "jsonl":
         with open(os.path.join(directory, "data.jsonl"), "w") as f:
@@ -70,7 +74,9 @@ def create_dataset_in_format(directory, ext):
 
 
 # Fixtures for each file type
-@pytest.fixture(params=["csv", "jsonl", "parquet", "json", "xml", "yaml", "tsv", "xlsx", "db", "feather"])
+@pytest.fixture(
+    params=["huggingface", "csv", "jsonl", "parquet", "json", "xml", "yaml", "tsv", "xlsx", "db", "feather"]
+)
 def dataset_file(request, tmpdir):
     ext = request.param
     create_dataset_in_format(tmpdir + "/train", ext)
