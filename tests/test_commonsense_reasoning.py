@@ -16,58 +16,91 @@
 
 import os
 import tempfile
-
 import pytest
-from datasets import Dataset
-from huggingface.commonsense_reasoning import (
-    HuggingFaceCommonsenseReasoningFineTuner,
-)
+import numpy as np
+import pandas as pd
+import json
+import sqlite3
+import xml.etree.ElementTree as ET
+import yaml
+from pyarrow import feather, parquet as pq
+from huggingface import HuggingFaceFineTuner, HuggingFaceCommonsenseReasoningFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import BertForSequenceClassification, BertTokenizer
+from transformers import EvalPrediction
 
 
-def create_synthetic_data(directory, num_examples):
-    # Generate synthetic data
-    data = {
-        "premise": ["This is a synthetic premise example." for _ in range(num_examples)],
-        "hypothesis": ["This is a synthetic hypothesis example." for _ in range(num_examples)],
-        "label": [0 for _ in range(num_examples)],
-    }
+# Helper function to create synthetic data in different formats
+def create_dataset_in_format(directory, ext):
+    os.makedirs(directory, exist_ok=True)
+    data = [{"premise": f"premise_{i}", "hypothesis": f"hypothesis_{i}", "label": i % 2} for i in range(10)]
+    df = pd.DataFrame(data)
 
-    # Create a Hugging Face Dataset object from the data
-    dataset = Dataset.from_dict(data)
+    if ext == "csv":
+        df.to_csv(os.path.join(directory, "data.csv"), index=False)
+    elif ext == "jsonl":
+        with open(os.path.join(directory, "data.jsonl"), "w") as f:
+            for item in data:
+                f.write(json.dumps(item) + "\n")
+    elif ext == "parquet":
+        pq.write_table(feather.Table.from_pandas(df), os.path.join(directory, "data.parquet"))
+    elif ext == "json":
+        with open(os.path.join(directory, "data.json"), "w") as f:
+            json.dump(data, f)
+    elif ext == "xml":
+        root = ET.Element("root")
+        for item in data:
+            record = ET.SubElement(root, "record")
+            ET.SubElement(record, "premise").text = item["premise"]
+            ET.SubElement(record, "hypothesis").text = item["hypothesis"]
+            ET.SubElement(record, "label").text = str(item["label"])
+        tree = ET.ElementTree(root)
+        tree.write(os.path.join(directory, "data.xml"))
+    elif ext == "yaml":
+        with open(os.path.join(directory, "data.yaml"), "w") as f:
+            yaml.dump(data, f)
+    elif ext == "tsv":
+        df.to_csv(os.path.join(directory, "data.tsv"), index=False, sep="\t")
+    elif ext == "xlsx":
+        df.to_excel(os.path.join(directory, "data.xlsx"), index=False)
+    elif ext == "db":
+        conn = sqlite3.connect(os.path.join(directory, "data.db"))
+        df.to_sql("dataset_table", conn, if_exists="replace", index=False)
+        conn.close()
+    elif ext == "feather":
+        feather.write_feather(df, os.path.join(directory, "data.feather"))
 
-    # Save the dataset to disk
-    dataset.save_to_disk(directory)
+
+# Fixtures for each file type
+@pytest.fixture(params=["csv", "jsonl", "parquet", "json", "xml", "yaml", "tsv", "xlsx", "db", "feather"])
+def dataset_file(request, tmpdir):
+    ext = request.param
+    create_dataset_in_format(tmpdir + "/train", ext)
+    create_dataset_in_format(tmpdir + "/eval", ext)
+    return tmpdir, ext
 
 
 @pytest.fixture
 def commonsense_bolt():
-    model = BertForSequenceClassification.from_pretrained("bert-base-uncased")
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-
-    # Use temporary directories for input and output
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-
-    # Create synthetic data
-    create_synthetic_data(input_dir + "/train", 10)
-    create_synthetic_data(input_dir + "/eval", 10)
-
     input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
-
-    return HuggingFaceCommonsenseReasoningFineTuner(
-        model=model,
-        tokenizer=tokenizer,
+    klass = HuggingFaceCommonsenseReasoningFineTuner(
         input=input,
         output=output,
         state=state,
     )
+    klass.model_class = "BertForSequenceClassification"
+    klass.model_name = "bert-base-uncased"
+    klass.tokenizer_class = "BertTokenizer"
+    klass.tokenizer_name = "bert-base-uncased"
+    return klass
 
 
 def test_commonsense_bolt_init(commonsense_bolt):
+    commonsense_bolt.load_models()
+
     assert commonsense_bolt.model is not None
     assert commonsense_bolt.tokenizer is not None
     assert commonsense_bolt.input is not None
@@ -75,63 +108,47 @@ def test_commonsense_bolt_init(commonsense_bolt):
     assert commonsense_bolt.state is not None
 
 
-def test_commonsense_load_dataset(commonsense_bolt):
-    dataset = commonsense_bolt.load_dataset(commonsense_bolt.input.get() + "/train")
+def test_load_dataset_all_formats(commonsense_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    dataset_path = os.path.join(tmpdir, "train")
+
+    commonsense_bolt.load_models()
+    dataset = commonsense_bolt.load_dataset(dataset_path)
     assert dataset is not None
-
-    eval_dataset = commonsense_bolt.load_dataset(commonsense_bolt.input.get() + "/eval")
-    assert eval_dataset is not None
+    assert len(dataset) == 10
 
 
-def test_commonsense_bolt_fine_tune(commonsense_bolt):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Fine-tuning with minimum epochs and batch size for speed
-        commonsense_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
+# Test for fine-tuning
+def test_commonsense_bolt_fine_tune(commonsense_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    commonsense_bolt.input.input_folder = tmpdir
 
-        # Check that model files are created in the output directory
-        assert os.path.isfile(os.path.join(tmpdir, "pytorch_model.bin"))
-        assert os.path.isfile(os.path.join(tmpdir, "config.json"))
-        assert os.path.isfile(os.path.join(tmpdir, "training_args.bin"))
+    commonsense_bolt.load_models()
+    dataset = commonsense_bolt.load_dataset(tmpdir + "/train")
 
+    commonsense_bolt.fine_tune(
+        model_name="bert-base-uncased",
+        tokenizer_name="bert-base-uncased",
+        num_train_epochs=1,
+        per_device_train_batch_size=1,
+        model_class="BertForSequenceClassification",
+        tokenizer_class="BertTokenizer",
+        eval=True,
+    )
 
-def test_commonsense_prepare_train_features(commonsense_bolt):
-    # Mocking examples
-    examples = {
-        "premise": ["This is a premise."],
-        "hypothesis": ["This is a hypothesis."],
-        "label": [0],
-    }
-
-    features = commonsense_bolt.prepare_train_features(examples)
-
-    assert "input_ids" in features
-    assert "token_type_ids" in features
-    assert "attention_mask" in features
-    assert "labels" in features
-
-    assert len(features["input_ids"]) == 1
-    assert len(features["token_type_ids"]) == 1
-    assert len(features["attention_mask"]) == 1
-    assert len(features["labels"]) == 1
+    output_dir = commonsense_bolt.output.output_folder
+    assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
 
 
-def test_commonsense_data_collator(commonsense_bolt):
-    # Mocking examples
-    examples = {
-        "input_ids": [[101, 2023, 2003, 1037, 12559, 1012, 102]],
-        "token_type_ids": [[0, 0, 0, 0, 0, 0, 0]],
-        "attention_mask": [[1, 1, 1, 1, 1, 1, 1]],
-        "labels": [0],
-    }
-
-    collated_data = commonsense_bolt.data_collator(examples)
-
-    assert "input_ids" in collated_data
-    assert "token_type_ids" in collated_data
-    assert "attention_mask" in collated_data
-    assert "labels" in collated_data
-
-    assert len(collated_data["input_ids"]) == 1
-    assert len(collated_data["token_type_ids"]) == 1
-    assert len(collated_data["attention_mask"]) == 1
-    assert len(collated_data["labels"]) == 1
+# Test for computing metrics
+def test_commonsense_bolt_compute_metrics(commonsense_bolt):
+    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
+    labels = np.array([0, 1])
+    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
+    metrics = commonsense_bolt.compute_metrics(eval_pred)
+    assert "accuracy" in metrics
+    assert "precision" in metrics
+    assert "recall" in metrics
+    assert "f1" in metrics

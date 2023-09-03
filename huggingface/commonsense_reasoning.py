@@ -18,6 +18,7 @@ import json
 import os
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Union
+import sqlite3
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -33,14 +34,12 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on commonsense reasoning tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
-    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[Dataset, DatasetDict, None]:
@@ -78,7 +77,8 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
         """
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                return load_from_disk(dataset_path)
+                dataset = load_from_disk(dataset_path)
+                return dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -116,11 +116,17 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith((".xls", ".xlsx")):
                         df = pd.read_excel(filepath)
                         data.extend(df.to_dict("records"))
+                    elif filename.endswith(".db"):
+                        conn = sqlite3.connect(filepath)
+                        query = "SELECT premise, hypothesis, label FROM dataset_table;"
+                        df = pd.read_sql_query(query, conn)
+                        data.extend(df.to_dict("records"))
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                return Dataset.from_pandas(pd.DataFrame(data))
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
+                return dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
 
         except Exception as e:
             print(f"Error loading dataset: {e}")
@@ -137,6 +143,9 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
             dict: The processed features.
         """
         try:
+            if not self.tokenizer:
+                raise Exception("Tokenizer not initialized")
+
             # Tokenize the examples
             tokenized_inputs = self.tokenizer(
                 examples["premise"],
