@@ -18,12 +18,11 @@ import os
 import tempfile
 import pytest
 import numpy as np
-from datasets import load_from_disk
-from huggingface.base import HuggingFaceFineTuner
+from datasets import Dataset
+import pandas as pd
 from huggingface.language_model import HuggingFaceLanguageModelingFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
-import pandas as pd
 import json
 import sqlite3
 import xml.etree.ElementTree as ET
@@ -35,8 +34,11 @@ from pyarrow import feather, parquet as pq
 def create_dataset_in_format(directory, ext):
     os.makedirs(directory, exist_ok=True)
     data = [{"text": f"text_{i}"} for i in range(10)]
+    df = pd.DataFrame(data)
+
     if ext == "huggingface":
-        dataset = load_from_disk(directory)
+        dataset = Dataset.from_pandas(df)
+        dataset.save_to_disk(directory)
     elif ext == "csv":
         df.to_csv(os.path.join(directory, "data.csv"), index=False)
     elif ext == "jsonl":
@@ -53,7 +55,6 @@ def create_dataset_in_format(directory, ext):
         for item in data:
             record = ET.SubElement(root, "record")
             ET.SubElement(record, "text").text = item["text"]
-            ET.SubElement(record, "label").text = item["label"]
         tree = ET.ElementTree(root)
         tree.write(os.path.join(directory, "data.xml"))
     elif ext == "yaml":
@@ -77,7 +78,8 @@ def create_dataset_in_format(directory, ext):
 )
 def dataset_file(request, tmpdir):
     ext = request.param
-    create_dataset_in_format(tmpdir, ext)
+    create_dataset_in_format(tmpdir + "/train", ext)
+    create_dataset_in_format(tmpdir + "/test", ext)
     return tmpdir, ext
 
 
@@ -88,11 +90,16 @@ def language_modeling_bolt():
     input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
-    return HuggingFaceLanguageModelingFineTuner(
+    klass = HuggingFaceLanguageModelingFineTuner(
         input=input,
         output=output,
         state=state,
     )
+    klass.model_class = "BertForMaskedLM"
+    klass.tokenizer_class = "BertTokenizer"
+    klass.model_name = "bert-base-uncased"
+    klass.tokenizer_name = "bert-base-uncased"
+    return klass
 
 
 def test_language_modeling_bolt_init(language_modeling_bolt):
@@ -118,10 +125,13 @@ def test_language_modeling_bolt_fine_tune(language_modeling_bolt, dataset_file):
     language_modeling_bolt.input.input_folder = tmpdir
     language_modeling_bolt.load_models()
     language_modeling_bolt.fine_tune(
-        model_name="gpt2",
-        tokenizer_name="gpt2",
+        model_name="bert-base-uncased",
+        tokenizer_name="bert-base-uncased",
+        model_class="BertForMaskedLM",
+        tokenizer_class="AutoTokenizer",
         num_train_epochs=1,
         per_device_train_batch_size=1,
+        data_masked=True,
     )
     output_dir = language_modeling_bolt.output.output_folder
     assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
@@ -130,8 +140,11 @@ def test_language_modeling_bolt_fine_tune(language_modeling_bolt, dataset_file):
 
 
 def test_language_modeling_bolt_compute_metrics(language_modeling_bolt):
+    language_modeling_bolt.load_models()
+
     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
     labels = np.array([[0, 1], [1, 0]])
     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
     metrics = language_modeling_bolt.compute_metrics(eval_pred)
     assert "bleu" in metrics
+    assert "sacrebleu" in metrics

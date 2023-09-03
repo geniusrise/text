@@ -94,15 +94,15 @@ class HuggingFaceFineTuner(Bolt):
         """
         raise NotImplementedError("Subclasses should implement this!")
 
-    def preprocess_data(self):
+    def preprocess_data(self, **kwargs):
         """Load and preprocess the dataset"""
         try:
             self.input.copy_from_remote()
             train_dataset_path = os.path.join(self.input.get(), "train")
             eval_dataset_path = os.path.join(self.input.get(), "eval")
-            self.train_dataset = self.load_dataset(train_dataset_path)
+            self.train_dataset = self.load_dataset(train_dataset_path, **kwargs)
             if self.eval:
-                self.eval_dataset = self.load_dataset(eval_dataset_path)
+                self.eval_dataset = self.load_dataset(eval_dataset_path, **kwargs)
         except Exception as e:
             self.log.error(f"Failed to preprocess data: {e}")
             raise
@@ -213,6 +213,7 @@ class HuggingFaceFineTuner(Bolt):
             Exception: If any step in the fine-tuning process fails.
         """
         try:
+            # Save everything
             self.model_name = model_name
             self.tokenizer_name = tokenizer_name
             self.output_dir = self.output.output_folder
@@ -231,15 +232,24 @@ class HuggingFaceFineTuner(Bolt):
             self.load_models()
 
             # Load dataset
-            self.preprocess_data()
+            dataset_kwargs = {k.replace("data_", ""): v for k, v in kwargs.items() if "data_" in k}
+            self.preprocess_data(**dataset_kwargs)
 
+            # Separate training and evaluation arguments
+            trainer_kwargs = {k.replace("trainer_", ""): v for k, v in kwargs.items() if "trainer_" in k}
+            training_kwargs = {
+                k.replace("data_", ""): v for k, v in kwargs.items() if "data_" not in k and "trainer" not in k
+            }
+
+            # Create training arguments
             training_args = TrainingArguments(
                 output_dir=os.path.join(self.output_dir, "model"),
                 num_train_epochs=num_train_epochs,
                 per_device_train_batch_size=per_device_train_batch_size,
-                **kwargs,
+                **training_kwargs,
             )
 
+            # Create trainer
             trainer = Trainer(
                 model=self.model,
                 args=training_args,
@@ -248,8 +258,13 @@ class HuggingFaceFineTuner(Bolt):
                 tokenizer=self.tokenizer,
                 compute_metrics=self.compute_metrics,
                 data_collator=self.data_collator if hasattr(self, "data_collator") else None,
+                **trainer_kwargs,
             )
 
+            # if self.tokenizer and trainer.tokenizer.pad_token is None:
+            #     trainer.tokenizer.pad_token = trainer.tokenizer.eos_token
+
+            # Lets go!
             trainer.train()
             trainer.save_model()
 

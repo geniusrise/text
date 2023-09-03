@@ -48,7 +48,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
     ```
     """
 
-    def load_dataset(self, dataset_path, **kwargs):
+    def load_dataset(self, dataset_path, masked: bool = True, max_length: int = 512, **kwargs):
         r"""
         Load a language modeling dataset from a directory.
 
@@ -79,6 +79,10 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         Raises:
             Exception: If there was an error loading the dataset.
         """
+
+        self.masked = masked
+        self.max_length = max_length
+
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
@@ -110,7 +114,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
                         tree = ET.parse(filepath)
                         root = tree.getroot()
                         for record in root.findall("record"):
-                            text = record.find("text").text
+                            text = record.find("text").text  # type: ignore
                             data.append({"text": text})
 
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
@@ -139,6 +143,8 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Preprocess the dataset
+            if self.tokenizer and self.tokenizer.pad_token_id is None:
+                self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
                 batched=True,
@@ -160,12 +166,13 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         Returns:
             dict: The processed features.
         """
-        # Extract the text from each examplep
-        print(examples)
-        texts = [example["text"] for example in examples["text"]]
-
         # Tokenize the examples
-        tokenized_inputs = self.tokenizer(texts, truncation=True, padding=False)
+        tokenized_inputs = self.tokenizer(
+            examples["text"],
+            truncation=True,
+            padding=False,
+            max_length=self.max_length,
+        )
 
         # Include the labels in the returned dictionary
         tokenized_inputs["labels"] = tokenized_inputs["input_ids"]
@@ -182,7 +189,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         Returns:
             dict: The collated data.
         """
-        return DataCollatorForLanguageModeling(self.tokenizer, model=self.model)(examples)
+        return DataCollatorForLanguageModeling(self.tokenizer, mlm=self.masked)(examples)
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]]:
         """
@@ -202,6 +209,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         Raises:
             Exception: If the tokenizer is not initialized.
         """
+
         predictions, labels = eval_pred
         predictions = predictions[0] if isinstance(predictions, tuple) else predictions
         labels = labels[0] if isinstance(labels, tuple) else labels
@@ -238,5 +246,5 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
 
         return {
             "sacrebleu": sacrebleu_score,
-            "blue": bleu_score,
+            "bleu": bleu_score,
         }

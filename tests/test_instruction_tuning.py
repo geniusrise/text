@@ -26,7 +26,7 @@ import yaml
 from pyarrow import feather, parquet as pq
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
-from huggingface import HuggingFaceFineTuner, HuggingFaceInstructionTuningFineTuner
+from huggingface import HuggingFaceInstructionTuningFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -107,14 +107,14 @@ def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
     assert instruction_tuning_bolt.state is not None
 
 
-# def test_load_dataset_all_formats(instruction_tuning_bolt, dataset_file):
-#     tmpdir, ext = dataset_file
-#     dataset_path = os.path.join(tmpdir, "train")
+def test_load_dataset_all_formats(instruction_tuning_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    dataset_path = os.path.join(tmpdir, "train")
 
-#     instruction_tuning_bolt.load_models()
-#     dataset = instruction_tuning_bolt.load_dataset(dataset_path)
-#     assert dataset is not None
-#     assert len(dataset) == 10
+    instruction_tuning_bolt.load_models()
+    dataset = instruction_tuning_bolt.load_dataset(dataset_path)
+    assert dataset is not None
+    assert len(dataset) == 10
 
 
 # Test for fine-tuning
