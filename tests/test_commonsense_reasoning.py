@@ -24,7 +24,7 @@ import sqlite3
 import xml.etree.ElementTree as ET
 import yaml
 from pyarrow import feather, parquet as pq
-from huggingface import HuggingFaceFineTuner, HuggingFaceCommonsenseReasoningFineTuner
+from huggingface import HuggingFaceCommonsenseReasoningFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
 
@@ -122,9 +122,6 @@ def test_load_dataset_all_formats(commonsense_bolt, dataset_file):
 def test_commonsense_bolt_fine_tune(commonsense_bolt, dataset_file):
     tmpdir, ext = dataset_file
     commonsense_bolt.input.input_folder = tmpdir
-
-    commonsense_bolt.load_models()
-    dataset = commonsense_bolt.load_dataset(tmpdir + "/train")
 
     commonsense_bolt.fine_tune(
         model_name="bert-base-uncased",

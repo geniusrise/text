@@ -122,9 +122,6 @@ def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt, dataset_file
     tmpdir, ext = dataset_file
     instruction_tuning_bolt.input.input_folder = tmpdir
 
-    instruction_tuning_bolt.load_models()
-    dataset = instruction_tuning_bolt.load_dataset(tmpdir + "/train")
-
     instruction_tuning_bolt.fine_tune(
         model_name="facebook/bart-base",
         tokenizer_name="facebook/bart-base",

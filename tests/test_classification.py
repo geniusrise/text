@@ -122,9 +122,6 @@ def test_classification_bolt_fine_tune(classification_bolt, dataset_file):
     tmpdir, ext = dataset_file
     classification_bolt.input.input_folder = tmpdir
 
-    classification_bolt.load_models()
-    dataset = classification_bolt.load_dataset(tmpdir + "/train")
-
     classification_bolt.fine_tune(
         num_train_epochs=1,
         per_device_train_batch_size=1,

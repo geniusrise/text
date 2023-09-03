@@ -16,58 +16,93 @@
 
 import os
 import tempfile
-
-import numpy as np
 import pytest
-from datasets import Dataset
+import numpy as np
+import pandas as pd
+import json
+import sqlite3
+import xml.etree.ElementTree as ET
+import yaml
+from pyarrow import feather, parquet as pq
 from huggingface.ner import HuggingFaceNamedEntityRecognitionFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import BertForTokenClassification, BertTokenizerFast, EvalPrediction
+from transformers import EvalPrediction
 
 
-def create_synthetic_data(size: int, temp_dir: str):
-    # Generate synthetic data
-    data = {
-        "tokens": [["This", "is", "a", "synthetic", "text", "example", str(i)] for i in range(size)],
-        "ner_tags": [[i % 2 for _ in range(7)] for i in range(size)],  # Alternating 0s and 1s for labels
-    }
+# Helper function to create synthetic data in different formats
+def create_dataset_in_format(directory, ext):
+    os.makedirs(directory, exist_ok=True)
+    data = [{"tokens": ["This", "is", "a", "test"], "ner_tags": [0, 1, 0, 1]} for _ in range(10)]
+    df = pd.DataFrame(data)
 
-    # Create a Hugging Face Dataset object from the data
-    dataset = Dataset.from_dict(data)
+    if ext == "csv":
+        df.to_csv(os.path.join(directory, "data.csv"), index=False)
+    elif ext == "jsonl":
+        with open(os.path.join(directory, "data.jsonl"), "w") as f:
+            for item in data:
+                f.write(json.dumps(item) + "\n")
+    elif ext == "parquet":
+        pq.write_table(feather.Table.from_pandas(df), os.path.join(directory, "data.parquet"))
+    elif ext == "json":
+        with open(os.path.join(directory, "data.json"), "w") as f:
+            json.dump(data, f)
+    elif ext == "xml":
+        root = ET.Element("root")
+        for item in data:
+            record = ET.SubElement(root, "record")
+            ET.SubElement(record, "tokens").text = " ".join(item["tokens"])
+            ET.SubElement(record, "ner_tags").text = " ".join(map(str, item["ner_tags"]))
+        tree = ET.ElementTree(root)
+        tree.write(os.path.join(directory, "data.xml"))
+    elif ext == "yaml":
+        with open(os.path.join(directory, "data.yaml"), "w") as f:
+            yaml.dump(data, f)
+    elif ext == "tsv":
+        df.to_csv(os.path.join(directory, "data.tsv"), index=False, sep="\t")
+    elif ext == "xlsx":
+        df.to_excel(os.path.join(directory, "data.xlsx"), index=False)
+    elif ext == "db":
+        conn = sqlite3.connect(os.path.join(directory, "data.db"))
+        df.to_sql("dataset_table", conn, if_exists="replace", index=False)
+        conn.close()
+    elif ext == "feather":
+        feather.write_feather(df, os.path.join(directory, "data.feather"))
 
-    # Save the dataset to disk
-    dataset.save_to_disk(os.path.join(temp_dir, "train"))
-    dataset.save_to_disk(os.path.join(temp_dir, "eval"))
+
+# Fixtures for each file type
+@pytest.fixture(params=["csv", "jsonl", "parquet", "json", "xml", "yaml", "tsv", "xlsx", "feather"])
+def dataset_file(request, tmpdir):
+    ext = request.param
+    create_dataset_in_format(tmpdir + "/train", ext)
+    create_dataset_in_format(tmpdir + "/eval", ext)
+    return tmpdir, ext
 
 
 @pytest.fixture
 def ner_bolt():
-    model = BertForTokenClassification.from_pretrained("bert-base-uncased")
-    tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-
-    # Use temporary directories for input and output
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-
-    # Create synthetic data
-    create_synthetic_data(100, input_dir)
 
     input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
 
-    return HuggingFaceNamedEntityRecognitionFineTuner(
-        model=model,
-        tokenizer=tokenizer,
+    klass = HuggingFaceNamedEntityRecognitionFineTuner(
         input=input,
         output=output,
         state=state,
-        label_list=[0, 1],
-        eval=True,
     )
+    klass.model_class = "BertForTokenClassification"
+    klass.model_name = "bert-base-uncased"
+    klass.tokenizer_class = "BertTokenizerFast"
+    klass.tokenizer_name = "bert-base-uncased"
+
+    return klass
 
 
 def test_ner_bolt_init(ner_bolt):
+    ner_bolt.load_models()
+
     assert ner_bolt.model is not None
     assert ner_bolt.tokenizer is not None
     assert ner_bolt.input is not None
@@ -75,40 +110,44 @@ def test_ner_bolt_init(ner_bolt):
     assert ner_bolt.state is not None
 
 
-def test_load_dataset(ner_bolt):
-    train_dataset = ner_bolt.load_dataset(ner_bolt.input.get() + "/train")
-    assert train_dataset is not None
+def test_load_dataset_all_formats(ner_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    dataset_path = os.path.join(tmpdir, "train")
 
-    eval_dataset = ner_bolt.load_dataset(ner_bolt.input.get() + "/eval")
-    assert eval_dataset is not None
+    ner_bolt.load_models()
+    dataset = ner_bolt.load_dataset(dataset_path, label_list=[0, 1])
+    assert dataset is not None
+    assert len(dataset) == 10
 
 
+# Test for fine-tuning
+def test_ner_bolt_fine_tune(ner_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    ner_bolt.input.input_folder = tmpdir
+
+    ner_bolt.fine_tune(
+        num_train_epochs=1,
+        per_device_train_batch_size=1,
+        model_class="BertForTokenClassification",
+        model_name="bert-base-uncased",
+        tokenizer_class="BertTokenizerFast",
+        tokenizer_name="bert-base-uncased",
+        data_label_list=[0, 1],
+    )
+
+    output_dir = ner_bolt.output.output_folder
+    assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
+
+
+# Test for computing metrics
 def test_ner_bolt_compute_metrics(ner_bolt):
-    # Mocking an EvalPrediction object
     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
     labels = np.array([0, 1])
     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-
     metrics = ner_bolt.compute_metrics(eval_pred)
-
+    assert "accuracy" in metrics
     assert "precision" in metrics
     assert "recall" in metrics
     assert "f1" in metrics
-    assert "accuracy" in metrics
-
-
-def test_ner_bolt_create_optimizer_and_scheduler(ner_bolt):
-    optimizer, scheduler = ner_bolt.create_optimizer_and_scheduler(10)
-    assert optimizer is not None
-    assert scheduler is not None
-
-
-def test_ner_bolt_fine_tune(ner_bolt):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Fine-tuning with minimum epochs and batch size for speed
-        ner_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
-
-        # Check that model files are created in the output directory
-        assert os.path.isfile(os.path.join(tmpdir, "pytorch_model.bin"))
-        assert os.path.isfile(os.path.join(tmpdir, "config.json"))
-        assert os.path.isfile(os.path.join(tmpdir, "training_args.bin"))

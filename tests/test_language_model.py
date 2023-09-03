@@ -123,7 +123,7 @@ def test_load_dataset_all_formats(language_modeling_bolt, dataset_file):
 def test_language_modeling_bolt_fine_tune(language_modeling_bolt, dataset_file):
     tmpdir, ext = dataset_file
     language_modeling_bolt.input.input_folder = tmpdir
-    language_modeling_bolt.load_models()
+
     language_modeling_bolt.fine_tune(
         model_name="bert-base-uncased",
         tokenizer_name="bert-base-uncased",

@@ -16,6 +16,7 @@
 
 import json
 import os
+import ast
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Union
@@ -32,8 +33,6 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from transformers import (
     DataCollatorForTokenClassification,
     EvalPrediction,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
 )
 
 from .base import HuggingFaceFineTuner
@@ -55,12 +54,9 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
 
     def __init__(
         self,
-        model: PreTrainedModel,
-        tokenizer: PreTrainedTokenizerBase,
         input: BatchInput,
         output: BatchOutput,
         state: State,
-        label_list: List[str],
         **kwargs,
     ):
         r"""
@@ -77,18 +73,16 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
             **kwargs: Additional arguments for the superclass.
         ```
         """
-        self.label_list = label_list
-        self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
         super().__init__(
-            model=model,
-            tokenizer=tokenizer,
             input=input,
             output=output,
             state=state,
             **kwargs,
         )
 
-    def load_dataset(self, dataset_path: str, **kwargs: Any) -> DatasetDict:
+    def load_dataset(
+        self, dataset_path: str, label_list: List[str] = [], **kwargs: Any
+    ) -> Union[Dataset, DatasetDict, None]:
         r"""
         Load a named entity recognition dataset from a directory.
 
@@ -120,6 +114,10 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
         Raises:
             Exception: If there was an error loading the dataset.
         """
+
+        self.label_list = label_list
+        self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
+
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
@@ -196,19 +194,33 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
         Returns:
             Dict[str, Union[List[str], List[int]]]: The processed features.
         """
+
+        if not self.tokenizer:
+            raise Exception("Tokenizer and model have to be loaded first, please call load_models() first.")
+
+        # convert into proper structure if coming from a csv etc
+        examples["tokens"] = [
+            ast.literal_eval(example) if type(example) is str else example for example in examples["tokens"]
+        ]
+        examples["ner_tags"] = [
+            ast.literal_eval(example) if type(example) is str else example for example in examples["ner_tags"]
+        ]
+
         tokenized_inputs = self.tokenizer(examples["tokens"], truncation=True, is_split_into_words=True)
-        labels = []
-        for i, label in enumerate(examples["ner_tags"]):  # assuming the key in your examples dict is 'ner_tags'
+        all_labels = []
+
+        for i, labels in enumerate(examples["ner_tags"]):
             word_ids = tokenized_inputs.word_ids(batch_index=i)
+
             label_ids = []
             for word_idx in word_ids:
-                # assign label of the word to all subwords
                 if word_idx is not None:
-                    label_ids.append(self.label_to_id[label[word_idx]])  # type: ignore
+                    print(f"label[word_idx]: {labels[word_idx]}", self.label_to_id)  # Debug print
+                    label_ids.append(self.label_to_id[labels[word_idx]])  # type: ignore
                 else:
                     label_ids.append(-100)
-            labels.append(label_ids)
-        tokenized_inputs["labels"] = labels
+            all_labels.append(label_ids)
+        tokenized_inputs["labels"] = all_labels
         return tokenized_inputs
 
     def data_collator(self, examples: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
