@@ -35,13 +35,70 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on summarization tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceSummarizationFineTuner rise \
+        streaming \
+            --input_kafka_topic summarization_data \
+            --input_kafka_cluster_connection_string localhost:9094 \
+            --input_kafka_consumer_group_id geniusrise \
+        streaming \
+            --output_kafka_topic summarization_results \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset_path
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_summarization_bolt:
+            name: "HuggingFaceSummarizationFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset_path"
+            input:
+                type: "streaming"
+                args:
+                    input_topic: "summarization_data"
+                    kafka_servers: "localhost:9094"
+                    group_id: "geniusrise"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "summarization_results"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_summarization_bolt"
+                    namespace: "default"
+                    image: "my_summarization_bolt_image"
+                    replicas: 1
     ```
     """
 
@@ -49,32 +106,66 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
         r"""
         Load a dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "document": "The document content",
-                "summary": "The summary"
-            }
-        - CSV files: Should contain 'document' and 'summary' columns.
-        - Parquet files: Should contain 'document' and 'summary' columns.
-        - JSON files: Should contain an array of objects with 'document' and 'summary' keys.
-        - XML files: Each 'record' element should contain 'document' and 'summary' child elements.
-        - YAML files: Each document should be a dictionary with 'document' and 'summary' keys.
-        - TSV files: Should contain 'document' and 'summary' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'document' and 'summary' columns.
-        - SQLite files (.db): Should contain a table with 'document' and 'summary' columns.
-        - Feather files: Should contain 'document' and 'summary' columns.
-        ```
-
         Args:
-            dataset_path (str): The path to the directory containing the dataset files.
+            dataset_path (str): The path to the dataset directory.
             **kwargs: Additional keyword arguments.
 
         Returns:
-            DatasetDict: The loaded dataset.
+            Dataset | DatasetDict: The loaded dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content", "summary": "The summary"}
+        ```
+
+        ### CSV
+        Should contain 'text' and 'summary' columns.
+        ```csv
+        text,summary
+        "The text content","The summary"
+        ```
+
+        ### Parquet
+        Should contain 'text' and 'summary' columns.
+
+        ### JSON
+        An array of dictionaries with 'text' and 'summary' keys.
+        ```json
+        [{"text": "The text content", "summary": "The summary"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'text' and 'summary' child elements.
+        ```xml
+        <record>
+            <text>The text content</text>
+            <summary>The summary</summary>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'text' and 'summary' keys.
+        ```yaml
+        - text: "The text content"
+          summary: "The summary"
+        ```
+
+        ### TSV
+        Should contain 'text' and 'summary' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' and 'summary' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'text' and 'summary' columns.
+
+        ### Feather
+        Should contain 'text' and 'summary' columns.
         """
+
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)

@@ -43,6 +43,58 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
         output (OutputConfig): The output data.
         state (State): The state manager.
     ```
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceTranslationFineTuner rise \
+        streaming \
+            --output_kafka_topic translation_test \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset max_length=512 origin=en target=fr
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_translation_bolt:
+            name: "HuggingFaceTranslationFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset"
+                max_length: 512
+                origin: "en"
+                target: "fr"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "translation_test"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_translation_bolt"
+                    namespace: "default"
+                    image: "my_translation_bolt_image"
+                    replicas: 1
+    ```
     """
 
     def load_dataset(
@@ -56,29 +108,73 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
         r"""
         Load a dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "translation": {
-                    "en": "English text",
-                    "fr": "French text"
-                }
+        ## Supported Data Formats and Structures for Translation Tasks:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {
+            "translation": {
+                "en": "English text",
+                "fr": "French text"
             }
-        - CSV files: Should contain 'en' and 'fr' columns.
-        - Parquet files: Should contain 'en' and 'fr' columns.
-        - JSON files: Should contain an array of objects with 'en' and 'fr' keys.
-        - XML files: Each 'record' element should contain 'en' and 'fr' child elements.
-        - YAML files: Each document should be a dictionary with 'en' and 'fr' keys.
-        - TSV files: Should contain 'en' and 'fr' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'en' and 'fr' columns.
-        - SQLite files (.db): Should contain a table with 'en' and 'fr' columns.
-        - Feather files: Should contain 'en' and 'fr' columns.
+        }
         ```
+
+        ### CSV
+        Should contain 'en' and 'fr' columns.
+        ```csv
+        en,fr
+        "English text","French text"
+        ```
+
+        ### Parquet
+        Should contain 'en' and 'fr' columns.
+
+        ### JSON
+        An array of dictionaries with 'en' and 'fr' keys.
+        ```json
+        [
+            {
+                "en": "English text",
+                "fr": "French text"
+            }
+        ]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'en' and 'fr' child elements.
+        ```xml
+        <record>
+            <en>English text</en>
+            <fr>French text</fr>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'en' and 'fr' keys.
+        ```yaml
+        - en: "English text"
+          fr: "French text"
+        ```
+
+        ### TSV
+        Should contain 'en' and 'fr' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'en' and 'fr' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'en' and 'fr' columns.
+
+        ### Feather
+        Should contain 'en' and 'fr' columns.
 
         Args:
             dataset_path (str): The path to the directory containing the dataset files.
+            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
+            origin (str, optional): The origin language. Defaults to 'en'.
+            target (str, optional): The target language. Defaults to 'fr'.
             **kwargs: Additional keyword arguments.
 
         Returns:

@@ -37,13 +37,71 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+        **kwargs: Additional keyword arguments.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceLanguageModelingFineTuner rise \
+        batch \
+            --input_bucket my_bucket \
+            --input_folder my_folder \
+        streaming \
+            --output_kafka_topic kafka_test \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset_path masked=True max_length=512
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_fine_tuner:
+            name: "HuggingFaceLanguageModelingFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset_path"
+                masked: True
+                max_length: 512
+            input:
+                type: "batch"
+                args:
+                    bucket: "my_bucket"
+                    folder: "my_folder"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "kafka_test"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_fine_tuner"
+                    namespace: "default"
+                    image: "my_fine_tuner_image"
+                    replicas: 1
     ```
     """
 
@@ -51,32 +109,69 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         r"""
         Load a language modeling dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "text": "The text content"
-            }
-        - CSV files: Should contain a 'text' column.
-        - Parquet files: Should contain a 'text' column.
-        - JSON files: Should be an array of objects with a 'text' key.
-        - XML files: Each 'record' element should contain a 'text' child element.
-        - YAML/YML files: Each document should be a dictionary with a 'text' key.
-        - TSV files: Should contain a 'text' column separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain a 'text' column.
-        - SQLite files (.db): Should contain a table with a 'text' column.
-        - Feather files: Should contain a 'text' column.
-        ```
-
         Args:
             dataset_path (str): The path to the dataset directory.
+            masked (bool, optional): Whether to use masked language modeling. Defaults to True.
+            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
 
         Returns:
             Dataset: The loaded dataset.
 
         Raises:
             Exception: If there was an error loading the dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### Dataset files saved by Hugging Face datasets library
+        The directory should contain 'dataset_info.json' and other related files.
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content"}
+        ```
+
+        ### CSV
+        Should contain 'text' column.
+        ```csv
+        text
+        "The text content"
+        ```
+
+        ### Parquet
+        Should contain 'text' column.
+
+        ### JSON
+        An array of dictionaries with 'text' key.
+        ```json
+        [{"text": "The text content"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'text' child element.
+        ```xml
+        <record>
+            <text>The text content</text>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'text' key.
+        ```yaml
+        - text: "The text content"
+        ```
+
+        ### TSV
+        Should contain 'text' column separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' column.
+
+        ### SQLite (.db)
+        Should contain a table with 'text' column.
+
+        ### Feather
+        Should contain 'text' column.
         """
 
         self.masked = masked

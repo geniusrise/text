@@ -39,13 +39,62 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceQuestionAnsweringFineTuner rise \
+        batch \
+            --input_bucket my_bucket \
+            --input_folder my_folder \
+        batch \
+            --output_bucket my_output_bucket \
+            --output_folder my_output_folder \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset_path max_length=512
     ```
-    Args:
-        model: The pre-trained model to fine-tune.
-        tokenizer: The tokenizer associated with the model.
-        input (BatchInput): The batch input data.
-        output (OutputConfig): The output data.
-        state (State): The state manager.
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_huggingface_bolt:
+            name: "HuggingFaceQuestionAnsweringFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset_path"
+                max_length: 512
+            input:
+                type: "batch"
+                args:
+                    bucket: "my_bucket"
+                    folder: "my_folder"
+            output:
+                type: "batch"
+                args:
+                    bucket: "my_output_bucket"
+                    folder: "my_output_folder"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_huggingface_bolt"
+                    namespace: "default"
+                    image: "my_huggingface_bolt_image"
+                    replicas: 1
     ```
     """
 
@@ -92,39 +141,73 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
         r"""
         Load a dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "context": "The context content",
-                "question": "The question",
-                "answers": {
-                    "answer_start": [int],
-                    "text": [str]
-                }
-            }
-        - CSV files: Should contain 'context', 'question', and 'answers' columns.
-        - Parquet files: Should contain 'context', 'question', and 'answers' columns.
-        - JSON files: Should contain an array of objects with 'context', 'question', and 'answers' keys.
-        - XML files: Each 'record' element should contain 'context', 'question', and 'answers' child elements.
-        - YAML files: Each document should be a dictionary with 'context', 'question', and 'answers' keys.
-        - TSV files: Should contain 'context', 'question', and 'answers' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'context', 'question', and 'answers' columns.
-        - SQLite files (.db): Should contain a table with 'context', 'question', and 'answers' columns.
-        - Feather files: Should contain 'context', 'question', and 'answers' columns.
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"context": "The context content", "question": "The question", "answers": {"answer_start": [int], "text": [str]}}
         ```
 
+        ### CSV
+        Should contain 'context', 'question', and 'answers' columns.
+        ```csv
+        context,question,answers
+        "The context content","The question","{'answer_start': [int], 'text': [str]}"
+        ```
+
+        ### Parquet
+        Should contain 'context', 'question', and 'answers' columns.
+
+        ### JSON
+        An array of dictionaries with 'context', 'question', and 'answers' keys.
+        ```json
+        [{"context": "The context content", "question": "The question", "answers": {"answer_start": [int], "text": [str]}}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'context', 'question', and 'answers' child elements.
+        ```xml
+        <record>
+            <context>The context content</context>
+            <question>The question</question>
+            <answers answer_start="int" text="str"></answers>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'context', 'question', and 'answers' keys.
+        ```yaml
+        - context: "The context content"
+          question: "The question"
+          answers:
+            answer_start: [int]
+            text: [str]
+        ```
+
+        ### TSV
+        Should contain 'context', 'question', and 'answers' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'context', 'question', and 'answers' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'context', 'question', and 'answers' columns.
+
+        ### Feather
+        Should contain 'context', 'question', and 'answers' columns.
+
         Args:
-            dataset_path (str): The path to the directory containing the dataset files.
+            dataset_path (str): The path to the dataset directory.
             pad_on_right (bool): Whether to pad on the right.
             max_length (int): The maximum length of the sequences.
             doc_stride (int): The document stride.
-            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            evaluate_squadv2 (bool): Whether to evaluate using SQuAD v2 metrics.
 
         Returns:
             Dataset: The loaded dataset.
         """
+
         # Update padding, max_length, and doc_stride if provided
         self.pad_on_right = pad_on_right
         self.max_length = max_length if max_length is not None else self.max_length

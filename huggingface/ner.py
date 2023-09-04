@@ -28,7 +28,6 @@ import pyarrow.parquet as pq
 import torch
 import yaml  # type: ignore
 from datasets import Dataset, DatasetDict, load_from_disk
-from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import DataCollatorForTokenClassification, EvalPrediction
 
@@ -39,43 +38,71 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on named entity recognition tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceNamedEntityRecognitionFineTuner rise \
+        batch \
+            --input_bucket my_bucket \
+            --input_folder my_folder \
+        batch \
+            --output_bucket my_output_bucket \
+            --output_folder my_output_folder \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset_path label_list="['O', 'B-PER', 'I-PER']"
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_ner_bolt:
+            name: "HuggingFaceNamedEntityRecognitionFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset_path"
+                label_list: ["O", "B-PER", "I-PER"]
+            input:
+                type: "batch"
+                args:
+                    bucket: "my_bucket"
+                    folder: "my_folder"
+            output:
+                type: "batch"
+                args:
+                    bucket: "my_output_bucket"
+                    folder: "my_output_folder"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_ner_bolt"
+                    namespace: "default"
+                    image: "my_ner_bolt_image"
+                    replicas: 1
     ```
     """
-
-    def __init__(
-        self,
-        input: BatchInput,
-        output: BatchOutput,
-        state: State,
-        **kwargs,
-    ):
-        r"""
-        Initialize the NamedEntityRecognitionFineTuner.
-
-        ```
-        Args:
-            model: The pre-trained model to fine-tune.
-            tokenizer: The tokenizer associated with the model.
-            input (BatchInput): The batch input data.
-            output (BatchOutput): The batch output data.
-            state (State): The state manager.
-            label_list (List[str]): The list of labels for the NER task.
-            **kwargs: Additional arguments for the superclass.
-        ```
-        """
-        super().__init__(
-            input=input,
-            output=output,
-            state=state,
-            **kwargs,
-        )
 
     def load_dataset(
         self, dataset_path: str, label_list: List[str] = [], **kwargs: Any
@@ -83,33 +110,70 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
         r"""
         Load a named entity recognition dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "tokens": ["token1", "token2", ...],
-                "ner_tags": [0, 1, ...]
-            }
-        - CSV files: Should contain 'tokens' and 'ner_tags' columns.
-        - Parquet files: Should contain 'tokens' and 'ner_tags' columns.
-        - JSON files: Should be an array of objects with 'tokens' and 'ner_tags' keys.
-        - XML files: Each 'record' element should contain 'tokens' and 'ner_tags' child elements.
-        - YAML/YML files: Each document should be a dictionary with 'tokens' and 'ner_tags' keys.
-        - TSV files: Should contain 'tokens' and 'ner_tags' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'tokens' and 'ner_tags' columns.
-        - SQLite files (.db): Should contain a table with 'tokens' and 'ner_tags' columns.
-        - Feather files: Should contain 'tokens' and 'ner_tags' columns.
-        ```
-
         Args:
             dataset_path (str): The path to the dataset directory.
+            label_list (List[str], optional): The list of labels for named entity recognition. Defaults to [].
 
         Returns:
             DatasetDict: The loaded dataset.
 
         Raises:
             Exception: If there was an error loading the dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### Hugging Face Dataset
+        Dataset files saved by the Hugging Face datasets library.
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"tokens": ["token1", "token2", ...], "ner_tags": [0, 1, ...]}
+        ```
+
+        ### CSV
+        Should contain 'tokens' and 'ner_tags' columns.
+        ```csv
+        tokens,ner_tags
+        "['token1', 'token2', ...]", "[0, 1, ...]"
+        ```
+
+        ### Parquet
+        Should contain 'tokens' and 'ner_tags' columns.
+
+        ### JSON
+        An array of dictionaries with 'tokens' and 'ner_tags' keys.
+        ```json
+        [{"tokens": ["token1", "token2", ...], "ner_tags": [0, 1, ...]}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'tokens' and 'ner_tags' child elements.
+        ```xml
+        <record>
+            <tokens>token1 token2 ...</tokens>
+            <ner_tags>0 1 ...</ner_tags>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'tokens' and 'ner_tags' keys.
+        ```yaml
+        - tokens: ["token1", "token2", ...]
+          ner_tags: [0, 1, ...]
+        ```
+
+        ### TSV
+        Should contain 'tokens' and 'ner_tags' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'tokens' and 'ner_tags' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'tokens' and 'ner_tags' columns.
+
+        ### Feather
+        Should contain 'tokens' and 'ner_tags' columns.
         """
 
         self.label_list = label_list

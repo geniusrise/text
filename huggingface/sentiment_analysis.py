@@ -35,51 +35,134 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 
+    ## Using Command Line
+    ```bash
+    genius HuggingFaceSentimentAnalysisFineTuner rise \
+        streaming \
+            --input_kafka_topic webhook_test \
+            --input_kafka_cluster_connection_string localhost:9094 \
+            --input_kafka_consumer_group_id geniusrise \
+        streaming \
+            --output_kafka_topic webhook_test \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        listen \
+            --args various=30 arguments=40 that=50 this=70 bolt=63 may=lol have='{"lol": "lel"}'
     ```
+
+    ## Using YAML File
+    ```yaml
+    version: "1"
+    bolts:
+        my_fine_tuner:
+            name: "HuggingFaceSentimentAnalysisFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "/path/to/dataset"
+            input:
+                type: "batch"
+                args:
+                    bucket: "my-bucket"
+                    folder: "my-folder"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "webhook_test"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_fine_tuner"
+                    namespace: "default"
+                    image: "my_fine_tuner_image"
+                    replicas: 1
+    ```
+
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
-    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dataset | DatasetDict:
         r"""
-            Load a dataset from a directory.
-
-            Args:
-                dataset_path (str): The path to the directory containing the dataset files.
-
-            Returns:
-                DatasetDict: The loaded dataset.
-
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "text": "The text content",
-                "label": "The label"
-            }
-        - CSV files: Should contain 'text' and 'label' columns.
-        - Parquet files: Should contain 'text' and 'label' columns.
-        - JSON files: Should contain an array of objects with 'text' and 'label' keys.
-        - XML files: Each 'record' element should contain 'text' and 'label' child elements.
-        - YAML files: Each document should be a dictionary with 'text' and 'label' keys.
-        - TSV files: Should contain 'text' and 'label' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'text' and 'label' columns.
-        - SQLite files (.db): Should contain a table with 'text' and 'label' columns.
-        - Feather files: Should contain 'text' and 'label' columns.
-        ```
+        Load a dataset from a directory.
 
         Args:
-            model: The pre-trained model to fine-tune.
-            tokenizer: The tokenizer associated with the model.
-            input (BatchInput): The batch input data.
-            output (OutputConfig): The output data.
-            state (State): The state manager.
+            dataset_path (str): The path to the dataset directory.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Dataset | DatasetDict: The loaded dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content", "label": "The label"}
+        ```
+
+        ### CSV
+        Should contain 'text' and 'label' columns.
+        ```csv
+        text,label
+        "The text content","The label"
+        ```
+
+        ### Parquet
+        Should contain 'text' and 'label' columns.
+
+        ### JSON
+        An array of dictionaries with 'text' and 'label' keys.
+        ```json
+        [{"text": "The text content", "label": "The label"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'text' and 'label' child elements.
+        ```xml
+        <record>
+            <text>The text content</text>
+            <label>The label</label>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'text' and 'label' keys.
+        ```yaml
+        - text: "The text content"
+          label: "The label"
+        ```
+
+        ### TSV
+        Should contain 'text' and 'label' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' and 'label' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'text' and 'label' columns.
+
+        ### Feather
+        Should contain 'text' and 'label' columns.
         """
         if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
             dataset = load_from_disk(dataset_path)

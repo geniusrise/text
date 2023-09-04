@@ -35,13 +35,67 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceClassificationFineTuner rise \
+        batch \
+            --input_folder my_dataset \
+        streaming \
+            --output_kafka_topic my_topic \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset max_length=512
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_fine_tuner:
+            name: "HuggingFaceClassificationFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset"
+                max_length: 512
+            input:
+                type: "batch"
+                args:
+                    folder: "my_dataset"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "my_topic"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_fine_tuner"
+                    namespace: "default"
+                    image: "my_fine_tuner_image"
+                    replicas: 1
     ```
     """
 
@@ -49,30 +103,67 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         r"""
         Load a classification dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "text": "The text content",
-                "label": "The label"
-            }
-        - XML files: Each 'record' element should contain 'text' and 'label' child elements.
-        - YAML files: Each document should be a dictionary with 'text' and 'label' keys.
-        - TSV files: Should contain 'text' and 'label' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'text' and 'label' columns.
-        - SQLite files (.db): Should contain a table with 'text' and 'label' columns.
-        - Feather files: Should contain 'text' and 'label' columns.
-        ```
-
         Args:
             dataset_path (str): The path to the dataset directory.
+            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
 
         Returns:
             Dataset: The loaded dataset.
 
         Raises:
             Exception: If there was an error loading the dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content", "label": "The label"}
+        ```
+
+        ### CSV
+        Should contain 'text' and 'label' columns.
+        ```csv
+        text,label
+        "The text content","The label"
+        ```
+
+        ### Parquet
+        Should contain 'text' and 'label' columns.
+
+        ### JSON
+        An array of dictionaries with 'text' and 'label' keys.
+        ```json
+        [{"text": "The text content", "label": "The label"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'text' and 'label' child elements.
+        ```xml
+        <record>
+            <text>The text content</text>
+            <label>The label</label>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'text' and 'label' keys.
+        ```yaml
+        - text: "The text content"
+        label: "The label"
+        ```
+
+        ### TSV
+        Should contain 'text' and 'label' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' and 'label' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'text' and 'label' columns.
+
+        ### Feather
+        Should contain 'text' and 'label' columns.
         """
 
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)

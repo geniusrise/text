@@ -40,30 +40,71 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceCommonsenseReasoningFineTuner rise \
+        streaming \
+            --input_kafka_topic commonsense_test \
+            --input_kafka_cluster_connection_string localhost:9094 \
+            --input_kafka_consumer_group_id commonsense_group \
+        streaming \
+            --output_kafka_topic commonsense_output \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database commonsense_db \
+            --postgres_table state \
+        load_dataset \
+            --args dataset_path=my_dataset max_length=512
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_commonsense_bolt:
+            name: "HuggingFaceCommonsenseReasoningFineTuner"
+            method: "load_dataset"
+            args:
+                dataset_path: "my_dataset"
+                max_length: 512
+            input:
+                type: "streaming"
+                args:
+                    input_topic: "commonsense_test"
+                    kafka_servers: "localhost:9094"
+                    group_id: "commonsense_group"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "commonsense_output"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "commonsense_db"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_commonsense_bolt"
+                    namespace: "default"
+                    image: "my_commonsense_bolt_image"
+                    replicas: 1
+    ```
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Union[Dataset, DatasetDict, None]:
         r"""
         Load a commonsense reasoning dataset from a directory.
-
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library.
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "premise": "The premise text",
-                "hypothesis": "The hypothesis text",
-                "label": 0 or 1 or 2
-            }
-        - CSV files: Should contain 'premise', 'hypothesis', and 'label' columns.
-        - Parquet files: Should contain 'premise', 'hypothesis', and 'label' columns.
-        - JSON files: Should be an array of objects with 'premise', 'hypothesis', and 'label' keys.
-        - XML files: Each 'record' element should contain 'premise', 'hypothesis', and 'label' child elements.
-        - YAML/YML files: Each document should be a dictionary with 'premise', 'hypothesis', and 'label' keys.
-        - TSV files: Should contain 'premise', 'hypothesis', and 'label' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'premise', 'hypothesis', and 'label' columns.
-        - Feather files: Should contain 'premise', 'hypothesis', and 'label' columns.
-        ```
 
         Args:
             dataset_path (str): The path to the dataset directory.
@@ -74,7 +115,65 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
 
         Raises:
             Exception: If there was an error loading the dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### Hugging Face Dataset
+        Dataset files saved by the Hugging Face datasets library.
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"premise": "The premise text", "hypothesis": "The hypothesis text", "label": 0 or 1 or 2}
+        ```
+
+        ### CSV
+        Should contain 'premise', 'hypothesis', and 'label' columns.
+        ```csv
+        premise,hypothesis,label
+        "The premise text","The hypothesis text",0
+        ```
+
+        ### Parquet
+        Should contain 'premise', 'hypothesis', and 'label' columns.
+
+        ### JSON
+        An array of dictionaries with 'premise', 'hypothesis', and 'label' keys.
+        ```json
+        [{"premise": "The premise text", "hypothesis": "The hypothesis text", "label": 0}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'premise', 'hypothesis', and 'label' child elements.
+        ```xml
+        <record>
+            <premise>The premise text</premise>
+            <hypothesis>The hypothesis text</hypothesis>
+            <label>0</label>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'premise', 'hypothesis', and 'label' keys.
+        ```yaml
+        - premise: "The premise text"
+          hypothesis: "The hypothesis text"
+          label: 0
+        ```
+
+        ### TSV
+        Should contain 'premise', 'hypothesis', and 'label' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'premise', 'hypothesis', and 'label' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'premise', 'hypothesis', and 'label' columns.
+
+        ### Feather
+        Should contain 'premise', 'hypothesis', and 'label' columns.
         """
+
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)

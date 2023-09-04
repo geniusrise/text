@@ -39,13 +39,76 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
 
-    ```
     Args:
         model: The pre-trained model to fine-tune.
         tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
+
+    ## Using geniusrise to invoke via command line
+    ```bash
+    genius HuggingFaceInstructionTuningFineTuner rise \
+        streaming \
+            --input_kafka_topic webhook_test \
+            --input_kafka_cluster_connection_string localhost:9094 \
+            --input_kafka_consumer_group_id geniusrise \
+        streaming \
+            --output_kafka_topic webhook_test \
+            --output_kafka_cluster_connection_string localhost:9094 \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise \
+            --postgres_table state \
+        listen \
+            --args various=30 arguments=40 that=50 this=70 bolt=63 may=lol have='{"lol": "lel"}'
+    ```
+
+    ## Using geniusrise to invoke via YAML file
+    ```yaml
+    version: "1"
+    bolts:
+        my_instruction_bolt:
+            name: "HuggingFaceInstructionTuningFineTuner"
+            method: "listen"
+            args:
+                various: 30
+                arguments: 40
+                that: 50
+                this: 70
+                bolt: 63
+                may: "lol"
+                have: '{"lol": "lel"}'
+            input:
+                type: "streaming"
+                args:
+                    input_topic: "webhook_test"
+                    kafka_servers: "localhost:9094"
+                    group_id: "geniusrise"
+            output:
+                type: "streaming"
+                args:
+                    output_topic: "webhook_test"
+                    kafka_servers: "localhost:9094"
+            state:
+                type: "postgres"
+                args:
+                    postgres_host: "127.0.0.1"
+                    postgres_port: 5432
+                    postgres_user: "postgres"
+                    postgres_password: "postgres"
+                    postgres_database: "geniusrise"
+                    postgres_table: "state"
+            deploy:
+                type: "k8s"
+                args:
+                    name: "my_instruction_bolt"
+                    namespace: "default"
+                    image: "my_instruction_bolt_image"
+                    replicas: 1
     ```
     """
 
@@ -53,34 +116,69 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
         r"""
         Load an instruction tuning dataset from a directory.
 
-        ```
-        The directory can contain any of the following file types:
-        - Dataset files saved by the Hugging Face datasets library (.arrow).
-        - JSONL files: Each line is a JSON object representing an example. Structure:
-            {
-                "instruction": "The instruction",
-                "output": "The output"
-            }
-        - CSV files: Should contain 'instruction' and 'output' columns.
-        - Parquet files: Should contain 'instruction' and 'output' columns.
-        - JSON files: Should be an array of objects with 'instruction' and 'output' keys.
-        - XML files: Each 'record' element should contain 'instruction' and 'output' child elements.
-        - YAML/YML files: Each document should be a dictionary with 'instruction' and 'output' keys.
-        - TSV files: Should contain 'instruction' and 'output' columns separated by tabs.
-        - Excel files (.xls, .xlsx): Should contain 'instruction' and 'output' columns.
-        - SQLite files (.db): Should contain a table with 'instruction' and 'output' columns.
-        - Feather files: Should contain 'instruction' and 'output' columns.
-        ```
-
         Args:
             dataset_path (str): The path to the dataset directory.
+            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
 
         Returns:
             Dataset: The loaded dataset.
 
         Raises:
             Exception: If there was an error loading the dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"instruction": "The instruction", "output": "The output"}
+        ```
+
+        ### CSV
+        Should contain 'instruction' and 'output' columns.
+        ```csv
+        instruction,output
+        "The instruction","The output"
+        ```
+
+        ### Parquet
+        Should contain 'instruction' and 'output' columns.
+
+        ### JSON
+        An array of dictionaries with 'instruction' and 'output' keys.
+        ```json
+        [{"instruction": "The instruction", "output": "The output"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'instruction' and 'output' child elements.
+        ```xml
+        <record>
+            <instruction>The instruction</instruction>
+            <output>The output</output>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'instruction' and 'output' keys.
+        ```yaml
+        - instruction: "The instruction"
+          output: "The output"
+        ```
+
+        ### TSV
+        Should contain 'instruction' and 'output' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'instruction' and 'output' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'instruction' and 'output' columns.
+
+        ### Feather
+        Should contain 'instruction' and 'output' columns.
         """
+
         try:
             logging.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
