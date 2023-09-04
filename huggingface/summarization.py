@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 import yaml  # type: ignore
-from datasets import DatasetDict, load_from_disk, load_metric
+from datasets import DatasetDict, load_from_disk, load_metric, Dataset
 from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorForSeq2Seq, EvalPrediction
@@ -122,7 +122,7 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
-                dataset = DatasetDict({"train": pd.DataFrame(data)})
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
