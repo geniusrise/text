@@ -100,7 +100,7 @@ class HuggingFaceFineTuner(Bolt):
             if self.eval:
                 self.eval_dataset = self.load_dataset(eval_dataset_path, **kwargs)
         except Exception as e:
-            self.log.error(f"Failed to preprocess data: {e}")
+            self.log.exception(f"Failed to preprocess data: {e}")
             raise
 
     def load_models(self):
@@ -123,7 +123,7 @@ class HuggingFaceFineTuner(Bolt):
                     self.tokenizer_name
                 )
         except Exception as e:
-            self.log.error(f"Failed to load model: {e}")
+            self.log.exception(f"Failed to load model: {e}")
             raise
 
     def upload_to_hf_hub(self):
@@ -146,7 +146,7 @@ class HuggingFaceFineTuner(Bolt):
                     create_pr=self.hf_create_pr,
                 )
         except Exception as e:
-            self.log.error(f"Failed to upload model to huggingface hub: {e}")
+            self.log.exception(f"Failed to upload model to huggingface hub: {e}")
             raise
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]] | Dict[str, float]:
@@ -271,7 +271,7 @@ class HuggingFaceFineTuner(Bolt):
             if self.hf_repo_id:
                 self.upload_to_hf_hub()
         except Exception as e:
-            self.log.error(f"Failed to fine tune model: {e}")
+            self.log.exception(f"Failed to fine tune model: {e}")
             self.state.set_state(self.id, {"success": False, "exception": str(e)})
             raise
         self.state.set_state(self.id, {"success": True})

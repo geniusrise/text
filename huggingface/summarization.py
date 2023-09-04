@@ -132,8 +132,8 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
             return tokenized_dataset
 
         except Exception as e:
-            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
-            return None
+            self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            raise
 
     def prepare_train_features(self, examples: Dict[str, Union[str, List[str]]]) -> Optional[Dict[str, List[int]]]:
         """
@@ -153,8 +153,8 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
             tokenized_inputs = self.tokenizer(examples["document"], truncation=True, padding=False)
             tokenized_targets = self.tokenizer(examples["summary"], truncation=True, padding=False)
         except Exception as e:
-            self.log.error(f"Error tokenizing examples: {e}")
-            return None
+            self.log.exception(f"Error tokenizing examples: {e}")
+            raise
 
         # Prepare the labels
         tokenized_inputs["labels"] = tokenized_targets["input_ids"]

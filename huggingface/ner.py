@@ -176,7 +176,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
 
             return tokenized_dataset
         except Exception as e:
-            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
 
     def prepare_train_features(

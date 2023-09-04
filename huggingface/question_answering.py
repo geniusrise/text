@@ -236,8 +236,8 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
                 padding="max_length",
             )
         except Exception as e:
-            self.log.error(f"Error tokenizing examples: {e}")
-            return None
+            self.log.exception(f"Error tokenizing examples: {e}")
+            raise
 
         # Since one example might give us several features if it has a long context, we need a map from a feature to
         # its corresponding example. This key gives us just that.
