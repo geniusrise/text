@@ -14,20 +14,23 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import tempfile
-import pytest
 import json
+import os
 import sqlite3
+import tempfile
 import xml.etree.ElementTree as ET
-import yaml  # type: ignore
+
 import numpy as np
 import pandas as pd
+import pytest
+import yaml  # type: ignore
 from datasets import Dataset
-from pyarrow import feather, parquet as pq
-from huggingface.sentiment_analysis import HuggingFaceSentimentAnalysisFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
+from pyarrow import feather
+from pyarrow import parquet as pq
 from transformers import EvalPrediction
+
+from huggingface.sentiment_analysis import HuggingFaceSentimentAnalysisFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -75,7 +78,19 @@ def create_dataset_in_format(directory, ext):
 
 # Fixtures for each file type
 @pytest.fixture(
-    params=["huggingface", "csv", "json", "jsonl", "parquet", "xml", "yaml", "tsv", "xlsx", "db", "feather"]
+    params=[
+        "huggingface",
+        "csv",
+        "json",
+        "jsonl",
+        "parquet",
+        "xml",
+        "yaml",
+        "tsv",
+        "xlsx",
+        "db",
+        "feather",
+    ]
 )
 def dataset_file(request, tmpdir):
     ext = request.param

@@ -16,9 +16,9 @@
 
 import json
 import os
+import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Union
-import sqlite3
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -78,7 +78,11 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)
-                return dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
+                return dataset.map(
+                    self.prepare_train_features,
+                    batched=True,
+                    remove_columns=dataset.column_names,
+                )
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -126,7 +130,11 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
                         data.extend(df.to_dict("records"))
 
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
-                return dataset.map(self.prepare_train_features, batched=True, remove_columns=dataset.column_names)
+                return dataset.map(
+                    self.prepare_train_features,
+                    batched=True,
+                    remove_columns=dataset.column_names,
+                )
 
         except Exception as e:
             print(f"Error loading dataset: {e}")

@@ -14,15 +14,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ast
 import json
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Union
-import ast
+
+import evaluate
 import numpy as np
 import pandas as pd
-import evaluate
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State

@@ -26,10 +26,7 @@ import yaml  # type: ignore
 from datasets import DatasetDict, load_from_disk, load_metric
 from pyarrow import feather
 from pyarrow import parquet as pq
-from transformers import (
-    DataCollatorForSeq2Seq,
-    EvalPrediction,
-)
+from transformers import DataCollatorForSeq2Seq, EvalPrediction
 
 from .base import HuggingFaceFineTuner
 

@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ast
 import json
 import os
-import ast
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Union
@@ -30,10 +30,7 @@ import yaml  # type: ignore
 from datasets import Dataset, DatasetDict, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from transformers import (
-    DataCollatorForTokenClassification,
-    EvalPrediction,
-)
+from transformers import DataCollatorForTokenClassification, EvalPrediction
 
 from .base import HuggingFaceFineTuner
 

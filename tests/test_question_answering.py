@@ -22,7 +22,7 @@ import pandas as pd
 import json
 import sqlite3
 import xml.etree.ElementTree as ET
-import yaml
+import yaml  # type: ignore
 from datasets import Dataset
 from pyarrow import feather, parquet as pq
 from huggingface import HuggingFaceQuestionAnsweringFineTuner

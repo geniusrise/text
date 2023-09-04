@@ -23,11 +23,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import (
-    EvalPrediction,
-    Trainer,
-    TrainingArguments,
-)
+from transformers import EvalPrediction, Trainer, TrainingArguments
 
 
 class HuggingFaceFineTuner(Bolt):

@@ -82,7 +82,10 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
 
         def tokenize_function(examples):
             tokenized_data = self.tokenizer(
-                examples["text"], padding="max_length", truncation=True, max_length=self.max_length
+                examples["text"],
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_length,
             )
             tokenized_data["label"] = [self.label_to_id[label] for label in examples["label"]]
             return tokenized_data

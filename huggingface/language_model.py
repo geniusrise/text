@@ -20,16 +20,15 @@ import os
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional
-import numpy as np
-from nltk.translate.bleu_score import corpus_bleu
 
+import numpy as np
 import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
-from transformers import EvalPrediction
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk, load_metric
-from transformers import DataCollatorForLanguageModeling
+from nltk.translate.bleu_score import corpus_bleu
+from transformers import DataCollatorForLanguageModeling, EvalPrediction
 
 from .base import HuggingFaceFineTuner
 
@@ -239,7 +238,8 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
 
         # Compute BLEU score using sacrebleu
         sacrebleu_score = load_metric("sacrebleu").compute(
-            predictions=flat_predictions_text, references=[[ref] for ref in flat_labels_text]
+            predictions=flat_predictions_text,
+            references=[[ref] for ref in flat_labels_text],
         )
         # Compute BLEU score
         bleu_score = corpus_bleu(labels_text, predictions_text)

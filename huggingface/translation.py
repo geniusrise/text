@@ -14,16 +14,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ast
 import json
 import os
-import ast
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Optional
 
 import pandas as pd
 import yaml  # type: ignore
-from datasets import DatasetDict, load_from_disk, Dataset
+from datasets import Dataset, DatasetDict, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorForSeq2Seq
@@ -46,7 +46,12 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
     """
 
     def load_dataset(
-        self, dataset_path: str, max_length: int = 512, origin: str = "en", target: str = "fr", **kwargs: Any
+        self,
+        dataset_path: str,
+        max_length: int = 512,
+        origin: str = "en",
+        target: str = "fr",
+        **kwargs: Any,
     ) -> Optional[DatasetDict]:
         r"""
         Load a dataset from a directory.
