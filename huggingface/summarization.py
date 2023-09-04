@@ -18,7 +18,7 @@ import json
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -27,10 +27,8 @@ from datasets import DatasetDict, load_from_disk, load_metric
 from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import (
-    AdamW,
     DataCollatorForSeq2Seq,
     EvalPrediction,
-    get_linear_schedule_with_warmup,
 )
 
 from .base import HuggingFaceFineTuner
@@ -150,6 +148,9 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
         Returns:
             dict: The processed features.
         """
+        if not self.tokenizer:
+            raise Exception("No tokenizer found, please call load_models first.")
+
         # Tokenize the examples
         try:
             tokenized_inputs = self.tokenizer(examples["document"], truncation=True, padding=False)
@@ -187,6 +188,9 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
         Returns:
             dict: A dictionary with ROUGE-1, ROUGE-2, and ROUGE-L scores.
         """
+        if not self.tokenizer:
+            raise Exception("No tokenizer found, please call load_models first.")
+
         rouge = load_metric("rouge")
 
         preds = pred.predictions
@@ -218,19 +222,3 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
             "rouge2": rouge_output["rouge2"].mid.fmeasure,
             "rougeL": rouge_output["rougeL"].mid.fmeasure,
         }
-
-    def create_optimizer_and_scheduler(self, num_training_steps: int) -> Tuple[AdamW, Any]:
-        """
-        Create an optimizer and a learning rate scheduler.
-
-        Args:
-            num_training_steps (int): The total number of training steps.
-
-        Returns:
-            tuple: The optimizer and the scheduler.
-        """
-        optimizer = AdamW(self.model.parameters(), lr=5e-5)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
-        )
-        return optimizer, scheduler

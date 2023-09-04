@@ -16,13 +16,14 @@
 
 import json
 import os
+import ast
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Optional
 
 import pandas as pd
 import yaml  # type: ignore
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict, load_from_disk, Dataset
 from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorForSeq2Seq
@@ -44,7 +45,9 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
     ```
     """
 
-    def load_dataset(self, dataset_path: str, **kwargs: Any) -> Optional[DatasetDict]:
+    def load_dataset(
+        self, dataset_path: str, max_length: int = 512, origin: str = "en", target: str = "fr", **kwargs: Any
+    ) -> Optional[DatasetDict]:
         r"""
         Load a dataset from a directory.
 
@@ -76,6 +79,10 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
         Returns:
             DatasetDict: The loaded dataset.
         """
+        self.max_length = max_length
+        self.origin = origin
+        self.target = target
+
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)
@@ -102,9 +109,9 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
                         tree = ET.parse(filepath)
                         root = tree.getroot()
                         for record in root.findall("record"):
-                            en = record.find("en").text  # type: ignore
-                            fr = record.find("fr").text  # type: ignore
-                            data.append({"translation": {"en": en, "fr": fr}})
+                            en = record.find(self.origin).text  # type: ignore
+                            fr = record.find(self.target).text  # type: ignore
+                            data.append({"translation": {self.origin: en, self.target: fr}})
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
                             yaml_data = yaml.safe_load(f)
@@ -117,13 +124,13 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = "SELECT en, fr FROM dataset_table;"
+                        query = f"SELECT {self.origin}, {self.target} FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
-                dataset = DatasetDict({"train": pd.DataFrame(data)})
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
@@ -133,8 +140,8 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
             return tokenized_dataset
 
         except Exception as e:
-            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
-            return None
+            self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            raise
 
     def prepare_train_features(self, examples):
         """
@@ -146,18 +153,28 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
         Returns:
             dict: The processed features.
         """
+
         # Tokenize the examples
+        if "translation" in examples:
+            examples["translation"] = [ast.literal_eval(e) if type(e) is str else e for e in examples["translation"]]
+
+            origins = [x[self.origin] for x in examples["translation"]]
+            targets = [x[self.target] for x in examples["translation"]]
+        elif self.origin in examples:
+            origins = examples[self.origin]
+            targets = examples[self.target]
+
         tokenized_inputs = self.tokenizer(
-            [x["en"] for x in examples["translation"]],
+            origins,
             truncation=True,
             padding="max_length",
-            max_length=512,
+            max_length=self.max_length,
         )
         tokenized_targets = self.tokenizer(
-            [x["fr"] for x in examples["translation"]],
+            targets,
             truncation=True,
             padding="max_length",
-            max_length=512,
+            max_length=self.max_length,
         )
 
         # Replace padding token id by -100

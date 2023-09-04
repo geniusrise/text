@@ -146,6 +146,9 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
         Returns:
             Dict[str, Union[List[int], int]]: The processed features.
         """
+        if not self.tokenizer:
+            raise Exception("No tokenizer found, please call load_models first.")
+
         tokenized_inputs = self.tokenizer(examples["text"], truncation=True, padding=False)
         tokenized_inputs["labels"] = examples["label"]
         return tokenized_inputs

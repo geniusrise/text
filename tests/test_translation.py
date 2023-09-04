@@ -16,62 +16,111 @@
 
 import os
 import tempfile
-
-import numpy as np
 import pytest
+import json
+import sqlite3
+import xml.etree.ElementTree as ET
+import yaml  # type: ignore
 from datasets import Dataset
-from huggingface.translation import HuggingFaceTranslationFineTuner
+import pandas as pd
+from pyarrow import feather, parquet as pq
+import numpy as np
+from huggingface import HuggingFaceTranslationFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import EvalPrediction, MarianMTModel, MarianTokenizer
+from transformers import EvalPrediction
 
 
-def create_synthetic_data(size: int, temp_dir: str):
-    # Generate synthetic data
-    data = {
-        "translation": [
-            {
+# Helper function to create synthetic data in different formats
+def create_dataset_in_format(directory, ext):
+    os.makedirs(directory, exist_ok=True)
+    data = [
+        {
+            "translation": {
                 "en": f"This is a synthetic text example {i}",
                 "fr": f"C'est un exemple de texte synthétique {i}",
             }
-            for i in range(size)
-        ],
-    }
+        }
+        for i in range(10)
+    ]
+    df = pd.DataFrame(data)
 
-    # Create a Hugging Face Dataset object from the data
-    dataset = Dataset.from_dict(data)
+    if ext == "huggingface":
+        dataset = Dataset.from_pandas(df)
+        dataset.save_to_disk(directory)
+    elif ext == "csv":
+        df.to_csv(os.path.join(directory, "data.csv"), index=False)
+    elif ext == "jsonl":
+        with open(os.path.join(directory, "data.jsonl"), "w") as f:
+            for item in data:
+                f.write(json.dumps(item) + "\n")
+    elif ext == "parquet":
+        pq.write_table(feather.Table.from_pandas(df), os.path.join(directory, "data.parquet"))
+    elif ext == "json":
+        with open(os.path.join(directory, "data.json"), "w") as f:
+            json.dump(data, f)
+    elif ext == "xml":
+        root = ET.Element("root")
+        for item in data:
+            record = ET.SubElement(root, "record")
+            ET.SubElement(record, "en").text = str(item["translation"]["en"])
+            ET.SubElement(record, "fr").text = str(item["translation"]["fr"])
+        tree = ET.ElementTree(root)
+        tree.write(os.path.join(directory, "data.xml"))
+    elif ext == "yaml":
+        with open(os.path.join(directory, "data.yaml"), "w") as f:
+            yaml.dump(data, f)
+    elif ext == "tsv":
+        df.to_csv(os.path.join(directory, "data.tsv"), index=False, sep="\t")
+    elif ext == "xlsx":
+        df.to_excel(os.path.join(directory, "data.xlsx"), index=False)
+    elif ext == "db":
+        conn = sqlite3.connect(os.path.join(directory, "data.db"))
+        ens = [x["translation"]["en"] for x in data]
+        frs = [x["translation"]["fr"] for x in data]
+        pd.DataFrame({"en": ens, "fr": frs}).to_sql("dataset_table", conn, if_exists="replace", index=False)
+        conn.close()
+    elif ext == "feather":
+        feather.write_feather(df, os.path.join(directory, "data.feather"))
+    else:
+        raise ValueError(f"Unsupported file extension: {ext}")
 
-    # Save the dataset to disk
-    dataset.save_to_disk(os.path.join(temp_dir, "train"))
-    dataset.save_to_disk(os.path.join(temp_dir, "eval"))
+
+# Fixtures for each file type
+@pytest.fixture(
+    params=["huggingface", "csv", "json", "jsonl", "parquet", "xml", "yaml", "tsv", "xlsx", "db", "feather"]
+)
+def dataset_file(request, tmpdir):
+    ext = request.param
+    create_dataset_in_format(tmpdir + "/train", ext)
+    create_dataset_in_format(tmpdir + "/eval", ext)
+    return tmpdir, ext
 
 
 @pytest.fixture
 def translation_bolt():
-    model = MarianMTModel.from_pretrained("Helsinki-NLP/opus-mt-en-fr")
-    tokenizer = MarianTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-fr")
-
-    # Use temporary directories for input and output
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-
-    # Create synthetic data
-    create_synthetic_data(100, input_dir)
 
     input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
     state = InMemoryState()
 
-    return HuggingFaceTranslationFineTuner(
-        model=model,
-        tokenizer=tokenizer,
+    klass = HuggingFaceTranslationFineTuner(
         input=input,
         output=output,
         state=state,
         eval=True,
     )
+    klass.model_class = "MarianMTModel"
+    klass.model_name = "Helsinki-NLP/opus-mt-en-fr"
+    klass.tokenizer_class = "MarianTokenizer"
+    klass.tokenizer_name = "Helsinki-NLP/opus-mt-en-fr"
+    return klass
 
 
 def test_translation_bolt_init(translation_bolt):
+    translation_bolt.load_models()
+
     assert translation_bolt.model is not None
     assert translation_bolt.tokenizer is not None
     assert translation_bolt.input is not None
@@ -79,40 +128,40 @@ def test_translation_bolt_init(translation_bolt):
     assert translation_bolt.state is not None
 
 
-def test_load_dataset(translation_bolt):
-    train_dataset = translation_bolt.load_dataset(translation_bolt.input.get() + "/train")
-    assert train_dataset is not None
+def test_load_dataset_all_formats(translation_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    dataset_path = os.path.join(tmpdir, "train")
 
-    eval_dataset = translation_bolt.load_dataset(translation_bolt.input.get() + "/eval")
-    assert eval_dataset is not None
+    translation_bolt.load_models()
+    dataset = translation_bolt.load_dataset(dataset_path)
+    assert dataset is not None
+    assert len(dataset) == 10
+
+
+def test_translation_bolt_fine_tune(translation_bolt, dataset_file):
+    tmpdir, ext = dataset_file
+    translation_bolt.input.input_folder = tmpdir
+
+    translation_bolt.fine_tune(
+        model_name="Helsinki-NLP/opus-mt-en-fr",
+        tokenizer_name="Helsinki-NLP/opus-mt-en-fr",
+        model_class="MarianMTModel",
+        tokenizer_class="MarianTokenizer",
+        num_train_epochs=1,
+        per_device_train_batch_size=1,
+    )
+    output_dir = translation_bolt.output.output_folder
+    assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
+    assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
 
 
 def test_translation_bolt_compute_metrics(translation_bolt):
-    # Mocking an EvalPrediction object
     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
     labels = np.array([0, 1])
     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-
     metrics = translation_bolt.compute_metrics(eval_pred)
-
     assert "accuracy" in metrics
     assert "precision" in metrics
     assert "recall" in metrics
     assert "f1" in metrics
-
-
-def test_translation_bolt_create_optimizer_and_scheduler(translation_bolt):
-    optimizer, scheduler = translation_bolt.create_optimizer_and_scheduler(10)
-    assert optimizer is not None
-    assert scheduler is not None
-
-
-def test_translation_bolt_fine_tune(translation_bolt):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Fine-tuning with minimum epochs and batch size for speed
-        translation_bolt.fine_tune(output_dir=tmpdir, num_train_epochs=1, per_device_train_batch_size=1)
-
-        # Check that model files are created in the output directory
-        assert os.path.isfile(os.path.join(tmpdir, "pytorch_model.bin"))
-        assert os.path.isfile(os.path.join(tmpdir, "config.json"))
-        assert os.path.isfile(os.path.join(tmpdir, "training_args.bin"))
