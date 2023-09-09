@@ -39,6 +39,11 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
+    Args:
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
+
     ## Using geniusrise to invoke via command line
     ```bash
     genius HuggingFaceQuestionAnsweringFineTuner rise \

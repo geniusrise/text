@@ -38,12 +38,9 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
     Args:
-        model: The pre-trained model to fine-tune.
-        tokenizer: The tokenizer associated with the model.
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
-        **kwargs: Additional keyword arguments.
 
     ## Using geniusrise to invoke via command line
     ```bash

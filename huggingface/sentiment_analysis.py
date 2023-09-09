@@ -35,6 +35,11 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on sentiment analysis tasks.
 
+    Args:
+        input (BatchInput): The batch input data.
+        output (OutputConfig): The output data.
+        state (State): The state manager.
+
     ## Using Command Line
     ```bash
     genius HuggingFaceSentimentAnalysisFineTuner rise \
