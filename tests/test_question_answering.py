@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 import yaml  # type: ignore
 from datasets import Dataset
 from pyarrow import feather, parquet as pq
-from huggingface import HuggingFaceQuestionAnsweringFineTuner
+from geniusrise_huggingface import HuggingFaceQuestionAnsweringFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
 

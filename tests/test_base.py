@@ -23,7 +23,7 @@ from datasets import load_dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
 
-from huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class TestHuggingFaceFineTuner(HuggingFaceFineTuner):

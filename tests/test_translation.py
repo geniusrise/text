@@ -30,7 +30,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from huggingface import HuggingFaceTranslationFineTuner
+from geniusrise_huggingface import HuggingFaceTranslationFineTuner
 
 
 # Helper function to create synthetic data in different formats
