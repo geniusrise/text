@@ -28,7 +28,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorForSeq2Seq, EvalPrediction
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
