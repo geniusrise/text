@@ -31,7 +31,7 @@ from datasets import Dataset, DatasetDict, load_from_disk
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import DataCollatorForTokenClassification, EvalPrediction
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):

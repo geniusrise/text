@@ -32,7 +32,7 @@ from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):

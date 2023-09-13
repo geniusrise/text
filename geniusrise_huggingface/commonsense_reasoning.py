@@ -27,7 +27,7 @@ from datasets import Dataset, DatasetDict, load_from_disk
 from pyarrow import feather
 from transformers import DataCollatorWithPadding
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):

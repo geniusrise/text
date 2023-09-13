@@ -30,7 +30,7 @@ from datasets import Dataset, load_from_disk, load_metric
 from nltk.translate.bleu_score import corpus_bleu
 from transformers import DataCollatorForLanguageModeling, EvalPrediction
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):

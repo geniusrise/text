@@ -32,7 +32,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from pyarrow import feather
 from transformers import EvalPrediction
 
-from .base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
 class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
