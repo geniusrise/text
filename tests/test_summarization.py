@@ -20,7 +20,7 @@ import pytest
 import numpy as np
 from datasets import Dataset
 import pandas as pd
-from huggingface.summarization import HuggingFaceSummarizationFineTuner
+from geniusrise_huggingface.summarization import HuggingFaceSummarizationFineTuner
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction
 import json
