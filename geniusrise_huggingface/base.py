@@ -189,6 +189,7 @@ class HuggingFaceFineTuner(Bolt):
         hf_token: Optional[str] = None,
         hf_private: bool = True,
         hf_create_pr: bool = False,
+        data_extractor_lambda: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -207,6 +208,7 @@ class HuggingFaceFineTuner(Bolt):
             hf_token (str, optional): The Hugging Face token. Defaults to None.
             hf_private (bool, optional): Whether to make the repo private. Defaults to True.
             hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
+            data_extractor_lambda (str, optional): A lambda function run on each data element to extract the actual data.
             **kwargs: Additional keyword arguments for training.
 
         Raises:
@@ -227,6 +229,7 @@ class HuggingFaceFineTuner(Bolt):
             self.hf_token = hf_token
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
+            self.data_extractor_lambda = data_extractor_lambda
 
             # Load model and tokenizer
             self.load_models()
@@ -237,9 +240,7 @@ class HuggingFaceFineTuner(Bolt):
 
             # Separate training and evaluation arguments
             trainer_kwargs = {k.replace("trainer_", ""): v for k, v in kwargs.items() if "trainer_" in k}
-            training_kwargs = {
-                k.replace("data_", ""): v for k, v in kwargs.items() if "data_" not in k and "trainer" not in k
-            }
+            training_kwargs = {k.replace("training_", ""): v for k, v in kwargs.items() if "training_" in k}
 
             # Create training arguments
             training_args = TrainingArguments(
