@@ -49,13 +49,6 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
         streaming \
             --output_kafka_topic commonsense_output \
             --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database commonsense_db \
-            --postgres_table state \
         load_dataset \
             --args dataset_path=my_dataset max_length=512
     ```
@@ -81,22 +74,6 @@ class HuggingFaceCommonsenseReasoningFineTuner(HuggingFaceFineTuner):
                 args:
                     output_topic: "commonsense_output"
                     kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "commonsense_db"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_commonsense_bolt"
-                    namespace: "default"
-                    image: "my_commonsense_bolt_image"
-                    replicas: 1
     ```
     """
 
