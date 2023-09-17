@@ -23,7 +23,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import EvalPrediction, Trainer, TrainingArguments
+from transformers import EvalPrediction, Trainer, TrainingArguments, AutoConfig
 
 
 class HuggingFaceFineTuner(Bolt):
@@ -106,13 +106,17 @@ class HuggingFaceFineTuner(Bolt):
     def load_models(self):
         """Load the model and tokenizer"""
         try:
-            # TODO: also use autoconfig to load configs
+            # Use AutoConfig to automatically load the configuration
             if self.model_name.lower() == "local":
+                self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                 self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
-                    os.path.join(self.input.get(), "/model")
+                    os.path.join(self.input.get(), "/model"), config=self.config
                 )
             else:
-                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(self.model_name)
+                self.config = AutoConfig.from_pretrained(self.model_name)
+                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                    self.model_name, config=self.config
+                )
 
             if self.tokenizer_name.lower() == "local":
                 self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
@@ -268,7 +272,9 @@ class HuggingFaceFineTuner(Bolt):
                 eval_result = trainer.evaluate()
                 self.log.info(f"Evaluation results: {eval_result}")
 
+            # Save the model configuration to Hugging Face Hub if hf_repo_id is not None
             if self.hf_repo_id:
+                self.config.save_pretrained(os.path.join(self.output_dir, "model"))
                 self.upload_to_hf_hub()
         except Exception as e:
             self.log.exception(f"Failed to fine tune model: {e}")
