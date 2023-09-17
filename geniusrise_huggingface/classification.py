@@ -215,8 +215,14 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
+
                 # Create label_to_id mapping and save it in model config
-                unique_labels = (example["label"] for example in data)
+                unique_labels = {example["label"] for example in data}
                 self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
                 if self.model:
                     if self.model.config.label2id != self.label_to_id:
