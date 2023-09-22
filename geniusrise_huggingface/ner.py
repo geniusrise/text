@@ -54,7 +54,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
                 --output_s3_bucket geniusrise-test \
                 --output_s3_folder model \
             fine_tune \
-                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
     ```
 
     YAML Configuration:
