@@ -39,75 +39,77 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
 
+    This class inherits from `HuggingFaceFineTuner` and specializes in fine-tuning models for instruction-based tasks.
+    It provides additional methods for loading and preparing datasets in various formats, as well as computing custom metrics.
+
     Args:
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
+    Attributes:
+        max_length (int): The maximum length for tokenization.
+
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceInstructionTuningFineTuner rise \
-        streaming \
-            --input_kafka_topic webhook_test \
-            --input_kafka_cluster_connection_string localhost:9094 \
-            --input_kafka_consumer_group_id geniusrise \
-        streaming \
-            --output_kafka_topic webhook_test \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        listen \
-            --args various=30 arguments=40 that=50 this=70 bolt=63 may=lol have='{"lol": "lel"}'
+        genius HuggingFaceInstructionTuningFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
     ```
 
-    ## Using geniusrise to invoke via YAML file
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_instruction_bolt:
-            name: "HuggingFaceInstructionTuningFineTuner"
-            method: "listen"
-            args:
-                various: 30
-                arguments: 40
-                that: 50
-                this: 70
-                bolt: 63
-                may: "lol"
-                have: '{"lol": "lel"}'
-            input:
-                type: "streaming"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceInstructionTuningFineTuner"
+                method: "fine_tune"
                 args:
-                    input_topic: "webhook_test"
-                    kafka_servers: "localhost:9094"
-                    group_id: "geniusrise"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "webhook_test"
-                    kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_instruction_bolt"
-                    namespace: "default"
-                    image: "my_instruction_bolt_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs: Any) -> Union[HFDataset, Dict]:
@@ -237,6 +239,12 @@ class HuggingFaceInstructionTuningFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
+
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
 
                 dataset = HFDataset.from_pandas(pd.DataFrame(data))
                 return dataset.map(self.prepare_train_features, batched=True)

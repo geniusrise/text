@@ -40,64 +40,66 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceSummarizationFineTuner rise \
-        streaming \
-            --input_kafka_topic summarization_data \
-            --input_kafka_cluster_connection_string localhost:9094 \
-            --input_kafka_consumer_group_id geniusrise \
-        streaming \
-            --output_kafka_topic summarization_results \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        load_dataset \
-            --args dataset_path=my_dataset_path
+        genius HuggingFaceSummarizationFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
     ```
 
-    ## Using geniusrise to invoke via YAML file
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_summarization_bolt:
-            name: "HuggingFaceSummarizationFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "my_dataset_path"
-            input:
-                type: "streaming"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceSummarizationFineTuner"
+                method: "fine_tune"
                 args:
-                    input_topic: "summarization_data"
-                    kafka_servers: "localhost:9094"
-                    group_id: "geniusrise"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "summarization_results"
-                    kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_summarization_bolt"
-                    namespace: "default"
-                    image: "my_summarization_bolt_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Optional[DatasetDict]:
@@ -211,6 +213,13 @@ class HuggingFaceSummarizationFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
+
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
+
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             tokenized_dataset = dataset.map(

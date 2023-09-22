@@ -23,7 +23,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import EvalPrediction, Trainer, TrainingArguments
+from transformers import EvalPrediction, Trainer, TrainingArguments, AutoConfig
 
 
 class HuggingFaceFineTuner(Bolt):
@@ -65,6 +65,7 @@ class HuggingFaceFineTuner(Bolt):
         self.model_class: Optional[str] = None
         self.tokenizer_class: Optional[str] = None
         self.eval: bool = False
+        self.data_extractor_lambda: Optional[str] = None
 
         self.tokenizer = None
         self.model = None
@@ -106,13 +107,17 @@ class HuggingFaceFineTuner(Bolt):
     def load_models(self):
         """Load the model and tokenizer"""
         try:
-            # TODO: also use autoconfig to load configs
+            # Use AutoConfig to automatically load the configuration
             if self.model_name.lower() == "local":
+                self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                 self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
-                    os.path.join(self.input.get(), "/model")
+                    os.path.join(self.input.get(), "/model"), config=self.config
                 )
             else:
-                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(self.model_name)
+                self.config = AutoConfig.from_pretrained(self.model_name)
+                self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                    self.model_name, config=self.config
+                )
 
             if self.tokenizer_name.lower() == "local":
                 self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
@@ -185,6 +190,7 @@ class HuggingFaceFineTuner(Bolt):
         hf_token: Optional[str] = None,
         hf_private: bool = True,
         hf_create_pr: bool = False,
+        data_extractor_lambda: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -203,6 +209,7 @@ class HuggingFaceFineTuner(Bolt):
             hf_token (str, optional): The Hugging Face token. Defaults to None.
             hf_private (bool, optional): Whether to make the repo private. Defaults to True.
             hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
+            data_extractor_lambda (str, optional): A lambda function run on each data element to extract the actual data.
             **kwargs: Additional keyword arguments for training.
 
         Raises:
@@ -223,6 +230,7 @@ class HuggingFaceFineTuner(Bolt):
             self.hf_token = hf_token
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
+            self.data_extractor_lambda = data_extractor_lambda
 
             # Load model and tokenizer
             self.load_models()
@@ -233,9 +241,7 @@ class HuggingFaceFineTuner(Bolt):
 
             # Separate training and evaluation arguments
             trainer_kwargs = {k.replace("trainer_", ""): v for k, v in kwargs.items() if "trainer_" in k}
-            training_kwargs = {
-                k.replace("data_", ""): v for k, v in kwargs.items() if "data_" not in k and "trainer" not in k
-            }
+            training_kwargs = {k.replace("training_", ""): v for k, v in kwargs.items() if "training_" in k}
 
             # Create training arguments
             training_args = TrainingArguments(
@@ -268,7 +274,9 @@ class HuggingFaceFineTuner(Bolt):
                 eval_result = trainer.evaluate()
                 self.log.info(f"Evaluation results: {eval_result}")
 
+            # Save the model configuration to Hugging Face Hub if hf_repo_id is not None
             if self.hf_repo_id:
+                self.config.save_pretrained(os.path.join(self.output_dir, "model"))
                 self.upload_to_hf_hub()
         except Exception as e:
             self.log.exception(f"Failed to fine tune model: {e}")
