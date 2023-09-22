@@ -35,66 +35,74 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
+    This class extends the `HuggingFaceFineTuner` and specializes in fine-tuning models for text classification.
+    It provides additional functionalities for loading and preprocessing text classification datasets in various formats.
+
     Args:
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceClassificationFineTuner rise \
-        batch \
-            --input_folder my_dataset \
-        streaming \
-            --output_kafka_topic my_topic \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        load_dataset \
-            --args dataset_path=my_dataset max_length=512
+        genius HuggingFaceClassificationFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
     ```
 
-    ## Using geniusrise to invoke via YAML file
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_fine_tuner:
-            name: "HuggingFaceClassificationFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "my_dataset"
-                max_length: 512
-            input:
-                type: "batch"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceClassificationFineTuner"
+                method: "fine_tune"
                 args:
-                    folder: "my_dataset"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "my_topic"
-                    kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_fine_tuner"
-                    namespace: "default"
-                    image: "my_fine_tuner_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
@@ -238,8 +246,14 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
+
                 # Create label_to_id mapping and save it in model config
-                unique_labels = (example["label"] for example in data)
+                unique_labels = {example["label"] for example in data}
                 self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
                 if self.model:
                     if self.model.config.label2id != self.label_to_id:

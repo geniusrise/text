@@ -42,64 +42,66 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceLanguageModelingFineTuner rise \
-        batch \
-            --input_bucket my_bucket \
-            --input_folder my_folder \
-        streaming \
-            --output_kafka_topic kafka_test \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        load_dataset \
-            --args dataset_path=my_dataset_path masked=True max_length=512
+        genius HuggingFaceLanguageModelingFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
     ```
 
-    ## Using geniusrise to invoke via YAML file
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_fine_tuner:
-            name: "HuggingFaceLanguageModelingFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "my_dataset_path"
-                masked: True
-                max_length: 512
-            input:
-                type: "batch"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceLanguageModelingFineTuner"
+                method: "fine_tune"
                 args:
-                    bucket: "my_bucket"
-                    folder: "my_folder"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "kafka_test"
-                    kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_fine_tuner"
-                    namespace: "default"
-                    image: "my_fine_tuner_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(self, dataset_path, masked: bool = True, max_length: int = 512, **kwargs):
@@ -230,6 +232,12 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
                     elif filename.endswith(".feather"):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
+
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
 
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 

@@ -40,70 +40,66 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using Command Line
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceSentimentAnalysisFineTuner rise \
-        streaming \
-            --input_kafka_topic webhook_test \
-            --input_kafka_cluster_connection_string localhost:9094 \
-            --input_kafka_consumer_group_id geniusrise \
-        streaming \
-            --output_kafka_topic webhook_test \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        listen \
-            --args various=30 arguments=40 that=50 this=70 bolt=63 may=lol have='{"lol": "lel"}'
+        genius HuggingFaceSentimentAnalysisFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
     ```
 
-    ## Using YAML File
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_fine_tuner:
-            name: "HuggingFaceSentimentAnalysisFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "/path/to/dataset"
-            input:
-                type: "batch"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceSentimentAnalysisFineTuner"
+                method: "fine_tune"
                 args:
-                    bucket: "my-bucket"
-                    folder: "my-folder"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "webhook_test"
-                    kafka_servers: "localhost:9094"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_fine_tuner"
-                    namespace: "default"
-                    image: "my_fine_tuner_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
 
-    Args:
-        model: The pre-trained model to fine-tune.
-        tokenizer: The tokenizer associated with the model.
-        input (BatchInput): The batch input data.
-        output (OutputConfig): The output data.
-        state (State): The state manager.
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Dataset | DatasetDict:
@@ -215,6 +211,13 @@ class HuggingFaceSentimentAnalysisFineTuner(HuggingFaceFineTuner):
                 elif filename.endswith(".feather"):
                     df = feather.read_feather(filepath)
                     data.extend(df.to_dict("records"))
+
+            if self.data_extractor_lambda:
+                fn = eval(self.data_extractor_lambda)
+                data = [fn(d) for d in data]
+            else:
+                data = data
+
             dataset = Dataset.from_pandas(pd.DataFrame(data))
 
         tokenized_dataset = dataset.map(
