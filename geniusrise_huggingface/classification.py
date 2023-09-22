@@ -35,43 +35,61 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
+    This class extends the `HuggingFaceFineTuner` and specializes in fine-tuning models for text classification.
+    It provides additional functionalities for loading and preprocessing text classification datasets in various formats.
+
     Args:
         input (BatchInput): The batch input data.
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
-    ```bash
-    genius HuggingFaceClassificationFineTuner rise \
-        batch \
-            --input_folder my_dataset \
-        streaming \
-            --output_kafka_topic my_topic \
-            --output_kafka_cluster_connection_string localhost:9094 \
-        load_dataset \
-            --args dataset_path=my_dataset max_length=512
-    ```
+    CLI Usage:
+        genius HuggingFaceClassificationFineTuner rise \
+            batch \
+                --input_folder my_dataset \
+            streaming \
+                --output_kafka_topic my_topic \
+                --output_kafka_cluster_connection_string localhost:9094 \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
 
-    ## Using geniusrise to invoke via YAML file
-    ```yaml
-    version: "1"
-    bolts:
-        my_fine_tuner:
-            name: "HuggingFaceClassificationFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "my_dataset"
-                max_length: 512
-            input:
-                type: "batch"
+    YAML Configuration:
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceClassificationFineTuner"
+                method: "fine_tune"
                 args:
-                    folder: "my_dataset"
-            output:
-                type: "streaming"
-                args:
-                    output_topic: "my_topic"
-                    kafka_servers: "localhost:9094"
-    ```
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                input:
+                    type: "batch"
+                    args:
+                        folder: "my_dataset"
+                output:
+                    type: "streaming"
+                    args:
+                        output_topic: "my_topic"
+                        kafka_servers: "localhost:9094"
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
+
+    Attributes:
+        data_collator (DataCollatorWithPadding): Data collator for padding.
+        max_length (int): Maximum length for tokenization.
+        label_to_id (dict): Mapping from label to ID.
     """
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
