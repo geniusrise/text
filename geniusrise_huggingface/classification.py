@@ -44,16 +44,22 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         state (State): The state manager.
 
     CLI Usage:
+
+    ```bash
         genius HuggingFaceClassificationFineTuner rise \
             batch \
-                --input_folder my_dataset \
-            streaming \
-                --output_kafka_topic my_topic \
-                --output_kafka_cluster_connection_string localhost:9094 \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
             fine_tune \
-                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
+    ```
 
     YAML Configuration:
+
+    ```yaml
         version: "1"
         bolts:
             my_fine_tuner:
@@ -64,15 +70,27 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                     tokenizer_name: "my_tokenizer"
                     num_train_epochs: 3
                     per_device_train_batch_size: 8
+                    data_max_length: 512
                 input:
                     type: "batch"
                     args:
+                        bucket: "my_bucket"
                         folder: "my_dataset"
                 output:
-                    type: "streaming"
+                    type: "batch"
                     args:
-                        output_topic: "my_topic"
-                        kafka_servers: "localhost:9094"
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
+    ```
 
     Supported Data Formats:
         - JSONL
@@ -85,11 +103,6 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         - Excel (.xls, .xlsx)
         - SQLite (.db)
         - Feather
-
-    Attributes:
-        data_collator (DataCollatorWithPadding): Data collator for padding.
-        max_length (int): Maximum length for tokenization.
-        label_to_id (dict): Mapping from label to ID.
     """
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:

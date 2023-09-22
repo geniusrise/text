@@ -43,63 +43,66 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
         output (OutputConfig): The output data.
         state (State): The state manager.
 
-    ## Using geniusrise to invoke via command line
+    CLI Usage:
+
     ```bash
-    genius HuggingFaceNamedEntityRecognitionFineTuner rise \
-        batch \
-            --input_bucket my_bucket \
-            --input_folder my_folder \
-        batch \
-            --output_bucket my_output_bucket \
-            --output_folder my_output_folder \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise \
-            --postgres_table state \
-        load_dataset \
-            --args dataset_path=my_dataset_path label_list="['O', 'B-PER', 'I-PER']"
+        genius HuggingFaceNamedEntityRecognitionFineTuner rise \
+            batch \
+                --input_s3_bucket geniusrise-test \
+                --input_s3_folder train \
+            batch \
+                --output_s3_bucket geniusrise-test \
+                --output_s3_folder model \
+            fine_tune \
+                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8 data_max_length=512
     ```
 
-    ## Using geniusrise to invoke via YAML file
+    YAML Configuration:
+
     ```yaml
-    version: "1"
-    bolts:
-        my_ner_bolt:
-            name: "HuggingFaceNamedEntityRecognitionFineTuner"
-            method: "load_dataset"
-            args:
-                dataset_path: "my_dataset_path"
-                label_list: ["O", "B-PER", "I-PER"]
-            input:
-                type: "batch"
+        version: "1"
+        bolts:
+            my_fine_tuner:
+                name: "HuggingFaceNamedEntityRecognitionFineTuner"
+                method: "fine_tune"
                 args:
-                    bucket: "my_bucket"
-                    folder: "my_folder"
-            output:
-                type: "batch"
-                args:
-                    bucket: "my_output_bucket"
-                    folder: "my_output_folder"
-            state:
-                type: "postgres"
-                args:
-                    postgres_host: "127.0.0.1"
-                    postgres_port: 5432
-                    postgres_user: "postgres"
-                    postgres_password: "postgres"
-                    postgres_database: "geniusrise"
-                    postgres_table: "state"
-            deploy:
-                type: "k8s"
-                args:
-                    name: "my_ner_bolt"
-                    namespace: "default"
-                    image: "my_ner_bolt_image"
-                    replicas: 1
+                    model_name: "my_model"
+                    tokenizer_name: "my_tokenizer"
+                    num_train_epochs: 3
+                    per_device_train_batch_size: 8
+                    data_max_length: 512
+                input:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_dataset"
+                output:
+                    type: "batch"
+                    args:
+                        bucket: "my_bucket"
+                        folder: "my_model"
+                deploy:
+                    type: k8s
+                    args:
+                        kind: deployment
+                        name: my_fine_tuner
+                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
+                        namespace: geniusrise
+                        image: geniusrise/geniusrise
+                        kube_config_path: ~/.kube/config
     ```
+
+    Supported Data Formats:
+        - JSONL
+        - CSV
+        - Parquet
+        - JSON
+        - XML
+        - YAML
+        - TSV
+        - Excel (.xls, .xlsx)
+        - SQLite (.db)
+        - Feather
     """
 
     def load_dataset(
