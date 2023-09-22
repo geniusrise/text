@@ -1,21 +1,36 @@
-![banner](./assets/banner.jpg)
+<h1 align="center">
+  <img src="./assets/logo_with_text.png" alt="Grace Hopper" width="900"/>
+</h1>
+<h2 align="center">
+  <a style="color:#f34960" href="https://docs.geniusrise.ai">Documentation</a>
+</h2>
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/geniusrise/geniusrise-huggingface/pytest.yml?branch=master" alt="GitHub Workflow Status"/>
+  <img src="https://codecov.io/gh/geniusrise/geniusrise-huggingface/branch/main/graph/badge.svg?token=0b359b3a-f29c-4966-9661-a79386b3450d" alt="Codecov"/>
+  <img src="https://img.shields.io/github/license/geniusrise/geniusrise-huggingface" alt="Codecov"/>
+  <img src="https://img.shields.io/github/issues/geniusrise/geniusrise-huggingface" alt="Codecov"/>
+</p>
 
-# Huggingface Bolts
+---
+
+## <span style="color:#e667aa">About</span>
+
+<span style="color:#e4e48c">Geniusrise</span> is a modular, loosely-coupled
+AgentOps / MLOps framework designed for the era of Large Language Models,
+offering flexibility, inclusivity, and standardization in designing networks of
+AI agents.
+
+It seamlessly integrates tasks, state management, data handling, and model
+versioning, all while supporting diverse infrastructures and user expertise
+levels. With its plug-and-play architecture,
+<span style="color:#e4e48c">Geniusrise</span> empowers teams to build, share,
+and deploy AI agent workflows across various platforms.
+
+## <span style="color:#e667aa">Huggingface Bolts</span>
 
 This is a collection of generic streaming and (micro) batch bolts interfacing
 with the huggingface ecosystem.
-
-**Table of Contents**
-
-- [Huggingface Bolts](#huggingface-bolts)
-  - [Usage](#usage)
-  - [Usage](#usage-1)
-    - [Text Classification](#text-classification)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 Includes:
 
@@ -30,49 +45,3 @@ Includes:
 | 7   | [Sentiment Analysis](#sentiment-analysis)             | Fine-tuning for sentiment analysis tasks       | Batch      | Batch       |
 | 8   | [Summarization](#summarization)                       | Fine-tuning for summarization tasks            | Batch      | Batch       |
 | 9   | [Translation](#translation)                           | Fine-tuning for translation tasks              | Batch      | Batch       |
-
-## Usage
-
-To test, first bring up all related services via the supplied docker-compose:
-
-```bash
-docker compose up -d
-docker compose logs -f
-```
-
-These management consoles will be available:
-
-| Console  | Link                   |
-| -------- | ---------------------- |
-| Kafka UI | http://localhost:8088/ |
-
-Postgres can be accessed with:
-
-```bash
-docker exec -it geniusrise-postgres-1 psql -U postgres
-```
-
-## Usage
-
-### Text Classification
-
-To fine-tune a model for text classification tasks, you can use the following
-command:
-
-```bash
-genius HuggingFaceClassificationFineTuner rise \
-  batch \
-      --input_folder my_dataset \
-  streaming \
-      --output_kafka_topic my_topic \
-      --output_kafka_cluster_connection_string localhost:9094 \
-  postgres \
-      --postgres_host 127.0.0.1 \
-      --postgres_port 5432 \
-      --postgres_user postgres \
-      --postgres_password postgres \
-      --postgres_database geniusrise \
-      --postgres_table state \
-  load_dataset \
-      --args
-```
