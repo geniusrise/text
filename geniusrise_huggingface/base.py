@@ -65,6 +65,7 @@ class HuggingFaceFineTuner(Bolt):
         self.model_class: Optional[str] = None
         self.tokenizer_class: Optional[str] = None
         self.eval: bool = False
+        self.data_extractor_lambda: Optional[str] = None
 
         self.tokenizer = None
         self.model = None
