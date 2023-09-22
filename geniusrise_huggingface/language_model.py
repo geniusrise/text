@@ -231,6 +231,12 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
+                if self.data_extractor_lambda:
+                    fn = eval(self.data_extractor_lambda)
+                    data = [fn(d) for d in data]
+                else:
+                    data = data
+
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Preprocess the dataset
