@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="./assets/logo_with_text.png" alt="Grace Hopper" width="900"/>
+  <img src="./assets/logo_with_text.png" alt=logo" width="900"/>
 </h1>
 <h2 align="center">
   <a style="color:#f34960" href="https://docs.geniusrise.ai">Documentation</a>
