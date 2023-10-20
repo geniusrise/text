@@ -20,11 +20,11 @@ from sentence_transformers import SentenceTransformer
 
 from geniusrise_huggingface.base import HuggingFaceAPI
 from geniusrise_huggingface.embeddings.embeddings import (
-    generate_sentence_transformer_embeddings,
-    generate_embeddings,
-    generate_contiguous_embeddings,
     generate_combination_embeddings,
+    generate_contiguous_embeddings,
+    generate_embeddings,
     generate_permutation_embeddings,
+    generate_sentence_transformer_embeddings,
 )
 
 
