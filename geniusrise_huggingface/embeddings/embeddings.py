@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import logging
-from typing import Any, List, Tuple, Union
 from itertools import combinations, permutations
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 import torch

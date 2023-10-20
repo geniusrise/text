@@ -13,29 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Dict, Any, Tuple
-import pickle
 import json
 import os
-import uuid
-import torch
+import pickle
 import sqlite3
+import uuid
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, Optional, Tuple
+
 import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
+import torch
+import transformers
 import yaml  # type: ignore
+from datasets import Dataset
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
-import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
-from datasets import Dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from geniusrise_huggingface.embeddings.embeddings import (
-    generate_sentence_transformer_embeddings,
-    generate_contiguous_embeddings,
     generate_combination_embeddings,
+    generate_contiguous_embeddings,
     generate_permutation_embeddings,
+    generate_sentence_transformer_embeddings,
 )
 
 
