@@ -29,11 +29,83 @@ from geniusrise_huggingface.embeddings.embeddings import (
 
 
 class EmbeddingsAPI(HuggingFaceAPI):
+    r"""
+    A CherryPy API for generating various types of embeddings using Hugging Face and Sentence Transformer models.
+
+    This API exposes endpoints for generating embeddings using Sentence-BERT, as well as Hugging Face models.
+    It supports generating embeddings for individual terms, contiguous subsets of words, combinations of words,
+    and permutations of words in a given sentence.
+
+    Args:
+        Inherits all arguments from HuggingFaceAPI.
+
+    CLI Usage:
+
+    ```bash
+    genius EmbeddingsAPI rise \
+        listen \
+            --model_name=bert-base-uncased \
+            --model_class_name=AutoModelForCausalLM \
+            --tokenizer_class_name=AutoTokenizer \
+            --sentence_transformer_model=paraphrase-MiniLM-L6-v2 \
+            --use_cuda=True \
+            --precision=float16 \
+            --device_map=auto \
+            --max_memory={0: "24GB"} \
+            --torchscript=True \
+            --endpoint="*" \
+            --port=3000 \
+            --cors_domain="http://localhost:3000"
+    ```
+
+    YAML Configuration:
+
+    ```yaml
+    version: "1"
+    bolts:
+        my_embeddings_api:
+            name: "EmbeddingsAPI"
+            method: "listen"
+            args:
+                model_name: "bert-base-uncased"
+                model_class_name: "AutoModelForCausalLM"
+                tokenizer_class_name: "AutoTokenizer"
+                sentence_transformer_model: "paraphrase-MiniLM-L6-v2"
+                use_cuda: True
+                precision: "float16"
+                device_map: "auto"
+                max_memory: {0: "24GB"}
+                torchscript: True
+                endpoint: "*"
+                port: 3000
+                cors_domain: "http://localhost:3000"
+    ```
+
+    Supported Endpoints:
+    - POST /sbert_embeddings: Generate embeddings using Sentence-BERT.
+    - POST /embeddings: Generate embeddings for a given term.
+    - POST /embeddings_contiguous: Generate embeddings for contiguous subsets of words.
+    - POST /embeddings_combinations: Generate embeddings for combinations of words.
+    - POST /embeddings_permutations: Generate embeddings for permutations of words.
+    """
+
     @cherrypy.expose
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    def sbert_embeddings(self, **kwargs: Any) -> Dict[str, Any]:
+    def sbert(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate embeddings using Sentence-BERT model.
+
+        Parameters:
+        - **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+        Dict[str, Any]: A dictionary containing the generated embeddings.
+
+        Usage:
+        POST request with JSON payload containing 'sentences' and optional 'batch_size'.
+        """
         data = cherrypy.request.json
         sentences = data.get("sentences")
         batch_size = data.get("batch_size", 32)
@@ -47,12 +119,24 @@ class EmbeddingsAPI(HuggingFaceAPI):
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    def embeddings(self, **kwargs: Any) -> Dict[str, Any]:
+    def sentence(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate embeddings for a given term using Hugging Face model.
+
+        Parameters:
+        - **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+        Dict[str, Any]: A dictionary containing the generated embeddings.
+
+        Usage:
+        POST request with JSON payload containing 'term'.
+        """
         data = cherrypy.request.json
-        term = data.get("term")
+        sentence = data.get("sentence")
 
         embeddings = generate_embeddings(
-            term=term,
+            sentence=sentence,
             model=self.model,
             tokenizer=self.tokenizer,
             output_key="last_hidden_state",
@@ -64,7 +148,19 @@ class EmbeddingsAPI(HuggingFaceAPI):
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    def embeddings_contiguous(self, **kwargs: Any) -> Dict[str, Any]:
+    def sentence_windows(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate embeddings for all contiguous subsets of words in a given sentence.
+
+        Parameters:
+        - **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+        Dict[str, Any]: A dictionary containing the generated embeddings.
+
+        Usage:
+        POST request with JSON payload containing 'sentence'.
+        """
         data = cherrypy.request.json
         sentence = data.get("sentence")
 
@@ -81,7 +177,19 @@ class EmbeddingsAPI(HuggingFaceAPI):
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    def embeddings_combinations(self, **kwargs: Any) -> Dict[str, Any]:
+    def sentence_combinations(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate embeddings for all combinations of words in a given sentence.
+
+        Parameters:
+        - **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+        Dict[str, Any]: A dictionary containing the generated embeddings.
+
+        Usage:
+        POST request with JSON payload containing 'sentence'.
+        """
         data = cherrypy.request.json
         sentence = data.get("sentence")
 
@@ -98,7 +206,19 @@ class EmbeddingsAPI(HuggingFaceAPI):
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    def embeddings_permutations(self, **kwargs: Any) -> Dict[str, Any]:
+    def sentence_permutations(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Generate embeddings for all permutations of words in a given sentence.
+
+        Parameters:
+        - **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+        Dict[str, Any]: A dictionary containing the generated embeddings.
+
+        Usage:
+        POST request with JSON payload containing 'sentence'.
+        """
         data = cherrypy.request.json
         sentence = data.get("sentence")
 
@@ -129,6 +249,29 @@ class EmbeddingsAPI(HuggingFaceAPI):
         password: Optional[str] = None,
         **model_args: Any,
     ) -> None:
+        """
+        Initialize and start the API server.
+
+        Parameters:
+        - model_name (str): The name of the Hugging Face model to use.
+        - model_class_name (str, optional): The class name of the model. Defaults to "AutoModelForCausalLM".
+        - tokenizer_class_name (str, optional): The class name of the tokenizer. Defaults to "AutoTokenizer".
+        - sentence_transformer_model (str, optional): The name of the Sentence Transformer model to use. Defaults to "paraphrase-MiniLM-L6-v2".
+        - use_cuda (bool, optional): Whether to use CUDA for computation. Defaults to False.
+        - precision (str, optional): The precision to use for computations. Defaults to "float16".
+        - device_map (str | Dict | None, optional): The device map for distributed training. Defaults to "auto".
+        - max_memory (Dict, optional): The maximum memory to allocate for each device. Defaults to {0: "24GB"}.
+        - torchscript (bool, optional): Whether to use TorchScript. Defaults to True.
+        - endpoint (str, optional): The API endpoint. Defaults to "*".
+        - port (int, optional): The port to listen on. Defaults to 3000.
+        - cors_domain (str, optional): The CORS domain. Defaults to "http://localhost:3000".
+        - username (str, optional): The username for authentication. Defaults to None.
+        - password (str, optional): The password for authentication. Defaults to None.
+        - **model_args (Any): Additional arguments for the model.
+
+        Returns:
+        None
+        """
         self.model_name = model_name
         self.model_class_name = model_class_name
         self.tokenizer_class_name = tokenizer_class_name

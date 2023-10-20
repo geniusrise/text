@@ -61,17 +61,17 @@ def generate_sentence_transformer_embeddings(
 
 
 def generate_embeddings(
-    term: str,
+    sentence: str,
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     output_key: str = "last_hidden_state",
     use_cuda: bool = False,
 ) -> np.ndarray:
     """
-    Generates embeddings for a given term using a Hugging Face model.
+    Generates embeddings for a given sentence using a Hugging Face model.
 
     Parameters:
-    - term (str): The term for which to generate the embeddings.
+    - sentence (str): The sentence for which to generate the embeddings.
     - model (PreTrainedModel): The Hugging Face model to use.
     - tokenizer (PreTrainedTokenizer): The tokenizer for the model.
     - output_key (str, optional): The key to use to extract embeddings from the model output. Defaults to 'last_hidden_state'.
@@ -81,7 +81,7 @@ def generate_embeddings(
     np.ndarray: The generated embeddings, averaged along the sequence length dimension.
     """
     # Generate inputs
-    inputs = tokenizer(term, return_tensors="pt")
+    inputs = tokenizer(sentence, return_tensors="pt")
 
     # Move inputs to the same device as the model
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
