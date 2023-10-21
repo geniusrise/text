@@ -99,7 +99,7 @@ class HuggingFaceAPI(Bolt):
         except Exception as e:
             raise ValueError(f"An error occurred: {e}")
 
-    def load_huggingface_model(
+    def load_models(
         self,
         model_name: str,
         model_class_name: str = "AutoModelForCausalLM",
@@ -130,7 +130,7 @@ class HuggingFaceAPI(Bolt):
 
         Usage:
         ```python
-        model, tokenizer = load_huggingface_model("gpt-2", use_cuda=True, precision='float32', quantize=True, quantize_bits=8)
+        model, tokenizer = load_models("gpt-2", use_cuda=True, precision='float32', quantize=True, quantize_bits=8)
         ```
         """
         self.log.info(f"Loading Hugging Face model: {model_name}")
@@ -218,7 +218,7 @@ class HuggingFaceAPI(Bolt):
         self.torchscript = torchscript
         self.model_args = model_args
 
-        self.model, self.tokenizer = self.load_huggingface_model(
+        self.model, self.tokenizer = self.load_models(
             model_name=self.model_name,
             model_class_name=self.model_class_name,
             tokenizer_class_name=self.tokenizer_class_name,
