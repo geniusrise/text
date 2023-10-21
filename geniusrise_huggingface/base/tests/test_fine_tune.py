@@ -38,7 +38,6 @@ class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
             ),
             batched=True,
         ).map(lambda examples: {"labels": examples["label"]}, batched=True)
-        print(dataset)
         return dataset
 
 
@@ -47,8 +46,8 @@ def bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
 
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
 
     return TestHuggingFaceFineTuner(
@@ -70,7 +69,15 @@ def test_load_dataset(bolt):
     bolt.tokenizer_name = "bert-base-uncased"
     bolt.model_class = "BertForSequenceClassification"
     bolt.tokenizer_class = "BertTokenizer"
-    bolt.load_models()
+    bolt.load_models(
+        model_name=bolt.model_name,
+        tokenizer_name=bolt.tokenizer_name,
+        num_train_epochs=1,
+        per_device_train_batch_size=2,
+        model_class=bolt.model_class,
+        tokenizer_class=bolt.tokenizer_class,
+        device_map=None,
+    )
     dataset = bolt.load_dataset("fake_path")
     assert dataset is not None
     assert len(dataset) == 100
@@ -81,9 +88,11 @@ def test_fine_tune(bolt):
         model_name="bert-base-uncased",
         tokenizer_name="bert-base-uncased",
         num_train_epochs=1,
-        per_device_train_batch_size=1,
+        per_device_train_batch_size=2,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
+        device_map="cuda:0",
+        device="cuda",
         eval=False,
     )
 
@@ -112,7 +121,7 @@ def test_upload_to_hf_hub(bolt):
         model_name="bert-base-uncased",
         tokenizer_name="bert-base-uncased",
         num_train_epochs=1,
-        per_device_train_batch_size=1,
+        per_device_train_batch_size=2,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
         eval=False,
@@ -121,6 +130,7 @@ def test_upload_to_hf_hub(bolt):
         hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
         hf_private=False,
         hf_create_pr=True,
+        device_map="cuda:0",
     )
 
     assert True
