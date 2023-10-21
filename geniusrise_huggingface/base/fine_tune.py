@@ -63,6 +63,7 @@ class HuggingFaceFineTuner(Bolt):
         self.model_class: Optional[str] = None
         self.tokenizer_class: Optional[str] = None
         self.eval: bool = False
+        self.device = "cuda"
 
         self.tokenizer = None
         self.model = None
@@ -110,7 +111,7 @@ class HuggingFaceFineTuner(Bolt):
         model_class: str = "AutoModel",
         tokenizer_class: str = "AutoTokenizer",
         device_map: str | dict = "auto",
-        precision: str = "",
+        precision: str = "bfloat16",
         quantization: Optional[int] = None,
         lora_config: Optional[dict] = None,
         use_accelerate: bool = False,
@@ -264,7 +265,8 @@ class HuggingFaceFineTuner(Bolt):
         model_class: str = "AutoModel",
         tokenizer_class: str = "AutoTokenizer",
         device_map: str | dict = "auto",
-        precision: str = "",
+        device: str = "cuda",
+        precision: str = "bfloat16",
         quantization: Optional[int] = None,
         lora_config: Optional[dict] = None,
         use_accelerate: bool = False,
@@ -315,6 +317,7 @@ class HuggingFaceFineTuner(Bolt):
             self.hf_token = hf_token
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
+            self.device = device
 
             self.load_models(
                 model_name=model_name,
@@ -346,6 +349,9 @@ class HuggingFaceFineTuner(Bolt):
                 per_device_train_batch_size=per_device_train_batch_size,
                 **training_kwargs,
             )
+
+            if self.device and self.model:
+                self.model.to(device)
 
             # Create trainer
             trainer = Trainer(
