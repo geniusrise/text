@@ -282,7 +282,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
             label_ids = []
             for word_idx in word_ids:
                 if word_idx is not None:
-                    print(f"label[word_idx]: {labels[word_idx]}", self.label_to_id)  # Debug print
+                    print(f"label[word_idx]: {labels[word_idx]}", self.label_to_id)  # type: ignore
                     label_ids.append(self.label_to_id[labels[word_idx]])  # type: ignore
                 else:
                     label_ids.append(-100)
