@@ -22,10 +22,10 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import AutoConfig, EvalPrediction, Trainer, TrainingArguments, AutoModel
+from transformers import EvalPrediction, Trainer, TrainingArguments, AutoModel
 from accelerate import infer_auto_device_map, init_empty_weights
-from peft import LoraConfig
-from trl import AutoModelForCausalLMWithValueHead
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer
 import torch
 
 
@@ -57,18 +57,6 @@ class HuggingFaceFineTuner(Bolt):
         self.input = input
         self.output = output
         self.state = state
-
-        self.model_name: Optional[str] = None
-        self.tokenizer_name: Optional[str] = None
-        self.model_class: Optional[str] = None
-        self.tokenizer_class: Optional[str] = None
-        self.eval: bool = False
-        self.device = "cuda"
-
-        self.tokenizer = None
-        self.model = None
-        self.train_dataset = None
-        self.eval_dataset = None
 
         self.log = logging.getLogger(self.__class__.__name__)
 
@@ -106,8 +94,6 @@ class HuggingFaceFineTuner(Bolt):
         self,
         model_name: str,
         tokenizer_name: str,
-        num_train_epochs: int,
-        per_device_train_batch_size: int,
         model_class: str = "AutoModel",
         tokenizer_class: str = "AutoTokenizer",
         device_map: str | dict = "auto",
@@ -116,6 +102,7 @@ class HuggingFaceFineTuner(Bolt):
         lora_config: Optional[dict] = None,
         use_accelerate: bool = False,
         accelerate_no_split_module_classes: List[str] = [],
+        **kwargs,
     ):
         """Load the model and tokenizer"""
         try:
@@ -129,84 +116,110 @@ class HuggingFaceFineTuner(Bolt):
             else:
                 raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
 
-            if use_accelerate:
-                with init_empty_weights():
-                    model = AutoModel.from_pretrained(
-                        model_name,
-                        peft_config=lora_config,
-                        device_map=device_map,
-                    )
-                    if device_map == "float16":
+            peft_target_modules = []
+
+            with init_empty_weights():
+                model = AutoModel.from_pretrained(
+                    model_name,
+                    device_map=device_map,
+                )
+                for name, module in model.named_modules():
+                    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)) and "head" not in name:
+                        name = name.split(".")[-1]
+                        if name not in peft_target_modules:
+                            peft_target_modules.append(name)
+
+                if use_accelerate:
+                    if precision == "float16":
                         device_map = infer_auto_device_map(
                             model,
                             dtype="float16",
-                            accelerate_no_split_module_classes=accelerate_no_split_module_classes,
+                            no_split_module_classes=accelerate_no_split_module_classes,
+                            **kwargs,
                         )
-                    elif device_map == "bfloat16":
+                    elif precision == "bfloat16":
                         device_map = infer_auto_device_map(
                             model,
                             dtype="bfloat16",
-                            accelerate_no_split_module_classes=accelerate_no_split_module_classes,
+                            no_split_module_classes=accelerate_no_split_module_classes,
+                            **kwargs,
                         )
                     else:
                         device_map = infer_auto_device_map(
                             model,
-                            accelerate_no_split_module_classes=accelerate_no_split_module_classes,
+                            no_split_module_classes=accelerate_no_split_module_classes,
+                            **kwargs,
                         )
 
+            if lora_config:
+                if len(peft_target_modules) > 0:
+                    lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
+                else:
+                    lora_config = LoraConfig(**lora_config)
+                self.lora_config = lora_config
+
             # Load model and tokenizer
-            # If peft_config is provided, apply PEFT optimizations
-            if lora_config and quantization and quantization > 8:
-                lora_conf = LoraConfig(**lora_config)
-                model = AutoModelForCausalLMWithValueHead.from_pretrained(
-                    model_name,
-                    peft_config=lora_config,
-                    device_map=device_map,
-                )
-            #  if PEFT config is provided and
-            elif lora_config and quantization == 8:
-                lora_conf = LoraConfig(**lora_config)
-                self.model = AutoModelForCausalLMWithValueHead.from_pretrained(
-                    model_name,
-                    load_in_8bit=True,
-                    peft_config=lora_config,
-                    device_map=device_map,
-                )
-            elif lora_config and quantization == 4:
-                lora_conf = LoraConfig(**lora_config)
-                self.model = AutoModelForCausalLMWithValueHead.from_pretrained(
-                    model_name,
-                    load_in_4bit=True,
-                    peft_config=lora_config,
-                    device_map=device_map,
-                )
+            if quantization == 8:
+                # Use AutoConfig to automatically load the configuration
+                if self.model_name.lower() == "local":  # type: ignore
+                    self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                        os.path.join(self.input.get(), "/model"),
+                        device_map=device_map,
+                        torch_dtype=torch_dtype,
+                        load_in_8bit=True,
+                        **kwargs,
+                    )
+                else:
+                    self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                        self.model_name,
+                        device_map=device_map,
+                        torch_dtype=torch_dtype,
+                        load_in_8bit=True,
+                        **kwargs,
+                    )
+            elif quantization == 4:
+                # Use AutoConfig to automatically load the configuration
+                if self.model_name.lower() == "local":  # type: ignore
+                    self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                        os.path.join(self.input.get(), "/model"),
+                        device_map=device_map,
+                        torch_dtype=torch_dtype,
+                        load_in_4bit=True,
+                        **kwargs,
+                    )
+                else:
+                    self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
+                        self.model_name,
+                        device_map=device_map,
+                        torch_dtype=torch_dtype,
+                        load_in_4bit=True,
+                        **kwargs,
+                    )
             else:
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
-                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
-                        config=self.config,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
+                        **kwargs,
                     )
                 else:
-                    self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(self.model_class)).from_pretrained(
                         self.model_name,
-                        config=self.config,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
+                        **kwargs,
                     )
 
-                if self.tokenizer_name.lower() == "local":  # type: ignore
-                    self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
-                        os.path.join(self.input.get(), "/model")
-                    )
-                else:
-                    self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
-                        self.tokenizer_name
-                    )
+            if self.tokenizer_name.lower() == "local":  # type: ignore
+                self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                    os.path.join(self.input.get(), "/model")
+                )
+            else:
+                self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                    self.tokenizer_name
+                )
         except Exception as e:
             self.log.exception(f"Failed to load model: {e}")
             raise
@@ -261,7 +274,7 @@ class HuggingFaceFineTuner(Bolt):
         model_name: str,
         tokenizer_name: str,
         num_train_epochs: int,
-        per_device_train_batch_size: int,
+        per_device_batch_size: int,
         model_class: str = "AutoModel",
         tokenizer_class: str = "AutoTokenizer",
         device_map: str | dict = "auto",
@@ -270,6 +283,7 @@ class HuggingFaceFineTuner(Bolt):
         quantization: Optional[int] = None,
         lora_config: Optional[dict] = None,
         use_accelerate: bool = False,
+        use_trl: bool = False,
         accelerate_no_split_module_classes: List[str] = [],
         eval: bool = False,
         hf_repo_id: Optional[str] = None,
@@ -286,7 +300,7 @@ class HuggingFaceFineTuner(Bolt):
             model_name (str): The pre-trained model name.
             tokenizer_name (str): The pre-trained tokenizer name.
             num_train_epochs (int): Total number of training epochs to perform.
-            per_device_train_batch_size (int): Batch size per device during training.
+            per_device_batch_size (int): Batch size per device during training.
             model_class (str, optional): The model class to use. Defaults to "AutoModel".
             tokenizer_class (str, optional): The tokenizer class to use. Defaults to "AutoTokenizer".
             eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
@@ -306,24 +320,30 @@ class HuggingFaceFineTuner(Bolt):
             # Save everything
             self.model_name = model_name
             self.tokenizer_name = tokenizer_name
-            self.output_dir = self.output.output_folder
             self.num_train_epochs = num_train_epochs
-            self.per_device_train_batch_size = per_device_train_batch_size
+            self.per_device_batch_size = per_device_batch_size
             self.model_class = model_class
             self.tokenizer_class = tokenizer_class
+            self.device_map = device_map
+            self.device = device
+            self.precision = precision
+            self.quantization = quantization
+            self.lora_config = lora_config  # type: ignore
+            self.use_accelerate = use_accelerate
+            self.use_trl = use_trl
+            self.accelerate_no_split_module_classes = accelerate_no_split_module_classes
             self.eval = eval
             self.hf_repo_id = hf_repo_id
             self.hf_commit_message = hf_commit_message
             self.hf_token = hf_token
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
-            self.device = device
+
+            model_kwargs = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
 
             self.load_models(
                 model_name=model_name,
                 tokenizer_name=tokenizer_name,
-                num_train_epochs=num_train_epochs,
-                per_device_train_batch_size=per_device_train_batch_size,
                 model_class=model_class,
                 tokenizer_class=tokenizer_class,
                 device_map=device_map,
@@ -332,7 +352,11 @@ class HuggingFaceFineTuner(Bolt):
                 lora_config=lora_config,
                 use_accelerate=use_accelerate,
                 accelerate_no_split_module_classes=accelerate_no_split_module_classes,
+                **model_kwargs,
             )
+
+            if self.tokenizer and not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
 
             # Load dataset
             dataset_kwargs = {k.replace("data_", ""): v for k, v in kwargs.items() if "data_" in k}
@@ -344,26 +368,44 @@ class HuggingFaceFineTuner(Bolt):
 
             # Create training arguments
             training_args = TrainingArguments(
-                output_dir=os.path.join(self.output_dir, "model"),
+                output_dir=os.path.join(self.output.output_folder, "model"),
                 num_train_epochs=num_train_epochs,
-                per_device_train_batch_size=per_device_train_batch_size,
+                per_device_train_batch_size=per_device_batch_size,
+                per_device_eval_batch_size=per_device_batch_size,
                 **training_kwargs,
             )
+
+            if self.lora_config:
+                self.model = get_peft_model(self.model, peft_config=self.lora_config)
 
             if self.device and self.model:
                 self.model.to(device)
 
             # Create trainer
-            trainer = Trainer(
-                model=self.model,
-                args=training_args,
-                train_dataset=self.train_dataset,
-                eval_dataset=self.eval_dataset if self.eval else None,
-                tokenizer=self.tokenizer,
-                compute_metrics=self.compute_metrics,
-                data_collator=self.data_collator if hasattr(self, "data_collator") else None,
-                **trainer_kwargs,
-            )
+            if use_trl:
+                self.model = get_peft_model(self.model, peft_config=self.lora_config)
+                trainer = SFTTrainer(
+                    model=self.model,
+                    args=training_args,
+                    train_dataset=self.train_dataset,
+                    eval_dataset=self.eval_dataset if self.eval else None,
+                    tokenizer=self.tokenizer,
+                    compute_metrics=self.compute_metrics,
+                    data_collator=self.data_collator if hasattr(self, "data_collator") else None,
+                    peft_config=self.lora_config,
+                    **trainer_kwargs,
+                )
+            else:
+                trainer = Trainer(
+                    model=self.model,
+                    args=training_args,
+                    train_dataset=self.train_dataset,
+                    eval_dataset=self.eval_dataset if self.eval else None,
+                    tokenizer=self.tokenizer,
+                    compute_metrics=self.compute_metrics,
+                    data_collator=self.data_collator if hasattr(self, "data_collator") else None,
+                    **trainer_kwargs,
+                )
 
             # Train the model
             trainer.train()
@@ -375,7 +417,7 @@ class HuggingFaceFineTuner(Bolt):
 
             # Save the model configuration to Hugging Face Hub if hf_repo_id is not None
             if self.hf_repo_id:
-                self.config.save_pretrained(os.path.join(self.output_dir, "model"))
+                self.config.save_pretrained(os.path.join(self.output.output_folder, "model"))
                 self.upload_to_hf_hub()
         except Exception as e:
             self.log.exception(f"Failed to fine tune model: {e}")

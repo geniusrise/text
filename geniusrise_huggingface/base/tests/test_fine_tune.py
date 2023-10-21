@@ -20,25 +20,59 @@ import numpy as np
 import pytest
 from datasets import load_dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import EvalPrediction
+from transformers import EvalPrediction, DataCollatorForLanguageModeling
 
 from geniusrise_huggingface.base import HuggingFaceFineTuner
 
 
+# SEQ_CLS = "SEQ_CLS"
+# SEQ_2_SEQ_LM = "SEQ_2_SEQ_LM"
+# CAUSAL_LM = "CAUSAL_LM"
+# TOKEN_CLS = "TOKEN_CLS"
+# QUESTION_ANS = "QUESTION_ANS"
+# FEATURE_EXTRACTION = "FEATURE_EXTRACTION"
+
+lora_config = {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "task_type": "CAUSAL_LM",
+}
+
+
+# class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
+#     def load_dataset(self, dataset_path, **kwargs):
+#         dataset = load_dataset("glue", "mrpc", split="train[:100]")
+#         dataset = dataset.map(
+#             lambda examples: self.tokenizer(
+#                 examples["sentence1"],
+#                 examples["sentence2"],
+#                 truncation=True,
+#                 padding="max_length",
+#                 max_length=512,
+#             ),
+#             batched=True,
+#         ).map(lambda examples: {"labels": examples["label"]}, batched=True)
+#         return dataset
+
+
 class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
     def load_dataset(self, dataset_path, **kwargs):
-        dataset = load_dataset("glue", "mrpc", split="train[:100]")
+        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:1%]")  # Adjust the split as needed
         dataset = dataset.map(
             lambda examples: self.tokenizer(
-                examples["sentence1"],
-                examples["sentence2"],
+                examples["text"],
                 truncation=True,
                 padding="max_length",
                 max_length=512,
             ),
             batched=True,
-        ).map(lambda examples: {"labels": examples["label"]}, batched=True)
+        )
         return dataset
+
+    def data_collator(self, examples):
+        return DataCollatorForLanguageModeling(self.tokenizer, mlm=False)(examples)
 
 
 @pytest.fixture
@@ -73,7 +107,7 @@ def test_load_dataset(bolt):
         model_name=bolt.model_name,
         tokenizer_name=bolt.tokenizer_name,
         num_train_epochs=1,
-        per_device_train_batch_size=2,
+        per_device_batch_size=2,
         model_class=bolt.model_class,
         tokenizer_class=bolt.tokenizer_class,
         device_map=None,
@@ -88,7 +122,7 @@ def test_fine_tune(bolt):
         model_name="bert-base-uncased",
         tokenizer_name="bert-base-uncased",
         num_train_epochs=1,
-        per_device_train_batch_size=2,
+        per_device_batch_size=2,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
         device_map="cuda:0",
@@ -121,7 +155,7 @@ def test_upload_to_hf_hub(bolt):
         model_name="bert-base-uncased",
         tokenizer_name="bert-base-uncased",
         num_train_epochs=1,
-        per_device_train_batch_size=2,
+        per_device_batch_size=2,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
         eval=False,
@@ -134,3 +168,119 @@ def test_upload_to_hf_hub(bolt):
     )
 
     assert True
+
+
+models = {
+    "small": "bigscience/bloom-560m",
+    "medium": "meta-llama/Llama-2-7b-hf",
+    "large": "mistralai/Mistral-7B-v0.1",
+    "4-bit": "TheBloke/Mistral-7B-v0.1-GPTQ",  # TheBloke/OpenHermes-2-Mistral-7B-AWQ
+    "8-bit": "TheBloke/Mistral-7B-v0.1-GPTQ",
+}
+
+
+@pytest.mark.parametrize(
+    "model, precision, quantization, lora_config, use_accelerate",
+    [
+        # small
+        (models["small"], "float16", None, None, False),
+        (models["small"], "float16", None, None, True),
+        (models["small"], "float16", None, lora_config, False),
+        (models["small"], "float16", None, lora_config, True),
+        (models["small"], "float32", None, None, False),
+        (models["small"], "float32", None, None, True),
+        (models["small"], "float32", None, lora_config, False),
+        (models["small"], "float32", None, lora_config, True),
+        (models["small"], "bfloat16", None, None, False),
+        (models["small"], "bfloat16", None, None, True),
+        (models["small"], "bfloat16", None, lora_config, False),
+        (models["small"], "bfloat16", None, lora_config, True),
+        # large
+        # (models["large"], "float16", 8, None, False),
+        # (models["large"], "float16", 8, None, True),
+        # (models["large"], "float16", 8, lora_config, False),
+        # (models["large"], "float16", 8, lora_config, True),
+        # (models["large"], "float16", 4, None, False),
+        # (models["large"], "float16", 4, None, True),
+        # (models["large"], "float16", 4, lora_config, False),
+        # (models["large"], "float16", 4, lora_config, True),
+        # 8 bit
+        # (models["8-bit"], "float16", 8, None, False),
+        # (models["8-bit"], "float16", 8, None, True),
+        # (models["8-bit"], "float16", 8, lora_config, False),
+        # (models["8-bit"], "float16", 8, lora_config, True),
+        # (models["8-bit"], "float32", 8, None, False),
+        # (models["8-bit"], "float32", 8, None, True),
+        # (models["8-bit"], "float32", 8, lora_config, False),
+        # (models["8-bit"], "float32", 8, lora_config, True),
+        # (models["8-bit"], "bfloat16", 8, None, False),
+        # (models["8-bit"], "bfloat16", 8, None, True),
+        # (models["8-bit"], "bfloat16", 8, lora_config, False),
+        # (models["8-bit"], "bfloat16", 8, lora_config, True),
+        # 4 bit
+        # (models["4-bit"], "float16", 4, None, False),
+        # (models["4-bit"], "float16", 4, None, True),
+        # (models["4-bit"], "float16", 4, lora_config, False),
+        # (models["4-bit"], "float16", 4, lora_config, True),
+        # (models["4-bit"], "float32", 4, None, False),
+        # (models["4-bit"], "float32", 4, None, True),
+        # (models["4-bit"], "float32", 4, lora_config, False),
+        # (models["4-bit"], "float32", 4, lora_config, True),
+        # (models["4-bit"], "bfloat16", 4, None, False),
+        # (models["4-bit"], "bfloat16", 4, None, True),
+        # (models["4-bit"], "bfloat16", 4, lora_config, False),
+        # (models["4-bit"], "bfloat16", 4, lora_config, True),
+    ],
+)
+def test_fine_tune_options(bolt, model, precision, quantization, lora_config, use_accelerate):
+    use_trl = False
+
+    if use_trl:
+        bolt.fine_tune(
+            model_name=model,
+            tokenizer_name=model,
+            model_class="BertForCausalLM" if "bert" in model else "AutoModelForCausalLM",
+            tokenizer_class="BertTokenizer" if "bert" in model else "AutoTokenizer",
+            num_train_epochs=1,
+            per_device_batch_size=2,
+            precision=precision,
+            quantization=quantization,
+            lora_config=lora_config,
+            use_accelerate=use_accelerate,
+            device_map="cuda:0" if "bert" in model else "auto",
+            trainer_packing=False if lora_config is not None else None,
+            trainer_dataset_text_field="text" if lora_config is not None else None,
+        )
+    else:
+        bolt.fine_tune(
+            model_name=model,
+            tokenizer_name=model,
+            model_class="BertForCausalLM" if "bert" in model else "AutoModelForCausalLM",
+            tokenizer_class="BertTokenizer" if "bert" in model else "AutoTokenizer",
+            num_train_epochs=1,
+            per_device_batch_size=2,
+            precision=precision,
+            quantization=quantization,
+            lora_config=lora_config,
+            use_accelerate=use_accelerate,
+            device_map="cuda:0" if "bert" in model else "auto",
+        )
+
+    # Verify the model has been fine-tuned by checking the existence of model files
+    assert os.path.exists(os.path.join(bolt.output.output_folder, "model", "pytorch_model.bin")) or os.path.exists(
+        os.path.join(bolt.output.output_folder, "model", "adapter_model.bin")
+    )
+    assert os.path.exists(os.path.join(bolt.output.output_folder, "model", "config.json")) or os.path.exists(
+        os.path.join(bolt.output.output_folder, "model", "adapter_config.json")
+    )
+    assert os.path.exists(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
+
+    # Clear the output directory for the next test
+    try:
+        os.remove(os.path.join(bolt.output.output_folder, "model", "pytorch_model.bin"))
+        os.remove(os.path.join(bolt.output.output_folder, "model", "adapter_model.bin"))
+        os.remove(os.path.join(bolt.output.output_folder, "model", "config.json"))
+        os.remove(os.path.join(bolt.output.output_folder, "model", "adapter_config.json"))
+        os.remove(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
+    except Exception as _:
+        pass
