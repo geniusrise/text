@@ -201,7 +201,7 @@ models = {
         # # (models["large"], "float16", 8, lora_config, False),
         # # (models["large"], "float16", 8, lora_config, True),
         # 8 bit
-        (models["8-bit"], "float16", None, None, False),
+        (models["8-bit"], "float16", 8, None, False),
         # (models["8-bit"], "float16", 8, None, True),
         # (models["8-bit"], "float16", 8, lora_config, False),
         # (models["8-bit"], "float16", 8, lora_config, True),
