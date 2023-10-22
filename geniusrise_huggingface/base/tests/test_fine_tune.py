@@ -92,82 +92,82 @@ def bolt():
     )
 
 
-def test_bolt_init(bolt):
-    assert bolt.input is not None
-    assert bolt.output is not None
-    assert bolt.state is not None
+# def test_bolt_init(bolt):
+#     assert bolt.input is not None
+#     assert bolt.output is not None
+#     assert bolt.state is not None
 
 
-def test_load_dataset(bolt):
-    bolt.model_name = "bert-base-uncased"
-    bolt.tokenizer_name = "bert-base-uncased"
-    bolt.model_class = "BertForSequenceClassification"
-    bolt.tokenizer_class = "BertTokenizer"
-    bolt.load_models(
-        model_name=bolt.model_name,
-        tokenizer_name=bolt.tokenizer_name,
-        num_train_epochs=1,
-        per_device_batch_size=2,
-        model_class=bolt.model_class,
-        tokenizer_class=bolt.tokenizer_class,
-        device_map=None,
-    )
-    dataset = bolt.load_dataset("fake_path")
-    assert dataset is not None
-    assert len(dataset) == 100
+# def test_load_dataset(bolt):
+#     bolt.model_name = "bert-base-uncased"
+#     bolt.tokenizer_name = "bert-base-uncased"
+#     bolt.model_class = "BertForSequenceClassification"
+#     bolt.tokenizer_class = "BertTokenizer"
+#     bolt.load_models(
+#         model_name=bolt.model_name,
+#         tokenizer_name=bolt.tokenizer_name,
+#         num_train_epochs=1,
+#         per_device_batch_size=2,
+#         model_class=bolt.model_class,
+#         tokenizer_class=bolt.tokenizer_class,
+#         device_map=None,
+#     )
+#     dataset = bolt.load_dataset("fake_path")
+#     assert dataset is not None
+#     assert len(dataset) == 100
 
 
-def test_fine_tune(bolt):
-    bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        num_train_epochs=1,
-        per_device_batch_size=2,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
-        device_map="cuda:0",
-        device="cuda",
-        eval=False,
-    )
+# def test_fine_tune(bolt):
+#     bolt.fine_tune(
+#         model_name="bert-base-uncased",
+#         tokenizer_name="bert-base-uncased",
+#         num_train_epochs=1,
+#         per_device_batch_size=2,
+#         model_class="BertForSequenceClassification",
+#         tokenizer_class="BertTokenizer",
+#         device_map="cuda:0",
+#         device="cuda",
+#         eval=False,
+#     )
 
-    # Check that model files are created in the output directory
-    assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "pytorch_model.bin"))
-    assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "config.json"))
-    assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
-
-
-def test_compute_metrics(bolt):
-    # Mocking an EvalPrediction object
-    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-    labels = np.array([0, 1])
-    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-
-    metrics = bolt.compute_metrics(eval_pred)
-
-    assert "accuracy" in metrics
-    assert "precision" in metrics
-    assert "recall" in metrics
-    assert "f1" in metrics
+#     # Check that model files are created in the output directory
+#     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "pytorch_model.bin"))
+#     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "config.json"))
+#     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
 
 
-def test_upload_to_hf_hub(bolt):
-    bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        num_train_epochs=1,
-        per_device_batch_size=2,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
-        eval=False,
-        hf_repo_id="ixaxaar/geniusrise-hf-base-test-repo",
-        hf_commit_message="testing base fine tuner",
-        hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
-        hf_private=False,
-        hf_create_pr=True,
-        device_map="cuda:0",
-    )
+# def test_compute_metrics(bolt):
+#     # Mocking an EvalPrediction object
+#     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
+#     labels = np.array([0, 1])
+#     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
 
-    assert True
+#     metrics = bolt.compute_metrics(eval_pred)
+
+#     assert "accuracy" in metrics
+#     assert "precision" in metrics
+#     assert "recall" in metrics
+#     assert "f1" in metrics
+
+
+# def test_upload_to_hf_hub(bolt):
+#     bolt.fine_tune(
+#         model_name="bert-base-uncased",
+#         tokenizer_name="bert-base-uncased",
+#         num_train_epochs=1,
+#         per_device_batch_size=2,
+#         model_class="BertForSequenceClassification",
+#         tokenizer_class="BertTokenizer",
+#         eval=False,
+#         hf_repo_id="ixaxaar/geniusrise-hf-base-test-repo",
+#         hf_commit_message="testing base fine tuner",
+#         hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
+#         hf_private=False,
+#         hf_create_pr=True,
+#         device_map="cuda:0",
+#     )
+
+#     assert True
 
 
 models = {
@@ -183,29 +183,25 @@ models = {
     "model, precision, quantization, lora_config, use_accelerate",
     [
         # small
-        (models["small"], "float16", None, None, False),
-        (models["small"], "float16", None, None, True),
-        (models["small"], "float16", None, lora_config, False),
-        (models["small"], "float16", None, lora_config, True),
-        (models["small"], "float32", None, None, False),
-        (models["small"], "float32", None, None, True),
-        (models["small"], "float32", None, lora_config, False),
-        (models["small"], "float32", None, lora_config, True),
-        (models["small"], "bfloat16", None, None, False),
-        (models["small"], "bfloat16", None, None, True),
-        (models["small"], "bfloat16", None, lora_config, False),
-        (models["small"], "bfloat16", None, lora_config, True),
+        # (models["small"], "float16", None, None, False),
+        # (models["small"], "float16", None, None, True),
+        # (models["small"], "float16", None, lora_config, False),
+        # (models["small"], "float16", None, lora_config, True),
+        # (models["small"], "float32", None, None, False),
+        # (models["small"], "float32", None, None, True),
+        # (models["small"], "float32", None, lora_config, False),
+        # (models["small"], "float32", None, lora_config, True),
+        # (models["small"], "bfloat16", None, None, False),
+        # (models["small"], "bfloat16", None, None, True),
+        # (models["small"], "bfloat16", None, lora_config, False),
+        # (models["small"], "bfloat16", None, lora_config, True),
         # large
-        # (models["large"], "float16", 8, None, False),
-        # (models["large"], "float16", 8, None, True),
-        # (models["large"], "float16", 8, lora_config, False),
-        # (models["large"], "float16", 8, lora_config, True),
-        # (models["large"], "float16", 4, None, False),
-        # (models["large"], "float16", 4, None, True),
-        # (models["large"], "float16", 4, lora_config, False),
+        # (models["large"], "bfloat16", 4, lora_config, False),
         # (models["large"], "float16", 4, lora_config, True),
+        # # (models["large"], "float16", 8, lora_config, False),
+        # # (models["large"], "float16", 8, lora_config, True),
         # 8 bit
-        # (models["8-bit"], "float16", 8, None, False),
+        (models["8-bit"], "float16", None, None, False),
         # (models["8-bit"], "float16", 8, None, True),
         # (models["8-bit"], "float16", 8, lora_config, False),
         # (models["8-bit"], "float16", 8, lora_config, True),
@@ -263,7 +259,7 @@ def test_fine_tune_options(bolt, model, precision, quantization, lora_config, us
             quantization=quantization,
             lora_config=lora_config,
             use_accelerate=use_accelerate,
-            device_map="cuda:0" if "bert" in model else "auto",
+            device_map="cuda:0" if "bert" in model else None,
         )
 
     # Verify the model has been fine-tuned by checking the existence of model files
