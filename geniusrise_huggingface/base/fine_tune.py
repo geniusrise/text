@@ -21,7 +21,7 @@ import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import EvalPrediction, Trainer, TrainingArguments, AutoModel
+from transformers import EvalPrediction, Trainer, TrainingArguments
 from accelerate import infer_auto_device_map, init_empty_weights
 from peft import LoraConfig, get_peft_model
 from trl import SFTTrainer
@@ -107,8 +107,6 @@ class HuggingFaceFineTuner(Bolt):
     ):
         """Load the model and tokenizer"""
         try:
-            self.log.info(f"Loading model {model_name}")
-
             # Determine the torch dtype based on precision
             if precision == "float16":
                 torch_dtype = torch.float16
@@ -120,11 +118,17 @@ class HuggingFaceFineTuner(Bolt):
                 raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
 
             peft_target_modules = []
+            if ":" in model_name:
+                model_revision = model_name.split(":")[1]
+                model_name = model_name.split(":")[0]
+            else:
+                model_revision = None
+            self.model_name = model_name
+            self.log.info(f"Loading model {model_name} and branch {model_revision}")
 
             with init_empty_weights():
-                model = AutoModel.from_pretrained(
-                    model_name,
-                    device_map=device_map,
+                model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
+                    model_name, revision=model_revision, device_map=device_map
                 )
                 known_targets = [
                     v
@@ -163,8 +167,7 @@ class HuggingFaceFineTuner(Bolt):
                             no_split_module_classes=accelerate_no_split_module_classes,
                             **kwargs,
                         )
-
-            self.log.info(f"Inferred device map {device_map}")
+                    self.log.info(f"Inferred device map {device_map}")
 
             if lora_config:
                 if len(peft_target_modules) > 0:
@@ -200,6 +203,7 @@ class HuggingFaceFineTuner(Bolt):
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
+                        revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_8bit=True,
@@ -220,6 +224,7 @@ class HuggingFaceFineTuner(Bolt):
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
+                        revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_4bit=True,
@@ -239,10 +244,18 @@ class HuggingFaceFineTuner(Bolt):
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         model_name,
+                        revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         **kwargs,
                     )
+
+            if ":" in tokenizer_name:
+                tokenizer_revision = tokenizer_name.split(":")[1]
+                tokenizer_name = tokenizer_name.split(":")[0]
+            else:
+                tokenizer_revision = None
+            self.tokenizer_name = tokenizer_name
 
             if tokenizer_name.lower() == "local":  # type: ignore
                 self.log.info(f"Loading local tokenizer : {tokenizer_class} : {self.input.get()}")
@@ -252,7 +265,7 @@ class HuggingFaceFineTuner(Bolt):
             else:
                 self.log.info(f"Loading tokenizer from huggingface hub: {tokenizer_class} : {tokenizer_name}")
                 self.tokenizer = getattr(__import__("transformers"), str(tokenizer_class)).from_pretrained(
-                    tokenizer_name
+                    tokenizer_name, revision=tokenizer_revision
                 )
         except Exception as e:
             self.log.exception(f"Failed to load model: {e}")
@@ -410,6 +423,7 @@ class HuggingFaceFineTuner(Bolt):
             )
 
             if self.lora_config:
+                self.model.enable_input_require_grads()
                 self.model = get_peft_model(self.model, peft_config=self.lora_config)
 
             if self.device and self.model and not self.quantization:
