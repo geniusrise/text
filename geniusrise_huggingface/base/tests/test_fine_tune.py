@@ -202,11 +202,11 @@ models = {
         # (models["large"], "float16", 4, lora_config, True),
         # (models["large"], "float32", 4, lora_config, False),
         # (models["large"], "float32", 4, lora_config, True),
-        # # (models["small"], "bfloat16", 8, lora_config, False),
-        # # (models["small"], "bfloat16", 8, lora_config, True),
+        (models["small"], "bfloat16", 8, lora_config, False),
+        (models["small"], "bfloat16", 8, lora_config, True),
         # 4 bit
-        (models["4-bit"], "float16", None, lora_config, False),
-        (models["4-bit"], "float16", None, lora_config, True),
+        # (models["4-bit"], "float16", None, lora_config, False),
+        # (models["4-bit"], "float16", None, lora_config, True),
         # 8 bit
         # (models["8-bit"], "float32", None, None, False),
         # (models["8-bit"], "float16", None, None, True),
