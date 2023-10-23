@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cherrypy
 import torch
 import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
+from geniusrise.logging import setup_logger
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -37,8 +37,7 @@ class HuggingFaceAPI(Bolt):
         state: State,
     ):
         super().__init__(input=input, output=output, state=state)
-        self.log = logging.getLogger(self.__class__.__name__)
-        self.log.info("Loading huggingface API server")
+        self.log = setup_logger(self)
 
     def generate(
         self,
@@ -82,9 +81,6 @@ class HuggingFaceAPI(Bolt):
 
             inputs = self.tokenizer(prompt, return_tensors="pt")
 
-            if torch.cuda.is_available():
-                inputs = inputs.to("cuda:0")
-
             input_ids = inputs["input_ids"]
 
             # Use the specified decoding strategy
@@ -102,6 +98,9 @@ class HuggingFaceAPI(Bolt):
     def load_models(
         self,
         model_name: str,
+        tokenizer_name: str,
+        model_revision: Optional[str] = None,
+        tokenizer_revision: Optional[str] = None,
         model_class_name: str = "AutoModelForCausalLM",
         tokenizer_class_name: str = "AutoTokenizer",
         use_cuda: bool = False,
@@ -149,12 +148,13 @@ class HuggingFaceAPI(Bolt):
         TokenizerClass = getattr(transformers, tokenizer_class_name)
 
         # Load the model and tokenizer
-        tokenizer = TokenizerClass.from_pretrained(model_name, torch_dtype=torch_dtype)
+        tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
 
-        self.log.info(f"Loading model from {model_name} with {model_args}")
+        self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
         if quantization == 8:
             model = ModelClass.from_pretrained(
                 model_name,
+                revision=model_revision,
                 torchscript=torchscript,
                 max_memory=max_memory,
                 device_map=device_map,
@@ -164,6 +164,7 @@ class HuggingFaceAPI(Bolt):
         elif quantization == 4:
             model = ModelClass.from_pretrained(
                 model_name,
+                revision=model_revision,
                 torchscript=torchscript,
                 max_memory=max_memory,
                 device_map=device_map,
@@ -173,6 +174,7 @@ class HuggingFaceAPI(Bolt):
         else:
             model = ModelClass.from_pretrained(
                 model_name,
+                revision=model_revision,
                 torch_dtype=torch_dtype,
                 torchscript=torchscript,
                 max_memory=max_memory,
@@ -183,10 +185,8 @@ class HuggingFaceAPI(Bolt):
         # Set to evaluation mode for inference
         model.eval()
 
-        # Check if CUDA should be used
-        if use_cuda and torch.cuda.is_available() and device_map != "auto":
-            self.log.info("Using CUDA for Hugging Face model.")
-            model.to("cuda:0")
+        if tokenizer and not tokenizer.pad_token:
+            tokenizer.pad_token = tokenizer.eos_token
 
         self.log.debug("Hugging Face model and tokenizer loaded successfully.")
         return model, tokenizer
@@ -198,6 +198,7 @@ class HuggingFaceAPI(Bolt):
         tokenizer_class_name: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
+        quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
@@ -212,18 +213,39 @@ class HuggingFaceAPI(Bolt):
         self.model_class_name = model_class_name
         self.tokenizer_class_name = tokenizer_class_name
         self.use_cuda = use_cuda
+        self.quantization = quantization
         self.precision = precision
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
         self.model_args = model_args
 
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+        self.model_name = model_name
+        self.model_revision = model_revision
+        self.tokenizer_name = tokenizer_name
+        self.tokenizer_revision = tokenizer_revision
+
+        if use_cuda and not device_map:
+            device_map = "cuda:0"
+
         self.model, self.tokenizer = self.load_models(
             model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
             model_class_name=self.model_class_name,
             tokenizer_class_name=self.tokenizer_class_name,
             use_cuda=self.use_cuda,
             precision=self.precision,
+            quantization=self.quantization,
             device_map=self.device_map,
             max_memory=self.max_memory,
             torchscript=self.torchscript,
