@@ -21,8 +21,11 @@ import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
 from transformers import (
-    AutoModelForCausalLM,
     AutoTokenizer,
+    AutoModelForCausalLM,
+    BeamSearchScorer,
+    LogitsProcessorList,
+    MinLengthLogitsProcessor,
 )
 
 
@@ -48,11 +51,14 @@ class HuggingFaceAPI(Bolt):
         """ """
         results: Dict[int, Dict[str, Union[str, List[str]]]] = {}
         eos_token_id = self.model.config.eos_token_id
+        pad_token_id = self.model.config.pad_token_id
+        if not pad_token_id:
+            pad_token_id = eos_token_id
 
         # Default parameters for each strategy
         default_params = {
             "generate": {"max_length": 4096},
-            "greedy_search": {"max_length": 4096},
+            "greedy_search": {"max_length": 4096, "eos_token_id": eos_token_id, "pad_token_id": pad_token_id},
             "contrastive_search": {"max_length": 4096},
             "sample": {"do_sample": True, "temperature": 0.6, "top_p": 0.9, "max_length": 4096},
             "beam_search": {"num_beams": 4, "max_length": 4096},
@@ -63,6 +69,24 @@ class HuggingFaceAPI(Bolt):
 
         # Merge default params with user-provided params
         strategy_params = {**default_params.get(decoding_strategy, {}), **generation_params}  # type: ignore
+
+        # Prepare LogitsProcessorList and BeamSearchScorer for beam search strategies
+        if decoding_strategy in ["beam_search", "beam_sample", "group_beam_search"]:
+            logits_processor = LogitsProcessorList(
+                [MinLengthLogitsProcessor(min_length=strategy_params.get("min_length", 0), eos_token_id=eos_token_id)]
+            )
+            beam_scorer = BeamSearchScorer(
+                batch_size=1,
+                max_length=strategy_params.get("max_length", 20),
+                num_beams=strategy_params.get("num_beams", 1),
+                device=self.model.device,
+                length_penalty=strategy_params.get("length_penalty", 1.0),
+                do_early_stopping=strategy_params.get("early_stopping", False),
+            )
+            strategy_params.update({"logits_processor": logits_processor, "beam_scorer": beam_scorer})
+
+            if decoding_strategy == "beam_sample":
+                strategy_params.update({"logits_warper": LogitsProcessorList()})
 
         # Map of decoding strategy to method
         strategy_to_method = {
@@ -79,9 +103,14 @@ class HuggingFaceAPI(Bolt):
         try:
             self.log.debug(f"Generating completion for prompt {prompt}")
 
-            inputs = self.tokenizer(prompt, return_tensors="pt")
-
+            inputs = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
             input_ids = inputs["input_ids"]
+            input_ids = input_ids.to(self.model.device)
+
+            # Replicate input_ids for beam search
+            if decoding_strategy in ["beam_search", "beam_sample", "group_beam_search"]:
+                num_beams = strategy_params.get("num_beams", 1)
+                input_ids = input_ids.repeat(num_beams, 1)
 
             # Use the specified decoding strategy
             decoding_method = strategy_to_method.get(decoding_strategy, self.model.generate)
@@ -93,7 +122,8 @@ class HuggingFaceAPI(Bolt):
             return generated_text
 
         except Exception as e:
-            raise ValueError(f"An error occurred: {e}")
+            self.log.exception(f"An error occurred: {e}")
+            raise
 
     def load_models(
         self,
@@ -144,6 +174,9 @@ class HuggingFaceAPI(Bolt):
         else:
             raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
 
+        if use_cuda and not device_map:
+            device_map = "auto"
+
         ModelClass = getattr(transformers, model_class_name)
         TokenizerClass = getattr(transformers, tokenizer_class_name)
 
@@ -185,7 +218,7 @@ class HuggingFaceAPI(Bolt):
         # Set to evaluation mode for inference
         model.eval()
 
-        if tokenizer and not tokenizer.pad_token:
+        if tokenizer and tokenizer.eos_token and (not tokenizer.pad_token):
             tokenizer.pad_token = tokenizer.eos_token
 
         self.log.debug("Hugging Face model and tokenizer loaded successfully.")
@@ -232,9 +265,6 @@ class HuggingFaceAPI(Bolt):
         self.model_revision = model_revision
         self.tokenizer_name = tokenizer_name
         self.tokenizer_revision = tokenizer_revision
-
-        if use_cuda and not device_map:
-            device_map = "cuda:0"
 
         self.model, self.tokenizer = self.load_models(
             model_name=self.model_name,
