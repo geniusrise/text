@@ -41,22 +41,6 @@ lora_config = {
 }
 
 
-# class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
-#     def load_dataset(self, dataset_path, **kwargs):
-#         dataset = load_dataset("glue", "mrpc", split="train[:100]")
-#         dataset = dataset.map(
-#             lambda examples: self.tokenizer(
-#                 examples["sentence1"],
-#                 examples["sentence2"],
-#                 truncation=True,
-#                 padding="max_length",
-#                 max_length=512,
-#             ),
-#             batched=True,
-#         ).map(lambda examples: {"labels": examples["label"]}, batched=True)
-#         return dataset
-
-
 class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
     def load_dataset(self, dataset_path, **kwargs):
         dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:1%]")  # Adjust the split as needed
