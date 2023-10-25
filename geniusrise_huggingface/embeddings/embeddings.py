@@ -260,8 +260,6 @@ def generate_permutation_embeddings(
         for subset in permutations(words, r):
             all_permutations.append(" ".join(subset))
 
-    print(all_permutations)
-
     embeddings_list = []
 
     for comb_term in all_permutations:
