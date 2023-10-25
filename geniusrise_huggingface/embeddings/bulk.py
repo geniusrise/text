@@ -95,13 +95,17 @@ class EmbeddingsBulk(Bolt):
         super().__init__(input, output, state, **kwargs)
         self.log = setup_logger(self.state)
 
-    def _load_huggingface_model(
+    def load_models(
         self,
         model_name: str,
+        tokenizer_name: str,
+        model_revision: Optional[str] = None,
+        tokenizer_revision: Optional[str] = None,
         model_class_name: str = "AutoModelForCausalLM",
         tokenizer_class_name: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
+        quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
@@ -125,7 +129,7 @@ class EmbeddingsBulk(Bolt):
 
         Usage:
         ```python
-        model, tokenizer = _load_huggingface_model("gpt-2", use_cuda=True, precision='float32', quantize=True, quantize_bits=8)
+        model, tokenizer = load_models("gpt-2", use_cuda=True, precision='float32', quantize=True, quantize_bits=8)
         ```
         """
         self.log.info(f"Loading Hugging Face model: {model_name}")
@@ -140,29 +144,52 @@ class EmbeddingsBulk(Bolt):
         else:
             raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
 
+        if use_cuda and not device_map:
+            device_map = "auto"
+
         ModelClass = getattr(transformers, model_class_name)
         TokenizerClass = getattr(transformers, tokenizer_class_name)
 
         # Load the model and tokenizer
-        tokenizer = TokenizerClass.from_pretrained(model_name, torch_dtype=torch_dtype)
+        tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
 
-        self.log.info(f"Loading model from {model_name} with {model_args}")
-        model = ModelClass.from_pretrained(
-            model_name,
-            torch_dtype=torch_dtype,
-            torchscript=torchscript,
-            max_memory=max_memory,
-            device_map=device_map,
-            **model_args,
-        )
+        self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
+        if quantization == 8:
+            model = ModelClass.from_pretrained(
+                model_name,
+                revision=model_revision,
+                torchscript=torchscript,
+                max_memory=max_memory,
+                device_map=device_map,
+                load_in_8bit=True,
+                **model_args,
+            )
+        elif quantization == 4:
+            model = ModelClass.from_pretrained(
+                model_name,
+                revision=model_revision,
+                torchscript=torchscript,
+                max_memory=max_memory,
+                device_map=device_map,
+                load_in_4bit=True,
+                **model_args,
+            )
+        else:
+            model = ModelClass.from_pretrained(
+                model_name,
+                revision=model_revision,
+                torch_dtype=torch_dtype,
+                torchscript=torchscript,
+                max_memory=max_memory,
+                device_map=device_map,
+                **model_args,
+            )
 
         # Set to evaluation mode for inference
         model.eval()
 
-        # Check if CUDA should be used
-        if use_cuda and torch.cuda.is_available() and device_map != "auto":
-            self.log.info("Using CUDA for Hugging Face model.")
-            model.to("cuda:0")
+        if tokenizer and tokenizer.eos_token and (not tokenizer.pad_token):
+            tokenizer.pad_token = tokenizer.eos_token
 
         self.log.debug("Hugging Face model and tokenizer loaded successfully.")
         return model, tokenizer
@@ -176,6 +203,7 @@ class EmbeddingsBulk(Bolt):
         sentence_transformer_model: str = "paraphrase-MiniLM-L6-v2",
         use_cuda: bool = False,
         precision: str = "float16",
+        quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
@@ -194,21 +222,43 @@ class EmbeddingsBulk(Bolt):
         self.model_class_name = model_class_name
         self.tokenizer_class_name = tokenizer_class_name
         self.use_cuda = use_cuda
+        self.quantization = quantization
         self.precision = precision
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
         self.model_args = model_args
 
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+        self.model_name = model_name
+        self.model_revision = model_revision
+        self.tokenizer_name = tokenizer_name
+        self.tokenizer_revision = tokenizer_revision
+
+        if self.use_cuda and self.device_map is None:
+            self.device_map = "cuda:0"
+
         if kind == "sentence":
             self.sentence_transformer_model = SentenceTransformer(model_name, device="cuda" if use_cuda else "cpu")
         else:
-            self.model, self.tokenizer = self._load_huggingface_model(
+            self.model, self.tokenizer = self.load_models(
                 model_name=self.model_name,
+                tokenizer_name=self.tokenizer_name,
+                model_revision=self.model_revision,
+                tokenizer_revision=self.tokenizer_revision,
                 model_class_name=self.model_class_name,
                 tokenizer_class_name=self.tokenizer_class_name,
                 use_cuda=self.use_cuda,
                 precision=self.precision,
+                quantization=self.quantization,
                 device_map=self.device_map,
                 max_memory=self.max_memory,
                 torchscript=self.torchscript,
@@ -234,7 +284,7 @@ class EmbeddingsBulk(Bolt):
                 use_cuda=self.use_cuda,
                 batch_size=batch_size,
             )
-            return self._save_embeddings(embeddings.tolist(), output_path)
+            return self._save_embeddings(embeddings, output_path)
         elif kind == "sentence_windows":
             embeddings = [
                 generate_contiguous_embeddings(
@@ -339,8 +389,8 @@ class EmbeddingsBulk(Bolt):
                     data.extend(df.to_dict("records"))
 
             except Exception as e:
-                self.log.error(f"Error occurred when loading dataset from {filepath}. Error: {e}")
-                continue
+                self.log.exception(f"Error occurred when loading dataset from {filepath}. Error: {e}")
+                raise
 
         if not data:
             self.log.error("No data found.")
@@ -356,5 +406,5 @@ class EmbeddingsBulk(Bolt):
             embeddings (Dict[str, Any]): A dictionary containing the generated embeddings.
             output_path (str): The path to save the embeddings.
         """
-        with open(os.path.join(output_path, f"embeddings-{str(uuid.uuid4())}.json"), "w") as f:
-            pickle.dump(embeddings, f)  # type: ignore
+        with open(os.path.join(output_path, f"embeddings-{str(uuid.uuid4())}.json"), "wb") as f:
+            pickle.dump(embeddings, f)
