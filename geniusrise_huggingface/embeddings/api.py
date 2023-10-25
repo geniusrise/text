@@ -236,9 +236,9 @@ class EmbeddingsAPI(HuggingFaceAPI):
         model_name: str,
         model_class_name: str = "AutoModelForCausalLM",
         tokenizer_class_name: str = "AutoTokenizer",
-        sentence_transformer_model: str = "paraphrase-MiniLM-L6-v2",
         use_cuda: bool = False,
         precision: str = "float16",
+        quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
@@ -276,18 +276,37 @@ class EmbeddingsAPI(HuggingFaceAPI):
         self.model_class_name = model_class_name
         self.tokenizer_class_name = tokenizer_class_name
         self.use_cuda = use_cuda
+        self.quantization = quantization
         self.precision = precision
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
         self.model_args = model_args
 
-        self.model, self.tokenizer = self.load_huggingface_model(
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+        self.model_name = model_name
+        self.model_revision = model_revision
+        self.tokenizer_name = tokenizer_name
+        self.tokenizer_revision = tokenizer_revision
+
+        self.model, self.tokenizer = self.load_models(
             model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
             model_class_name=self.model_class_name,
             tokenizer_class_name=self.tokenizer_class_name,
             use_cuda=self.use_cuda,
             precision=self.precision,
+            quantization=self.quantization,
             device_map=self.device_map,
             max_memory=self.max_memory,
             torchscript=self.torchscript,
