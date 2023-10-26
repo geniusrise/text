@@ -50,8 +50,9 @@ class HuggingFaceFineTuner(Bolt):
 
         Args:
             input (BatchInput): The batch input data.
-            output (OutputConfig): The output data.
+            output (BatchOutput): The output data.
             state (State): The state manager.
+            evaluate (bool, optional): Whether to evaluate the model. Defaults to False.
             **kwargs: Additional keyword arguments.
         """
         super().__init__(input=input, output=output, state=state)
@@ -68,10 +69,11 @@ class HuggingFaceFineTuner(Bolt):
 
         Args:
             dataset_path (str): The path to the dataset file.
+            split (str, optional): The split to load. Defaults to None.
             **kwargs: Additional keyword arguments to pass to the `load_dataset` method.
 
         Returns:
-            Dataset: The loaded dataset.
+            Union[Dataset, DatasetDict, None]: The loaded dataset.
 
         Raises:
             NotImplementedError: This method should be overridden by subclasses.
@@ -110,11 +112,11 @@ class HuggingFaceFineTuner(Bolt):
 
         Args:
             model_name (str): The name of the model to be loaded.
-            tokenizer_name (str): The name of the tokenizer to be loaded.
+            tokenizer_name (str, optional): The name of the tokenizer to be loaded. Defaults to None.
             model_class (str, optional): The class of the model. Defaults to "AutoModel".
             tokenizer_class (str, optional): The class of the tokenizer. Defaults to "AutoTokenizer".
-            device_map (str | dict, optional): The device map to be used. Defaults to "auto".
-            precision (str, optional): The precision to be used. Choose from 'float32', 'float16', 'bfloat16'. Defaults to "bfloat16".
+            device (Union[str, torch.device], optional): The device to be used. Defaults to "cuda".
+            precision (str, optional): The precision to be used. Choose from 'float32', 'float16', 'bfloat16'. Defaults to "float32".
             quantization (Optional[int], optional): The quantization to be used. Defaults to None.
             lora_config (Optional[dict], optional): The LoRA configuration to be used. Defaults to None.
             use_accelerate (bool, optional): Whether to use accelerate. Defaults to False.
@@ -375,36 +377,34 @@ class HuggingFaceFineTuner(Bolt):
         **kwargs,
     ):
         """
-        A class to fine-tune a pre-trained Hugging Face model.
+        Fine-tunes a pre-trained Hugging Face model.
 
-        Attributes:
-            model (Optional[PreTrainedModel]): The fine-tuned model.
-            tokenizer (Optional[PreTrainedTokenizer]): The tokenizer used for fine-tuning.
-            train_dataset (Optional[Dataset]): The training dataset.
-            eval_dataset (Optional[Dataset]): The evaluation dataset.
-            data_collator (Optional[DataCollator]): The data collator used for fine-tuning.
-            output (Optional[OutputManager]): The output manager for fine-tuning.
-            model_name (Optional[str]): The pre-trained model name.
-            tokenizer_name (Optional[str]): The pre-trained tokenizer name.
-            num_train_epochs (Optional[int]): Total number of training epochs to perform.
-            per_device_batch_size (Optional[int]): Batch size per device during training.
-            model_class (Optional[str]): The model class to use.
-            tokenizer_class (Optional[str]): The tokenizer class to use.
-            device_map (Union[str, dict]): The device map for distributed training.
-            device (Optional[str]): The device to use for training.
-            precision (Optional[str]): The precision to use for training.
-            quantization (Optional[int]): The quantization level to use for training.
-            lora_config (Optional[dict]): Configuration for PEFT LoRA optimization.
-            use_accelerate (Optional[bool]): Whether to use accelerate for distributed training.
-            use_trl (Optional[bool]): Whether to use TRL for training.
-            accelerate_no_split_module_classes (Optional[List[str]]): The module classes to not split during distributed training.
-            evaluate (Optional[bool]): Whether to evaluate the model after training.
-            hf_repo_id (Optional[str]): The Hugging Face repo ID.
-            hf_commit_message (Optional[str]): The Hugging Face commit message.
-            hf_token (Optional[str]): The Hugging Face token.
-            hf_private (Optional[bool]): Whether to make the repo private.
-            hf_create_pr (Optional[bool]): Whether to create a pull request.
-            map_data (Optional[Callable]): A function to map data before training.
+        Args:
+            model_name (str): The name of the pre-trained model.
+            tokenizer_name (str): The name of the pre-trained tokenizer.
+            num_train_epochs (int): The total number of training epochs to perform.
+            per_device_batch_size (int): The batch size per device during training.
+            model_class (str, optional): The model class to use. Defaults to "AutoModel".
+            tokenizer_class (str, optional): The tokenizer class to use. Defaults to "AutoTokenizer".
+            device_map (str | dict, optional): The device map for distributed training. Defaults to "auto".
+            device (str, optional): The device to use for training. Defaults to "cuda".
+            precision (str, optional): The precision to use for training. Defaults to "bfloat16".
+            quantization (int, optional): The quantization level to use for training. Defaults to None.
+            lora_config (dict, optional): Configuration for PEFT LoRA optimization. Defaults to None.
+            use_accelerate (bool, optional): Whether to use accelerate for distributed training. Defaults to False.
+            use_trl (bool, optional): Whether to use TRL for training. Defaults to False.
+            accelerate_no_split_module_classes (List[str], optional): The module classes to not split during distributed training. Defaults to [].
+            evaluate (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            map_data (Callable, optional): A function to map data before training. Defaults to None.
+            hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
+            hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
+            hf_token (str, optional): The Hugging Face token. Defaults to None.
+            hf_private (bool, optional): Whether to make the repo private. Defaults to True.
+            hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
+            **kwargs: Additional keyword arguments to pass to the model.
+
+        Returns:
+            None
         """
         try:
             # Save everything

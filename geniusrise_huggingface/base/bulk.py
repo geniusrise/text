@@ -30,6 +30,44 @@ from transformers import (
 
 
 class HuggingFaceBulk(Bolt):
+    """
+    A class that provides bulk text generation functionality using Hugging Face models.
+
+    Attributes:
+        model (Any): The Hugging Face model to use for text generation.
+        tokenizer (Any): The Hugging Face tokenizer to use for text generation.
+
+    Args:
+        input (BatchInput): The input data to process.
+        output (BatchOutput): The output data to return.
+        state (State): The state of the Bolt.
+
+    Methods:
+        text(**kwargs: Any) -> Dict[str, Any]:
+            Exposes the text generation functionality as a REST API endpoint.
+            Accepts a JSON payload with the following keys:
+                - prompt (str): The prompt to generate text from.
+                - decoding_strategy (str): The decoding strategy to use for text generation.
+                - max_new_tokens (int): The maximum number of new tokens to generate.
+                - max_length (int): The maximum length of the generated text.
+                - temperature (float): The temperature to use for sampling-based decoding strategies.
+                - diversity_penalty (float): The diversity penalty to use for beam search-based decoding strategies.
+                - num_beams (int): The number of beams to use for beam search-based decoding strategies.
+                - length_penalty (float): The length penalty to use for beam search-based decoding strategies.
+                - early_stopping (bool): Whether to stop decoding early for beam search-based decoding strategies.
+                - Any other key-value pairs will be passed as generation parameters to the Hugging Face model.
+            Returns a JSON payload with the following keys:
+                - prompt (str): The prompt used for text generation.
+                - args (Dict[str, Any]): The generation parameters used for text generation.
+                - completion (str): The generated text.
+
+        generate(prompt: str, decoding_strategy: str = "generate", **generation_params: Any) -> dict:
+            Generates text using the specified decoding strategy and generation parameters.
+            Returns a dictionary with the following keys:
+                - prompt (str): The prompt used for text generation.
+                - completion (str): The generated text.
+    """
+
     model: Any
     tokenizer: Any
 
