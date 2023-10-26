@@ -100,8 +100,8 @@ def embeddings_bulk_bolt(tmpdir):
     output_dir = f"{tmpdir}/output"
     os.makedirs(input_dir)
     os.makedirs(output_dir)
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
     bolt = EmbeddingsBulk(
         input=input,
