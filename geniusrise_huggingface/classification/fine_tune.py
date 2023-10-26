@@ -17,14 +17,16 @@ import json
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
-from typing import Optional
+from typing import Optional, Dict, Union
 
 import pandas as pd
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
-from transformers import DataCollatorWithPadding
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from transformers import DataCollatorWithPadding, EvalPrediction
+import numpy as np
 
 from geniusrise_huggingface.base import HuggingFaceFineTuner
 
@@ -170,10 +172,10 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         Should contain 'text' and 'label' columns.
         """
 
-        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer, max_length=max_length)
         self.max_length = max_length
 
-        self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else None  # type: ignore
+        self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else {}  # type: ignore
 
         def tokenize_function(examples):
             tokenized_data = self.tokenizer(
@@ -182,6 +184,17 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                 truncation=True,
                 max_length=self.max_length,
             )
+
+            labels = list(set(examples["label"]))
+            unknown_labels = [
+                label for label in labels if label not in self.label_to_id and label.upper() not in self.label_to_id
+            ]
+            if unknown_labels:
+                self.log.warning(f"Unknown labels detected: {unknown_labels}")
+                self.label_to_id = {
+                    **self.label_to_id,
+                    **{f"{x}": len(labels) + i for i, x in enumerate(unknown_labels)},
+                }
 
             tokenized_data["label"] = [
                 self.label_to_id[label] if label in self.label_to_id else self.label_to_id[label.upper()]
@@ -267,3 +280,33 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         except Exception as e:
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
+
+    def compute_metrics(self, eval_pred: EvalPrediction) -> Union[Optional[Dict[str, float]], Dict[str, float]]:
+        """
+        Compute metrics for evaluation. This class implements a simple classification evaluation,
+        tasks should ideally override this.
+
+        Args:
+            eval_pred (EvalPrediction): The evaluation predictions.
+
+        Returns:
+            dict: The computed metrics.
+        """
+        predictions, labels = eval_pred
+        predictions = predictions[0] if isinstance(predictions, tuple) else predictions
+        labels = labels[0] if isinstance(labels, tuple) else labels
+        predictions = np.argmax(predictions, axis=1)
+
+        print(labels, predictions, "*****************************")
+
+        is_binary = len(self.label_to_id.keys()) == 2
+        average_type = "binary" if is_binary else "weighted"
+
+        precision, recall, f1, _ = precision_recall_fscore_support(labels, predictions, average=average_type)
+
+        return {
+            "accuracy": accuracy_score(labels, predictions),
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
