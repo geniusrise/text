@@ -42,56 +42,57 @@ from geniusrise_huggingface.embeddings.embeddings import (
 
 
 class EmbeddingsBulk(Bolt):
-    def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
-        r"""
-        The `EmbeddingsBulk` class is designed to generate embeddings in bulk for various types of text data.
-        It supports multiple data formats: JSONL, CSV, Parquet, JSON, XML, YAML, TSV, Excel, SQLite, and Feather.
+    r"""
+    The `EmbeddingsBulk` class is designed to generate embeddings in bulk for various types of text data.
+    It supports multiple data formats: JSONL, CSV, Parquet, JSON, XML, YAML, TSV, Excel, SQLite, and Feather.
 
-        Args:
-            input (BatchInput): An instance of the BatchInput class for reading the data.
-            output (BatchOutput): An instance of the BatchOutput class for saving the data.
-            state (State): An instance of the State class for maintaining the state.
-            **kwargs: Additional keyword arguments.
+    Args:
+        input (BatchInput): An instance of the BatchInput class for reading the data.
+        output (BatchOutput): An instance of the BatchOutput class for saving the data.
+        state (State): An instance of the State class for maintaining the state.
+        **kwargs: Additional keyword arguments.
 
-        CLI Usage:
+    CLI Usage:
 
-        ```bash
-        genius EmbeddingsBulk rise \
-            batch \
-                --bucket my_bucket \
-                --s3_folder s3/input \
-            batch \
-                --bucket my_bucket \
-                --s3_folder s3/output \
-            none \
-            process \
-                --args model_name=bert-base-uncased tokenizer_name=bert-base-uncased use_cuda=true
-        ```
+    ```bash
+    genius EmbeddingsBulk rise \
+        batch \
+            --bucket my_bucket \
+            --s3_folder s3/input \
+        batch \
+            --bucket my_bucket \
+            --s3_folder s3/output \
+        none \
+        process \
+            --args model_name=bert-base-uncased tokenizer_name=bert-base-uncased use_cuda=true
+    ```
 
-        YAML Configuration:
+    YAML Configuration:
 
-        ```yaml
-        version: "1"
-        bolts:
-            generate_embeddings:
-                name: "EmbeddingsBulk"
-                method: "process"
+    ```yaml
+    version: "1"
+    bolts:
+        generate_embeddings:
+            name: "EmbeddingsBulk"
+            method: "process"
+            args:
+                model_name: "bert-base-uncased"
+                tokenizer_name: "bert-base-uncased"
+                use_cuda: true
+            input:
+                type: "batch"
                 args:
-                    model_name: "bert-base-uncased"
-                    tokenizer_name: "bert-base-uncased"
-                    use_cuda: true
-                input:
-                    type: "batch"
-                    args:
-                        bucket: "my_bucket"
-                        s3_folder: "s3/input"
-                output:
-                    type: "batch"
-                    args:
-                        bucket: "my_bucket"
-                        s3_folder: "s3/output"
-        ```
-        """
+                    bucket: "my_bucket"
+                    s3_folder: "s3/input"
+            output:
+                type: "batch"
+                args:
+                    bucket: "my_bucket"
+                    s3_folder: "s3/output"
+    ```
+    """
+
+    def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
         super().__init__(input, output, state, **kwargs)
         self.log = setup_logger(self.state)
 
