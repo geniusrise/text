@@ -15,13 +15,13 @@
 
 import os
 from abc import abstractmethod
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 
 import numpy as np
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import EvalPrediction, Trainer, TrainingArguments
+from transformers import EvalPrediction, Trainer, TrainingArguments, AutoConfig
 from accelerate import infer_auto_device_map, init_empty_weights
 from peft import LoraConfig, get_peft_model
 from trl import SFTTrainer
@@ -83,13 +83,13 @@ class HuggingFaceFineTuner(Bolt):
         try:
             self.input.copy_from_remote()
             train_dataset_path = os.path.join(self.input.get(), "train")
-            eval_dataset_path = os.path.join(self.input.get(), "eval")
+            eval_dataset_path = os.path.join(self.input.get(), "test")
             self.train_dataset = self.load_dataset(train_dataset_path, **kwargs)
-            if self.eval:
+            if self.evaluate:
                 self.eval_dataset = self.load_dataset(eval_dataset_path, **kwargs)
         except Exception as e:
             self.log.exception(f"Failed to preprocess data: {e}")
-            raise
+            raise e
 
     def load_models(
         self,
@@ -105,7 +105,28 @@ class HuggingFaceFineTuner(Bolt):
         accelerate_no_split_module_classes: List[str] = [],
         **kwargs,
     ):
-        """Load the model and tokenizer"""
+        """
+        Load the model and tokenizer.
+
+        Args:
+            model_name (str): The name of the model to be loaded.
+            tokenizer_name (str): The name of the tokenizer to be loaded.
+            model_class (str, optional): The class of the model. Defaults to "AutoModel".
+            tokenizer_class (str, optional): The class of the tokenizer. Defaults to "AutoTokenizer".
+            device_map (str | dict, optional): The device map to be used. Defaults to "auto".
+            precision (str, optional): The precision to be used. Choose from 'float32', 'float16', 'bfloat16'. Defaults to "bfloat16".
+            quantization (Optional[int], optional): The quantization to be used. Defaults to None.
+            lora_config (Optional[dict], optional): The LoRA configuration to be used. Defaults to None.
+            use_accelerate (bool, optional): Whether to use accelerate. Defaults to False.
+            accelerate_no_split_module_classes (List[str], optional): The list of no split module classes to be used. Defaults to [].
+            **kwargs: Additional keyword arguments.
+
+        Raises:
+            ValueError: If an unsupported precision is chosen.
+
+        Returns:
+            None
+        """
         try:
             # Determine the torch dtype based on precision
             if precision == "float16":
@@ -192,61 +213,73 @@ class HuggingFaceFineTuner(Bolt):
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
+                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_8bit=True,
+                        config=self.config,
                         **kwargs,
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
+                    self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
                         revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_8bit=True,
+                        config=self.config,
                         **kwargs,
                     )
             elif quantization == 4:
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
+                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_4bit=True,
+                        config=self.config,
                         **kwargs,
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
+                    self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
                         revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
                         load_in_4bit=True,
+                        config=self.config,
                         **kwargs,
                     )
             else:
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
+                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
                         torch_dtype=torch_dtype,
+                        config=self.config,
                         **kwargs,
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
+                    self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         model_name,
                         revision=model_revision,
                         device_map=device_map,
                         torch_dtype=torch_dtype,
+                        config=self.config,
                         **kwargs,
                     )
 
@@ -332,7 +365,8 @@ class HuggingFaceFineTuner(Bolt):
         use_accelerate: bool = False,
         use_trl: bool = False,
         accelerate_no_split_module_classes: List[str] = [],
-        eval: bool = False,
+        evaluate: bool = False,
+        map_data: Optional[Callable] = None,
         hf_repo_id: Optional[str] = None,
         hf_commit_message: Optional[str] = None,
         hf_token: Optional[str] = None,
@@ -341,27 +375,36 @@ class HuggingFaceFineTuner(Bolt):
         **kwargs,
     ):
         """
-        Fine-tune the model.
+        A class to fine-tune a pre-trained Hugging Face model.
 
-        Args:
-            model_name (str): The pre-trained model name.
-            tokenizer_name (str): The pre-trained tokenizer name.
-            num_train_epochs (int): Total number of training epochs to perform.
-            per_device_batch_size (int): Batch size per device during training.
-            model_class (str, optional): The model class to use. Defaults to "AutoModel".
-            tokenizer_class (str, optional): The tokenizer class to use. Defaults to "AutoTokenizer".
-            eval (bool, optional): Whether to evaluate the model after training. Defaults to False.
-            hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
-            hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
-            hf_token (str, optional): The Hugging Face token. Defaults to None.
-            hf_private (bool, optional): Whether to make the repo private. Defaults to True.
-            hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
-            lora_config (dict, optional): Configuration for PEFT LoRA optimization. Defaults to None.
-            use_accelerate (bool, optional): Whether to use accelerate for distributed training. Defaults to False.
-            **kwargs: Additional keyword arguments for training.
-
-        Raises:
-            Exception: If any step in the fine-tuning process fails.
+        Attributes:
+            model (Optional[PreTrainedModel]): The fine-tuned model.
+            tokenizer (Optional[PreTrainedTokenizer]): The tokenizer used for fine-tuning.
+            train_dataset (Optional[Dataset]): The training dataset.
+            eval_dataset (Optional[Dataset]): The evaluation dataset.
+            data_collator (Optional[DataCollator]): The data collator used for fine-tuning.
+            output (Optional[OutputManager]): The output manager for fine-tuning.
+            model_name (Optional[str]): The pre-trained model name.
+            tokenizer_name (Optional[str]): The pre-trained tokenizer name.
+            num_train_epochs (Optional[int]): Total number of training epochs to perform.
+            per_device_batch_size (Optional[int]): Batch size per device during training.
+            model_class (Optional[str]): The model class to use.
+            tokenizer_class (Optional[str]): The tokenizer class to use.
+            device_map (Union[str, dict]): The device map for distributed training.
+            device (Optional[str]): The device to use for training.
+            precision (Optional[str]): The precision to use for training.
+            quantization (Optional[int]): The quantization level to use for training.
+            lora_config (Optional[dict]): Configuration for PEFT LoRA optimization.
+            use_accelerate (Optional[bool]): Whether to use accelerate for distributed training.
+            use_trl (Optional[bool]): Whether to use TRL for training.
+            accelerate_no_split_module_classes (Optional[List[str]]): The module classes to not split during distributed training.
+            evaluate (Optional[bool]): Whether to evaluate the model after training.
+            hf_repo_id (Optional[str]): The Hugging Face repo ID.
+            hf_commit_message (Optional[str]): The Hugging Face commit message.
+            hf_token (Optional[str]): The Hugging Face token.
+            hf_private (Optional[bool]): Whether to make the repo private.
+            hf_create_pr (Optional[bool]): Whether to create a pull request.
+            map_data (Optional[Callable]): A function to map data before training.
         """
         try:
             # Save everything
@@ -379,12 +422,13 @@ class HuggingFaceFineTuner(Bolt):
             self.use_accelerate = use_accelerate
             self.use_trl = use_trl
             self.accelerate_no_split_module_classes = accelerate_no_split_module_classes
-            self.eval = eval
+            self.evaluate = evaluate
             self.hf_repo_id = hf_repo_id
             self.hf_commit_message = hf_commit_message
             self.hf_token = hf_token
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
+            self.map_data = map_data
 
             model_kwargs = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
 
@@ -436,7 +480,7 @@ class HuggingFaceFineTuner(Bolt):
                     model=self.model,
                     args=training_args,
                     train_dataset=self.train_dataset,
-                    eval_dataset=self.eval_dataset if self.eval else None,
+                    eval_dataset=self.eval_dataset if self.evaluate else None,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
@@ -448,7 +492,7 @@ class HuggingFaceFineTuner(Bolt):
                     model=self.model,
                     args=training_args,
                     train_dataset=self.train_dataset,
-                    eval_dataset=self.eval_dataset if self.eval else None,
+                    eval_dataset=self.eval_dataset if self.evaluate else None,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
@@ -459,7 +503,7 @@ class HuggingFaceFineTuner(Bolt):
             trainer.train()
             trainer.save_model()
 
-            if self.eval:
+            if self.evaluate:
                 eval_result = trainer.evaluate()
                 self.log.info(f"Evaluation results: {eval_result}")
 

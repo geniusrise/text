@@ -102,8 +102,8 @@ def dataset_file(request, tmpdir):
 def classification_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
     klass = HuggingFaceClassificationFineTuner(
         input=input,
@@ -118,7 +118,18 @@ def classification_bolt():
 
 
 def test_classification_bolt_init(classification_bolt):
-    classification_bolt.load_models()
+    model_name = "bert-base-uncased"
+    tokenizer_name = "bert-base-uncased"
+    model_class = "BertForSequenceClassification"
+    tokenizer_class = "BertTokenizer"
+
+    classification_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map=None,
+    )
 
     assert classification_bolt.model is not None
     assert classification_bolt.tokenizer is not None
@@ -131,7 +142,20 @@ def test_load_dataset_all_formats(classification_bolt, dataset_file):
     tmpdir, ext = dataset_file
     dataset_path = os.path.join(tmpdir, "train")
 
-    classification_bolt.load_models()
+    model_name = "bert-base-uncased"
+    tokenizer_name = "bert-base-uncased"
+    model_class = "BertForSequenceClassification"
+    tokenizer_class = "BertTokenizer"
+
+    classification_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map=None,
+        precision="float16",
+    )
+
     dataset = classification_bolt.load_dataset(dataset_path)
     assert dataset is not None
     assert len(dataset) == 10
@@ -143,12 +167,14 @@ def test_classification_bolt_fine_tune(classification_bolt, dataset_file):
     classification_bolt.input.input_folder = tmpdir
 
     classification_bolt.fine_tune(
-        num_train_epochs=1,
-        per_device_train_batch_size=1,
-        model_class="BertForSequenceClassification",
         model_name="bert-base-uncased",
-        tokenizer_class="BertTokenizer",
         tokenizer_name="bert-base-uncased",
+        model_class="BertForSequenceClassification",
+        tokenizer_class="BertTokenizer",
+        num_train_epochs=1,
+        per_device_batch_size=2,
+        device_map="cuda:0",
+        evaluate=True,
     )
 
     output_dir = classification_bolt.output.output_folder
