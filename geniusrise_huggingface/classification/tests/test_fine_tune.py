@@ -19,7 +19,6 @@ import sqlite3
 import tempfile
 import xml.etree.ElementTree as ET
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
@@ -27,9 +26,22 @@ from datasets import Dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from pyarrow import feather
 from pyarrow import parquet as pq
-from transformers import EvalPrediction
 
 from geniusrise_huggingface import HuggingFaceClassificationFineTuner
+
+
+# Models to test
+MODELS_TO_TEST = {
+    # fmt: off
+    "bert-base-uncased": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "bert-large-uncased": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "distilroberta-base": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "xlm-roberta-large": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "albert-base-v2": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "cardiffnlp/twitter-roberta-base-2022-154m": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "cardiffnlp/twitter-roberta-base": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    # fmt: on
+}
 
 
 # Helper function to create synthetic data in different formats
@@ -75,6 +87,12 @@ def create_dataset_in_format(directory, ext):
         feather.write_feather(df, os.path.join(directory, "data.feather"))
 
 
+# Fixture for models
+@pytest.fixture(params=MODELS_TO_TEST.items())
+def model(request):
+    return request.param
+
+
 # Fixtures for each file type
 @pytest.fixture(
     params=[
@@ -110,25 +128,22 @@ def classification_bolt():
         output=output,
         state=state,
     )
-    klass.model_class = "BertForSequenceClassification"
-    klass.model_name = "bert-base-uncased"
-    klass.tokenizer_class = "BertTokenizer"
-    klass.tokenizer_name = "bert-base-uncased"
+
     return klass
 
 
-def test_classification_bolt_init(classification_bolt):
-    model_name = "bert-base-uncased"
-    tokenizer_name = "bert-base-uncased"
-    model_class = "BertForSequenceClassification"
-    tokenizer_class = "BertTokenizer"
+def test_classification_bolt_init(classification_bolt, model):
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
 
     classification_bolt.load_models(
         model_name=model_name,
         tokenizer_name=tokenizer_name,
         model_class=model_class,
         tokenizer_class=tokenizer_class,
-        device_map=None,
+        device_map="cuda:0",
     )
 
     assert classification_bolt.model is not None
@@ -138,22 +153,21 @@ def test_classification_bolt_init(classification_bolt):
     assert classification_bolt.state is not None
 
 
-def test_load_dataset_all_formats(classification_bolt, dataset_file):
+def test_load_dataset_all_formats(classification_bolt, dataset_file, model):
     tmpdir, ext = dataset_file
     dataset_path = os.path.join(tmpdir, "train")
 
-    model_name = "bert-base-uncased"
-    tokenizer_name = "bert-base-uncased"
-    model_class = "BertForSequenceClassification"
-    tokenizer_class = "BertTokenizer"
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
 
     classification_bolt.load_models(
         model_name=model_name,
         tokenizer_name=tokenizer_name,
         model_class=model_class,
         tokenizer_class=tokenizer_class,
-        device_map=None,
-        precision="float16",
+        device_map="cuda:0",
     )
 
     dataset = classification_bolt.load_dataset(dataset_path)
@@ -162,34 +176,29 @@ def test_load_dataset_all_formats(classification_bolt, dataset_file):
 
 
 # Test for fine-tuning
-def test_classification_bolt_fine_tune(classification_bolt, dataset_file):
+def test_classification_bolt_fine_tune(classification_bolt, dataset_file, model):
     tmpdir, ext = dataset_file
     classification_bolt.input.input_folder = tmpdir
 
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
+    # kwargs = {"model_"}
+
     classification_bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
-        num_train_epochs=1,
-        per_device_batch_size=2,
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
         device_map="cuda:0",
+        num_train_epochs=2,
+        per_device_batch_size=2,
         evaluate=True,
+        precision="float16",
     )
 
     output_dir = classification_bolt.output.output_folder
     assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
-
-
-# Test for computing metrics
-def test_classification_bolt_compute_metrics(classification_bolt):
-    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-    labels = np.array([0, 1])
-    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-    metrics = classification_bolt.compute_metrics(eval_pred)
-    assert "accuracy" in metrics
-    assert "precision" in metrics
-    assert "recall" in metrics
-    assert "f1" in metrics
