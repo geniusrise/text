@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import json
-import logging
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
@@ -183,11 +182,15 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                 truncation=True,
                 max_length=self.max_length,
             )
-            tokenized_data["label"] = [self.label_to_id[label] for label in examples["label"]]
+
+            tokenized_data["label"] = [
+                self.label_to_id[label] if label in self.label_to_id else self.label_to_id[label.upper()]
+                for label in examples["label"]
+            ]
             return tokenized_data
 
         try:
-            logging.info(f"Loading dataset from {dataset_path}")
+            self.log.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 return load_from_disk(dataset_path).map(tokenize_function, batched=True)
@@ -245,8 +248,8 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if self.data_extractor_lambda:
-                    fn = eval(self.data_extractor_lambda)
+                if hasattr(self, "map_data") and self.map_data:
+                    fn = eval(self.map_data)  # type: ignore
                     data = [fn(d) for d in data]
                 else:
                     data = data
@@ -262,5 +265,5 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
 
                 return Dataset.from_pandas(pd.DataFrame(data)).map(tokenize_function, batched=True)
         except Exception as e:
-            logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise

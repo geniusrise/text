@@ -72,7 +72,7 @@ def bolt():
         input=input,
         output=output,
         state=state,
-        eval=False,
+        evaluate=False,
     )
 
 
@@ -90,8 +90,6 @@ def test_load_dataset(bolt):
     bolt.load_models(
         model_name=bolt.model_name,
         tokenizer_name=bolt.tokenizer_name,
-        num_train_epochs=1,
-        per_device_batch_size=2,
         model_class=bolt.model_class,
         tokenizer_class=bolt.tokenizer_class,
         device_map=None,
@@ -111,7 +109,7 @@ def test_fine_tune(bolt):
         tokenizer_class="BertTokenizer",
         device_map="cuda:0",
         device="cuda",
-        eval=False,
+        evaluate=False,
     )
 
     # Check that model files are created in the output directory
@@ -142,7 +140,7 @@ def test_upload_to_hf_hub(bolt):
         per_device_batch_size=2,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
-        eval=False,
+        evaluate=False,
         hf_repo_id="ixaxaar/geniusrise-hf-base-test-repo",
         hf_commit_message="testing base fine tuner",
         hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
