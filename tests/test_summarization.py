@@ -90,8 +90,8 @@ def dataset_file(request, tmpdir):
 def summarization_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
     klass = HuggingFaceSummarizationFineTuner(
         input=input,

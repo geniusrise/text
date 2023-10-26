@@ -132,7 +132,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
             input=input,
             output=output,
             state=state,
-            eval=eval,
+            evaluate=evaluate,
             **kwargs,
         )
 

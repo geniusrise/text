@@ -102,8 +102,8 @@ def dataset_file(request, tmpdir):
 def sentiment_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
     klass = HuggingFaceSentimentAnalysisFineTuner(
         input=input,
@@ -146,7 +146,7 @@ def test_sentiment_bolt_fine_tune(sentiment_bolt, dataset_file):
         per_device_train_batch_size=1,
         model_class="BertForSequenceClassification",
         tokenizer_class="BertTokenizer",
-        eval=True,
+        evaluate=True,
     )
 
     output_dir = sentiment_bolt.output.output_folder

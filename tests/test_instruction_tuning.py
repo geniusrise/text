@@ -102,8 +102,8 @@ def dataset_file(request, tmpdir):
 def instruction_tuning_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
-    input = BatchInput(input_dir, "geniusrise-test-bucket", "test-🤗-input")
-    output = BatchOutput(output_dir, "geniusrise-test-bucket", "test-🤗-output")
+    input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
+    output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
     klass = HuggingFaceInstructionTuningFineTuner(
         input=input,
@@ -149,7 +149,7 @@ def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt, dataset_file
         per_device_train_batch_size=1,
         model_class="BartForConditionalGeneration",
         tokenizer_class="BartTokenizer",
-        eval=True,
+        evaluate=True,
     )
 
     output_dir = instruction_tuning_bolt.output.output_folder
