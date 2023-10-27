@@ -45,8 +45,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
     genius EmbeddingsAPI rise \
         listen \
             --model_name=bert-base-uncased \
-            --model_class_name=AutoModelForCausalLM \
-            --tokenizer_class_name=AutoTokenizer \
+            --model_class=AutoModelForCausalLM \
+            --tokenizer_class=AutoTokenizer \
             --sentence_transformer_model=paraphrase-MiniLM-L6-v2 \
             --use_cuda=True \
             --precision=float16 \
@@ -68,8 +68,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
             method: "listen"
             args:
                 model_name: "bert-base-uncased"
-                model_class_name: "AutoModelForCausalLM"
-                tokenizer_class_name: "AutoTokenizer"
+                model_class: "AutoModelForCausalLM"
+                tokenizer_class: "AutoTokenizer"
                 sentence_transformer_model: "paraphrase-MiniLM-L6-v2"
                 use_cuda: True
                 precision: "float16"
@@ -234,8 +234,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
     def listen(  # type: ignore
         self,
         model_name: str,
-        model_class_name: str = "AutoModelForCausalLM",
-        tokenizer_class_name: str = "AutoTokenizer",
+        model_class: str = "AutoModelForCausalLM",
+        tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
@@ -254,8 +254,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
 
         Parameters:
         - model_name (str): The name of the Hugging Face model to use.
-        - model_class_name (str, optional): The class name of the model. Defaults to "AutoModelForCausalLM".
-        - tokenizer_class_name (str, optional): The class name of the tokenizer. Defaults to "AutoTokenizer".
+        - model_class (str, optional): The class name of the model. Defaults to "AutoModelForCausalLM".
+        - tokenizer_class (str, optional): The class name of the tokenizer. Defaults to "AutoTokenizer".
         - sentence_transformer_model (str, optional): The name of the Sentence Transformer model to use. Defaults to "paraphrase-MiniLM-L6-v2".
         - use_cuda (bool, optional): Whether to use CUDA for computation. Defaults to False.
         - precision (str, optional): The precision to use for computations. Defaults to "float16".
@@ -273,8 +273,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
         None
         """
         self.model_name = model_name
-        self.model_class_name = model_class_name
-        self.tokenizer_class_name = tokenizer_class_name
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
         self.use_cuda = use_cuda
         self.quantization = quantization
         self.precision = precision
@@ -302,8 +302,8 @@ class EmbeddingsAPI(HuggingFaceAPI):
             tokenizer_name=self.tokenizer_name,
             model_revision=self.model_revision,
             tokenizer_revision=self.tokenizer_revision,
-            model_class_name=self.model_class_name,
-            tokenizer_class_name=self.tokenizer_class_name,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
             use_cuda=self.use_cuda,
             precision=self.precision,
             quantization=self.quantization,

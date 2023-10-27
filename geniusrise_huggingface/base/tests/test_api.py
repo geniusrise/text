@@ -25,7 +25,7 @@ from geniusrise_huggingface.base.api import HuggingFaceAPI
 
 @pytest.fixture(
     params=[
-        # model_name, model_class_name, tokenizer_class_name, use_cuda, precision, quantization, device_map, max_memory, torchscript
+        # model_name, model_class, tokenizer_class, use_cuda, precision, quantization, device_map, max_memory, torchscript
         # fmt: off
         ("gpt2", "AutoModelForCausalLM", "AutoTokenizer", True, "float16", 0, None, None, False),
         ("gpt2", "AutoModelForCausalLM", "AutoTokenizer", False, "float32", 0, None, None, False),
@@ -72,8 +72,8 @@ def hfa():
 def test_load_models(hfa, model_config):
     (
         model_name,
-        model_class_name,
-        tokenizer_class_name,
+        model_class,
+        tokenizer_class,
         use_cuda,
         precision,
         quantization,
@@ -97,8 +97,8 @@ def test_load_models(hfa, model_config):
         model_revision=model_revision,
         tokenizer_name=model_name,
         tokenizer_revision=tokenizer_revision,
-        model_class_name=model_class_name,
-        tokenizer_class_name=tokenizer_class_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
         use_cuda=use_cuda,
         precision=precision,
         quantization=quantization,
@@ -149,8 +149,8 @@ all_params = {**length_params, **gen_strategy_params, **logit_params}
 def test_generate_strategies(hfa, model_config, strategy):
     (
         model_name,
-        model_class_name,
-        tokenizer_class_name,
+        model_class,
+        tokenizer_class,
         use_cuda,
         precision,
         quantization,
@@ -174,8 +174,8 @@ def test_generate_strategies(hfa, model_config, strategy):
         model_revision=model_revision,
         tokenizer_name=model_name,
         tokenizer_revision=tokenizer_revision,
-        model_class_name=model_class_name,
-        tokenizer_class_name=tokenizer_class_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
         use_cuda=use_cuda,
         precision=precision,
         quantization=quantization,
