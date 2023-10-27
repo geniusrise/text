@@ -102,8 +102,8 @@ class EmbeddingsBulk(Bolt):
         tokenizer_name: str,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
-        model_class_name: str = "AutoModelForCausalLM",
-        tokenizer_class_name: str = "AutoTokenizer",
+        model_class: str = "AutoModelForCausalLM",
+        tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
@@ -117,8 +117,8 @@ class EmbeddingsBulk(Bolt):
 
         Parameters:
         - model_name (str): The name of the model to load.
-        - model_class_name (str): The class name of the model to load. Default is "AutoModelForCausalLM".
-        - tokenizer_class_name (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
+        - model_class (str): The class name of the model to load. Default is "AutoModelForCausalLM".
+        - tokenizer_class (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
         - use_cuda (bool): Whether to use CUDA for GPU acceleration. Default is False.
         - precision (str): The bit precision for model and tokenizer. Options are 'float32', 'float16', 'bfloat16'. Default is 'float16'.
         - device_map (Union[str, Dict]): Device map for model placement. Default is "auto".
@@ -148,8 +148,8 @@ class EmbeddingsBulk(Bolt):
         if use_cuda and not device_map:
             device_map = "auto"
 
-        ModelClass = getattr(transformers, model_class_name)
-        TokenizerClass = getattr(transformers, tokenizer_class_name)
+        ModelClass = getattr(transformers, model_class)
+        TokenizerClass = getattr(transformers, tokenizer_class)
 
         # Load the model and tokenizer
         tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
@@ -199,8 +199,8 @@ class EmbeddingsBulk(Bolt):
         self,
         kind: str,
         model_name: str,
-        model_class_name: str = "AutoModelForCausalLM",
-        tokenizer_class_name: str = "AutoTokenizer",
+        model_class: str = "AutoModelForCausalLM",
+        tokenizer_class: str = "AutoTokenizer",
         sentence_transformer_model: str = "paraphrase-MiniLM-L6-v2",
         use_cuda: bool = False,
         precision: str = "float16",
@@ -220,8 +220,8 @@ class EmbeddingsBulk(Bolt):
         This method reads text data from the specified input path, generates embeddings, and saves them to the specified output path.
         """
         self.model_name = model_name
-        self.model_class_name = model_class_name
-        self.tokenizer_class_name = tokenizer_class_name
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
         self.use_cuda = use_cuda
         self.quantization = quantization
         self.precision = precision
@@ -255,8 +255,8 @@ class EmbeddingsBulk(Bolt):
                 tokenizer_name=self.tokenizer_name,
                 model_revision=self.model_revision,
                 tokenizer_revision=self.tokenizer_revision,
-                model_class_name=self.model_class_name,
-                tokenizer_class_name=self.tokenizer_class_name,
+                model_class=self.model_class,
+                tokenizer_class=self.tokenizer_class,
                 use_cuda=self.use_cuda,
                 precision=self.precision,
                 quantization=self.quantization,

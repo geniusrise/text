@@ -32,8 +32,8 @@ class HuggingFaceAPI(HuggingFaceBulk):
         model_revision (Optional[str]): The revision of the pre-trained language model.
         tokenizer_name (str): The name of the tokenizer used to preprocess input text.
         tokenizer_revision (Optional[str]): The revision of the tokenizer used to preprocess input text.
-        model_class_name (str): The name of the class of the pre-trained language model.
-        tokenizer_class_name (str): The name of the class of the tokenizer used to preprocess input text.
+        model_class (str): The name of the class of the pre-trained language model.
+        tokenizer_class (str): The name of the class of the tokenizer used to preprocess input text.
         use_cuda (bool): Whether to use a GPU for inference.
         quantization (int): The level of quantization to use for the pre-trained language model.
         precision (str): The precision to use for the pre-trained language model.
@@ -46,7 +46,7 @@ class HuggingFaceAPI(HuggingFaceBulk):
         text(**kwargs: Any) -> Dict[str, Any]:
             Generates text based on the given prompt and decoding strategy.
 
-        listen(model_name: str, model_class_name: str = "AutoModelForCausalLM", tokenizer_class_name: str = "AutoTokenizer", use_cuda: bool = False, precision: str = "float16", quantization: int = 0, device_map: str | Dict | None = "auto", max_memory={0: "24GB"}, torchscript: bool = True, endpoint: str = "*", port: int = 3000, cors_domain: str = "http://localhost:3000", username: Optional[str] = None, password: Optional[str] = None, **model_args: Any) -> None:
+        listen(model_name: str, model_class: str = "AutoModelForCausalLM", tokenizer_class: str = "AutoTokenizer", use_cuda: bool = False, precision: str = "float16", quantization: int = 0, device_map: str | Dict | None = "auto", max_memory={0: "24GB"}, torchscript: bool = True, endpoint: str = "*", port: int = 3000, cors_domain: str = "http://localhost:3000", username: Optional[str] = None, password: Optional[str] = None, **model_args: Any) -> None:
             Starts a CherryPy server to listen for requests to generate text.
     """
 
@@ -118,8 +118,8 @@ class HuggingFaceAPI(HuggingFaceBulk):
     def listen(
         self,
         model_name: str,
-        model_class_name: str = "AutoModelForCausalLM",
-        tokenizer_class_name: str = "AutoTokenizer",
+        model_class: str = "AutoModelForCausalLM",
+        tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
@@ -138,8 +138,8 @@ class HuggingFaceAPI(HuggingFaceBulk):
 
         Args:
             model_name (str): The name of the pre-trained language model.
-            model_class_name (str, optional): The name of the class of the pre-trained language model. Defaults to "AutoModelForCausalLM".
-            tokenizer_class_name (str, optional): The name of the class of the tokenizer used to preprocess input text. Defaults to "AutoTokenizer".
+            model_class (str, optional): The name of the class of the pre-trained language model. Defaults to "AutoModelForCausalLM".
+            tokenizer_class (str, optional): The name of the class of the tokenizer used to preprocess input text. Defaults to "AutoTokenizer".
             use_cuda (bool, optional): Whether to use a GPU for inference. Defaults to False.
             precision (str, optional): The precision to use for the pre-trained language model. Defaults to "float16".
             quantization (int, optional): The level of quantization to use for the pre-trained language model. Defaults to 0.
@@ -154,8 +154,8 @@ class HuggingFaceAPI(HuggingFaceBulk):
             **model_args (Any): Additional arguments to pass to the pre-trained language model.
         """
         self.model_name = model_name
-        self.model_class_name = model_class_name
-        self.tokenizer_class_name = tokenizer_class_name
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
         self.use_cuda = use_cuda
         self.quantization = quantization
         self.precision = precision
@@ -182,8 +182,8 @@ class HuggingFaceAPI(HuggingFaceBulk):
             tokenizer_name=self.tokenizer_name,
             model_revision=self.model_revision,
             tokenizer_revision=self.tokenizer_revision,
-            model_class_name=self.model_class_name,
-            tokenizer_class_name=self.tokenizer_class_name,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
             use_cuda=self.use_cuda,
             precision=self.precision,
             quantization=self.quantization,

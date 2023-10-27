@@ -205,8 +205,8 @@ class HuggingFaceBulk(Bolt):
         tokenizer_name: str,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
-        model_class_name: str = "AutoModelForCausalLM",
-        tokenizer_class_name: str = "AutoTokenizer",
+        model_class: str = "AutoModelForCausalLM",
+        tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
@@ -220,8 +220,8 @@ class HuggingFaceBulk(Bolt):
 
         Parameters:
         - model_name (str): The name of the model to load.
-        - model_class_name (str): The class name of the model to load. Default is "AutoModelForCausalLM".
-        - tokenizer_class_name (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
+        - model_class (str): The class name of the model to load. Default is "AutoModelForCausalLM".
+        - tokenizer_class (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
         - use_cuda (bool): Whether to use CUDA for GPU acceleration. Default is False.
         - precision (str): The bit precision for model and tokenizer. Options are 'float32', 'float16', 'bfloat16'. Default is 'float16'.
         - device_map (Union[str, Dict]): Device map for model placement. Default is "auto".
@@ -251,8 +251,8 @@ class HuggingFaceBulk(Bolt):
         if use_cuda and not device_map:
             device_map = "auto"
 
-        ModelClass = getattr(transformers, model_class_name)
-        TokenizerClass = getattr(transformers, tokenizer_class_name)
+        ModelClass = getattr(transformers, model_class)
+        TokenizerClass = getattr(transformers, tokenizer_class)
 
         # Load the model and tokenizer
         tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
