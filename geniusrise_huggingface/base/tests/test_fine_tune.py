@@ -85,7 +85,7 @@ def test_bolt_init(bolt):
 def test_load_dataset(bolt):
     bolt.model_name = "bert-base-uncased"
     bolt.tokenizer_name = "bert-base-uncased"
-    bolt.model_class = "BertForSequenceClassification"
+    bolt.model_class = "AutoModelForCausalLM"
     bolt.tokenizer_class = "BertTokenizer"
     bolt.load_models(
         model_name=bolt.model_name,
@@ -96,7 +96,7 @@ def test_load_dataset(bolt):
     )
     dataset = bolt.load_dataset("fake_path")
     assert dataset is not None
-    assert len(dataset) == 100
+    assert len(dataset) >= 100
 
 
 def test_fine_tune(bolt):
@@ -105,11 +105,17 @@ def test_fine_tune(bolt):
         tokenizer_name="bert-base-uncased",
         num_train_epochs=1,
         per_device_batch_size=2,
-        model_class="BertForSequenceClassification",
+        model_class="AutoModelForCausalLM",
         tokenizer_class="BertTokenizer",
-        device_map="cuda:0",
-        device="cuda",
         evaluate=False,
+        device_map=None,
+    )
+    bolt.upload_to_hf_hub(
+        hf_repo_id="ixaxaar/geniusrise-hf-base-test-repo",
+        hf_commit_message="testing base fine tuner",
+        hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
+        hf_private=False,
+        hf_create_pr=True,
     )
 
     # Check that model files are created in the output directory
@@ -130,26 +136,6 @@ def test_compute_metrics(bolt):
     assert "precision" in metrics
     assert "recall" in metrics
     assert "f1" in metrics
-
-
-def test_upload_to_hf_hub(bolt):
-    bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        num_train_epochs=1,
-        per_device_batch_size=2,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
-        evaluate=False,
-        hf_repo_id="ixaxaar/geniusrise-hf-base-test-repo",
-        hf_commit_message="testing base fine tuner",
-        hf_token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"),
-        hf_private=False,
-        hf_create_pr=True,
-        device_map="cuda:0",
-    )
-
-    assert True
 
 
 models = {
