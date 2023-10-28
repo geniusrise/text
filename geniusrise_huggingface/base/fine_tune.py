@@ -306,24 +306,31 @@ class HuggingFaceFineTuner(Bolt):
             self.log.exception(f"Failed to load model: {e}")
             raise
 
-    def upload_to_hf_hub(self):
+    def upload_to_hf_hub(
+        self,
+        hf_repo_id: Optional[str] = None,
+        hf_commit_message: Optional[str] = None,
+        hf_token: Optional[str] = None,
+        hf_private: Optional[str] = None,
+        hf_create_pr: Optional[str] = None,
+    ):
         """Upload the model and tokenizer to Hugging Face Hub."""
         try:
             if self.model:
-                self.model.push_to_hub(
-                    repo_id=self.hf_repo_id,
-                    commit_message=self.hf_commit_message,
-                    token=self.hf_token,
-                    private=self.hf_private,
-                    create_pr=self.hf_create_pr,
+                self.model.to("cpu").push_to_hub(
+                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,
+                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,
+                    token=hf_token if hf_token else self.hf_token,
+                    private=hf_private if hf_private else self.hf_private,
+                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,
                 )
             if self.tokenizer:
                 self.tokenizer.push_to_hub(
-                    repo_id=self.hf_repo_id,
-                    commit_message=self.hf_commit_message,
-                    token=self.hf_token,
-                    private=self.hf_private,
-                    create_pr=self.hf_create_pr,
+                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,
+                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,
+                    token=hf_token if hf_token else self.hf_token,
+                    private=hf_private if hf_private else self.hf_private,
+                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,
                 )
         except Exception as e:
             self.log.exception(f"Failed to upload model to huggingface hub: {e}")
@@ -360,7 +367,6 @@ class HuggingFaceFineTuner(Bolt):
         model_class: str = "AutoModel",
         tokenizer_class: str = "AutoTokenizer",
         device_map: str | dict = "auto",
-        device: str = "cuda",
         precision: str = "bfloat16",
         quantization: Optional[int] = None,
         lora_config: Optional[dict] = None,
@@ -387,7 +393,6 @@ class HuggingFaceFineTuner(Bolt):
             model_class (str, optional): The model class to use. Defaults to "AutoModel".
             tokenizer_class (str, optional): The tokenizer class to use. Defaults to "AutoTokenizer".
             device_map (str | dict, optional): The device map for distributed training. Defaults to "auto".
-            device (str, optional): The device to use for training. Defaults to "cuda".
             precision (str, optional): The precision to use for training. Defaults to "bfloat16".
             quantization (int, optional): The quantization level to use for training. Defaults to None.
             lora_config (dict, optional): Configuration for PEFT LoRA optimization. Defaults to None.
@@ -415,7 +420,6 @@ class HuggingFaceFineTuner(Bolt):
             self.model_class = model_class
             self.tokenizer_class = tokenizer_class
             self.device_map = device_map
-            self.device = device
             self.precision = precision
             self.quantization = quantization
             self.lora_config = lora_config  # type: ignore
@@ -469,9 +473,6 @@ class HuggingFaceFineTuner(Bolt):
             if self.lora_config:
                 self.model.enable_input_require_grads()
                 self.model = get_peft_model(self.model, peft_config=self.lora_config)
-
-            if self.device and self.model and not self.quantization:
-                self.model.to(device)
 
             # Create trainer
             if use_trl:
