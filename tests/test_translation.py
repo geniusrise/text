@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface import HuggingFaceTranslationFineTuner
+from geniusrise_huggingface import TextTranslationFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -119,7 +119,7 @@ def translation_bolt():
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
 
-    klass = HuggingFaceTranslationFineTuner(
+    klass = TextTranslationFineTuner(
         input=input,
         output=output,
         state=state,

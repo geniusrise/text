@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .bulk import HuggingFaceBulk
-from .api import HuggingFaceAPI
-from .fine_tune import HuggingFaceFineTuner
+from .bulk import TextBulk
+from .api import TextAPI
+from .fine_tune import TextFineTuner

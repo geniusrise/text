@@ -23,7 +23,7 @@ from datasets import load_dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction, DataCollatorForLanguageModeling
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
 # SEQ_CLS = "SEQ_CLS"
@@ -42,7 +42,7 @@ lora_config = {
 }
 
 
-class TestHuggingFaceFineTuner(HuggingFaceFineTuner):
+class TestTextFineTuner(TextFineTuner):
     def load_dataset(self, dataset_path, **kwargs):
         dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:1%]")  # Adjust the split as needed
         dataset = dataset.map(
@@ -69,7 +69,7 @@ def bolt():
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
 
-    return TestHuggingFaceFineTuner(
+    return TestTextFineTuner(
         input=input,
         output=output,
         state=state,

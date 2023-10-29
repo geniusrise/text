@@ -28,7 +28,7 @@ from transformers import (
 )
 
 
-class HuggingFaceBulk(Bolt):
+class TextBulk(Bolt):
     """
     A class that provides bulk text generation functionality using Hugging Face models.
 

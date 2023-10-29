@@ -27,7 +27,7 @@ from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from pyarrow import feather
 from pyarrow import parquet as pq
 
-from geniusrise_huggingface import HuggingFaceClassificationFineTuner
+from geniusrise_huggingface import TextClassificationFineTuner
 
 
 # Models to test
@@ -123,7 +123,7 @@ def classification_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = HuggingFaceClassificationFineTuner(
+    klass = TextClassificationFineTuner(
         input=input,
         output=output,
         state=state,

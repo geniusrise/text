@@ -20,7 +20,7 @@ import torch
 
 # import transformers
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from geniusrise_huggingface.base.api import HuggingFaceAPI
+from geniusrise_huggingface.base.api import TextAPI
 
 
 @pytest.fixture(
@@ -45,7 +45,7 @@ def model_config(request):
     return request.param
 
 
-# Fixtures to initialize HuggingFaceAPI instance
+# Fixtures to initialize TextAPI instance
 @pytest.fixture
 def hfa():
     input_dir = "./input_dir"
@@ -55,7 +55,7 @@ def hfa():
     output = BatchOutput(output_dir, "geniusrise-test", "api_output")
     state = InMemoryState()
 
-    hfa = HuggingFaceAPI(
+    hfa = TextAPI(
         input=input,
         output=output,
         state=state,

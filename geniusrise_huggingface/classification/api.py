@@ -18,12 +18,12 @@ from typing import Dict, Any
 import torch
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_huggingface.base import HuggingFaceAPI
+from geniusrise_huggingface.base import TextAPI
 
 log = logging.getLogger(__file__)
 
 
-class HuggingFaceClassificationAPI(HuggingFaceAPI):
+class TextClassificationAPI(TextAPI):
     """
     A class for serving a Hugging Face-based classification model.
 
@@ -46,7 +46,7 @@ class HuggingFaceClassificationAPI(HuggingFaceAPI):
         **kwargs,
     ) -> None:
         """
-        Initializes the HuggingFaceClassificationAPI class.
+        Initializes the TextClassificationAPI class.
 
         Args:
             input (BatchInput): The input data.

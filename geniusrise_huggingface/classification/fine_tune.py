@@ -28,14 +28,14 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from transformers import DataCollatorWithPadding, EvalPrediction
 import numpy as np
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
-class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
+class TextClassificationFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
-    This class extends the `HuggingFaceFineTuner` and specializes in fine-tuning models for text classification.
+    This class extends the `TextFineTuner` and specializes in fine-tuning models for text classification.
     It provides additional functionalities for loading and preprocessing text classification datasets in various formats.
 
     Args:
@@ -46,7 +46,7 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
     CLI Usage:
 
     ```bash
-        genius HuggingFaceClassificationFineTuner rise \
+        genius TextClassificationFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -63,7 +63,7 @@ class HuggingFaceClassificationFineTuner(HuggingFaceFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "HuggingFaceClassificationFineTuner"
+                name: "TextClassificationFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"

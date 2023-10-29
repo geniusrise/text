@@ -28,10 +28,10 @@ from datasets import Dataset, load_from_disk, load_metric
 from nltk.translate.bleu_score import corpus_bleu
 from transformers import DataCollatorForLanguageModeling, EvalPrediction
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
-class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
+class TextLanguageModelingFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
@@ -43,7 +43,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
     CLI Usage:
 
     ```bash
-        genius HuggingFaceLanguageModelingFineTuner rise \
+        genius TextLanguageModelingFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -60,7 +60,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "HuggingFaceLanguageModelingFineTuner"
+                name: "TextLanguageModelingFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"

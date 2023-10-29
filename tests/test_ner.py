@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface.ner import HuggingFaceNamedEntityRecognitionFineTuner
+from geniusrise_huggingface.ner import TextNamedEntityRecognitionFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -106,7 +106,7 @@ def ner_bolt():
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
 
-    klass = HuggingFaceNamedEntityRecognitionFineTuner(
+    klass = TextNamedEntityRecognitionFineTuner(
         input=input,
         output=output,
         state=state,

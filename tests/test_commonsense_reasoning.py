@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface import HuggingFaceCommonsenseReasoningFineTuner
+from geniusrise_huggingface import TextCommonsenseReasoningFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -106,7 +106,7 @@ def commonsense_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = HuggingFaceCommonsenseReasoningFineTuner(
+    klass = TextCommonsenseReasoningFineTuner(
         input=input,
         output=output,
         state=state,

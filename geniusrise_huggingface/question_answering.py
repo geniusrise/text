@@ -31,10 +31,10 @@ from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score
 from transformers import EvalPrediction
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
-class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
+class TextQuestionAnsweringFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
@@ -46,7 +46,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
     CLI Usage:
 
     ```bash
-        genius HuggingFaceQuestionAnsweringFineTuner rise \
+        genius TextQuestionAnsweringFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -63,7 +63,7 @@ class HuggingFaceQuestionAnsweringFineTuner(HuggingFaceFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "HuggingFaceQuestionAnsweringFineTuner"
+                name: "TextQuestionAnsweringFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"

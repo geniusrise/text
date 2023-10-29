@@ -20,7 +20,7 @@ import torch
 
 # import transformers
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from geniusrise_huggingface.base.bulk import HuggingFaceBulk
+from geniusrise_huggingface.base.bulk import TextBulk
 
 
 @pytest.fixture(
@@ -45,7 +45,7 @@ def model_config(request):
     return request.param
 
 
-# Fixtures to initialize HuggingFaceBulk instance
+# Fixtures to initialize TextBulk instance
 @pytest.fixture
 def hfa():
     input_dir = "./input_dir"
@@ -55,7 +55,7 @@ def hfa():
     output = BatchOutput(output_dir, "geniusrise-test", "api_output")
     state = InMemoryState()
 
-    hfa = HuggingFaceBulk(
+    hfa = TextBulk(
         input=input,
         output=output,
         state=state,

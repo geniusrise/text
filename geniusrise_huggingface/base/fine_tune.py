@@ -30,7 +30,7 @@ from geniusrise.logging import setup_logger
 from geniusrise_huggingface.base.util import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 
 
-class HuggingFaceFineTuner(Bolt):
+class TextFineTuner(Bolt):
     """
     A bolt for fine-tuning Hugging Face models.
 

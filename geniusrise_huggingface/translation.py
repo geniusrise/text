@@ -27,10 +27,10 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import DataCollatorForSeq2Seq
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
-class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
+class TextTranslationFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on translation tasks.
 
@@ -44,7 +44,7 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
     CLI Usage:
 
     ```bash
-        genius HuggingFaceTranslationFineTuner rise \
+        genius TextTranslationFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -61,7 +61,7 @@ class HuggingFaceTranslationFineTuner(HuggingFaceFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "HuggingFaceTranslationFineTuner"
+                name: "TextTranslationFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
