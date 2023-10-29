@@ -31,7 +31,7 @@ from transformers import DataCollatorForLanguageModeling, EvalPrediction
 from geniusrise_huggingface.base import TextFineTuner
 
 
-class TextLanguageModelingFineTuner(TextFineTuner):
+class LanguageModelingFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on language modeling tasks.
 
@@ -43,7 +43,7 @@ class TextLanguageModelingFineTuner(TextFineTuner):
     CLI Usage:
 
     ```bash
-        genius TextLanguageModelingFineTuner rise \
+        genius LanguageModelingFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -60,7 +60,7 @@ class TextLanguageModelingFineTuner(TextFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "TextLanguageModelingFineTuner"
+                name: "LanguageModelingFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
