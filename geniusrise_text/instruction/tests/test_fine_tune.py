@@ -29,13 +29,13 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_text import TextCommonsenseReasoningFineTuner
+from geniusrise_text import TextInstructionTuningFineTuner
 
 
 # Helper function to create synthetic data in different formats
 def create_dataset_in_format(directory, ext):
     os.makedirs(directory, exist_ok=True)
-    data = [{"premise": f"premise_{i}", "hypothesis": f"hypothesis_{i}", "label": i % 2} for i in range(10)]
+    data = [{"instruction": f"instruction_{i}", "output": f"output_{i}"} for i in range(10)]
     df = pd.DataFrame(data)
 
     if ext == "huggingface":
@@ -56,9 +56,8 @@ def create_dataset_in_format(directory, ext):
         root = ET.Element("root")
         for item in data:
             record = ET.SubElement(root, "record")
-            ET.SubElement(record, "premise").text = item["premise"]
-            ET.SubElement(record, "hypothesis").text = item["hypothesis"]
-            ET.SubElement(record, "label").text = str(item["label"])
+            ET.SubElement(record, "instruction").text = item["instruction"]
+            ET.SubElement(record, "output").text = item["output"]
         tree = ET.ElementTree(root)
         tree.write(os.path.join(directory, "data.xml"))
     elif ext == "yaml":
@@ -100,72 +99,70 @@ def dataset_file(request, tmpdir):
 
 
 @pytest.fixture
-def commonsense_bolt():
+def instruction_tuning_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = TextCommonsenseReasoningFineTuner(
+    klass = TextInstructionTuningFineTuner(
         input=input,
         output=output,
         state=state,
     )
-    klass.model_class = "BertForSequenceClassification"
-    klass.model_name = "bert-base-uncased"
-    klass.tokenizer_class = "BertTokenizer"
-    klass.tokenizer_name = "bert-base-uncased"
+    klass.model_class = "BartForConditionalGeneration"
+    klass.model_name = "facebook/bart-base"
+    klass.tokenizer_class = "BartTokenizer"
+    klass.tokenizer_name = "facebook/bart-base"
     return klass
 
 
-def test_commonsense_bolt_init(commonsense_bolt):
-    commonsense_bolt.load_models()
+def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
+    instruction_tuning_bolt.load_models()
 
-    assert commonsense_bolt.model is not None
-    assert commonsense_bolt.tokenizer is not None
-    assert commonsense_bolt.input is not None
-    assert commonsense_bolt.output is not None
-    assert commonsense_bolt.state is not None
+    assert instruction_tuning_bolt.model is not None
+    assert instruction_tuning_bolt.tokenizer is not None
+    assert instruction_tuning_bolt.input is not None
+    assert instruction_tuning_bolt.output is not None
+    assert instruction_tuning_bolt.state is not None
 
 
-def test_load_dataset_all_formats(commonsense_bolt, dataset_file):
+def test_load_dataset_all_formats(instruction_tuning_bolt, dataset_file):
     tmpdir, ext = dataset_file
     dataset_path = os.path.join(tmpdir, "train")
 
-    commonsense_bolt.load_models()
-    dataset = commonsense_bolt.load_dataset(dataset_path)
+    instruction_tuning_bolt.load_models()
+    dataset = instruction_tuning_bolt.load_dataset(dataset_path)
     assert dataset is not None
     assert len(dataset) == 10
 
 
 # Test for fine-tuning
-def test_commonsense_bolt_fine_tune(commonsense_bolt, dataset_file):
+def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt, dataset_file):
     tmpdir, ext = dataset_file
-    commonsense_bolt.input.input_folder = tmpdir
+    instruction_tuning_bolt.input.input_folder = tmpdir
 
-    commonsense_bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
+    instruction_tuning_bolt.fine_tune(
+        model_name="facebook/bart-base",
+        tokenizer_name="facebook/bart-base",
         num_train_epochs=1,
         per_device_train_batch_size=1,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
+        model_class="BartForConditionalGeneration",
+        tokenizer_class="BartTokenizer",
         evaluate=True,
     )
 
-    output_dir = commonsense_bolt.output.output_folder
+    output_dir = instruction_tuning_bolt.output.output_folder
     assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
 
 
 # Test for computing metrics
-def test_commonsense_bolt_compute_metrics(commonsense_bolt):
+def test_instruction_tuning_bolt_compute_metrics(instruction_tuning_bolt):
     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
     labels = np.array([0, 1])
     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-    metrics = commonsense_bolt.compute_metrics(eval_pred)
-    assert "accuracy" in metrics
-    assert "precision" in metrics
-    assert "recall" in metrics
-    assert "f1" in metrics
+    instruction_tuning_bolt.load_models()
+    metrics = instruction_tuning_bolt.compute_metrics(eval_pred)
+    assert "bleu" in metrics

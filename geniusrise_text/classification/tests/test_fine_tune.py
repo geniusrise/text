@@ -19,7 +19,6 @@ import sqlite3
 import tempfile
 import xml.etree.ElementTree as ET
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
@@ -27,15 +26,28 @@ from datasets import Dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from pyarrow import feather
 from pyarrow import parquet as pq
-from transformers import EvalPrediction
 
-from geniusrise_text import TextCommonsenseReasoningFineTuner
+from geniusrise_text import TextClassificationFineTuner
+
+
+# Models to test
+MODELS_TO_TEST = {
+    # fmt: off
+    "bert-base-uncased": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "bert-large-uncased": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "distilroberta-base": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "xlm-roberta-large": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "albert-base-v2": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "cardiffnlp/twitter-roberta-base-2022-154m": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    "cardiffnlp/twitter-roberta-base": ["LABEL_0", "LABEL_1", "LABEL_2"],
+    # fmt: on
+}
 
 
 # Helper function to create synthetic data in different formats
 def create_dataset_in_format(directory, ext):
     os.makedirs(directory, exist_ok=True)
-    data = [{"premise": f"premise_{i}", "hypothesis": f"hypothesis_{i}", "label": i % 2} for i in range(10)]
+    data = [{"text": f"text_{i}", "label": f"label_{i % 2}"} for i in range(10)]
     df = pd.DataFrame(data)
 
     if ext == "huggingface":
@@ -56,9 +68,8 @@ def create_dataset_in_format(directory, ext):
         root = ET.Element("root")
         for item in data:
             record = ET.SubElement(root, "record")
-            ET.SubElement(record, "premise").text = item["premise"]
-            ET.SubElement(record, "hypothesis").text = item["hypothesis"]
-            ET.SubElement(record, "label").text = str(item["label"])
+            ET.SubElement(record, "text").text = item["text"]
+            ET.SubElement(record, "label").text = item["label"]
         tree = ET.ElementTree(root)
         tree.write(os.path.join(directory, "data.xml"))
     elif ext == "yaml":
@@ -74,6 +85,12 @@ def create_dataset_in_format(directory, ext):
         conn.close()
     elif ext == "feather":
         feather.write_feather(df, os.path.join(directory, "data.feather"))
+
+
+# Fixture for models
+@pytest.fixture(params=MODELS_TO_TEST.items())
+def model(request):
+    return request.param
 
 
 # Fixtures for each file type
@@ -95,77 +112,93 @@ def create_dataset_in_format(directory, ext):
 def dataset_file(request, tmpdir):
     ext = request.param
     create_dataset_in_format(tmpdir + "/train", ext)
-    create_dataset_in_format(tmpdir + "/eval", ext)
+    create_dataset_in_format(tmpdir + "/test", ext)
     return tmpdir, ext
 
 
 @pytest.fixture
-def commonsense_bolt():
+def classification_bolt():
     input_dir = tempfile.mkdtemp()
     output_dir = tempfile.mkdtemp()
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = TextCommonsenseReasoningFineTuner(
+    klass = TextClassificationFineTuner(
         input=input,
         output=output,
         state=state,
     )
-    klass.model_class = "BertForSequenceClassification"
-    klass.model_name = "bert-base-uncased"
-    klass.tokenizer_class = "BertTokenizer"
-    klass.tokenizer_name = "bert-base-uncased"
+
     return klass
 
 
-def test_commonsense_bolt_init(commonsense_bolt):
-    commonsense_bolt.load_models()
+def test_classification_bolt_init(classification_bolt, model):
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
 
-    assert commonsense_bolt.model is not None
-    assert commonsense_bolt.tokenizer is not None
-    assert commonsense_bolt.input is not None
-    assert commonsense_bolt.output is not None
-    assert commonsense_bolt.state is not None
+    classification_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
+
+    assert classification_bolt.model is not None
+    assert classification_bolt.tokenizer is not None
+    assert classification_bolt.input is not None
+    assert classification_bolt.output is not None
+    assert classification_bolt.state is not None
 
 
-def test_load_dataset_all_formats(commonsense_bolt, dataset_file):
+def test_load_dataset_all_formats(classification_bolt, dataset_file, model):
     tmpdir, ext = dataset_file
     dataset_path = os.path.join(tmpdir, "train")
 
-    commonsense_bolt.load_models()
-    dataset = commonsense_bolt.load_dataset(dataset_path)
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
+
+    classification_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
+
+    dataset = classification_bolt.load_dataset(dataset_path)
     assert dataset is not None
     assert len(dataset) == 10
 
 
 # Test for fine-tuning
-def test_commonsense_bolt_fine_tune(commonsense_bolt, dataset_file):
+def test_classification_bolt_fine_tune(classification_bolt, dataset_file, model):
     tmpdir, ext = dataset_file
-    commonsense_bolt.input.input_folder = tmpdir
+    classification_bolt.input.input_folder = tmpdir
 
-    commonsense_bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        num_train_epochs=1,
-        per_device_train_batch_size=1,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
+    model_name, labels = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
+    # kwargs = {"model_"}
+
+    classification_bolt.fine_tune(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+        num_train_epochs=2,
+        per_device_batch_size=2,
         evaluate=True,
+        precision="float16",
     )
 
-    output_dir = commonsense_bolt.output.output_folder
+    output_dir = classification_bolt.output.output_folder
     assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
     assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
-
-
-# Test for computing metrics
-def test_commonsense_bolt_compute_metrics(commonsense_bolt):
-    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-    labels = np.array([0, 1])
-    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-    metrics = commonsense_bolt.compute_metrics(eval_pred)
-    assert "accuracy" in metrics
-    assert "precision" in metrics
-    assert "recall" in metrics
-    assert "f1" in metrics
