@@ -24,7 +24,6 @@ import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
-import torch
 import uuid
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_huggingface.base import HuggingFaceBulk
@@ -193,7 +192,7 @@ class LanguageModelBulk(HuggingFaceBulk):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
-        batch_size: int = 32,
+        decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
         if ":" in model_name:
@@ -218,7 +217,6 @@ class LanguageModelBulk(HuggingFaceBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
-        self.batch_size = batch_size
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -252,32 +250,21 @@ class LanguageModelBulk(HuggingFaceBulk):
             return
         dataset = _dataset["text"]
 
-        # Process data in batches
-        for i in range(0, len(dataset), batch_size):
-            batch = dataset[i : i + batch_size]
-            inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
+        for i, prompt in enumerate(dataset):
+            completions = self.generate(
+                prompt=prompt,
+                decoding_strategy=decoding_strategy,
+                **generation_args,
+            )
 
-            if next(self.model.parameters()).is_cuda:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
+            self._save_completions([completions], [prompt], output_path, i)
 
-            predictions = self.model(**inputs)
-            predictions = predictions[0] if isinstance(predictions, tuple) else predictions
-            if next(self.model.parameters()).is_cuda:
-                predictions = predictions.cpu()
-            predictions = torch.argmax(predictions, dim=-1)
-
-            self._save_predictions(predictions, batch, output_path, i)
-
-    def _save_predictions(
-        self, predictions: torch.Tensor, input_batch: List[str], output_path: str, batch_idx: int
+    def _save_completions(
+        self, completions: List[str], input_batch: List[str], output_path: str, batch_idx: int
     ) -> None:
-        # Convert tensor of label ids to list of label strings
-        id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
-        label_predictions = [id_to_label[label_id] for label_id in predictions.tolist()]
-
         # Prepare data for saving
         data_to_save = [
-            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, label_predictions)
+            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, completions)
         ]
-        with open(os.path.join(output_path, f"predictions-{batch_idx}-{str(uuid.uuid4())}.json"), "w") as f:
+        with open(os.path.join(output_path, f"completions-{batch_idx}-{str(uuid.uuid4())}.json"), "w") as f:
             json.dump(data_to_save, f)
