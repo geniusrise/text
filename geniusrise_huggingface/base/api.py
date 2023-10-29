@@ -18,10 +18,10 @@ from typing import Any, Dict, Optional
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from .bulk import HuggingFaceBulk
+from .bulk import TextBulk
 
 
-class HuggingFaceAPI(HuggingFaceBulk):
+class TextAPI(TextBulk):
     """
     A class representing a Hugging Face API for generating text using a pre-trained language model.
 
@@ -60,7 +60,7 @@ class HuggingFaceAPI(HuggingFaceBulk):
         state: State,
     ):
         """
-        Initializes a new instance of the HuggingFaceAPI class.
+        Initializes a new instance of the TextAPI class.
 
         Args:
             input (BatchInput): The input data to process.

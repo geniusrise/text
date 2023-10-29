@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface.summarization import HuggingFaceSummarizationFineTuner
+from geniusrise_huggingface.summarization import TextSummarizationFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -93,7 +93,7 @@ def summarization_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = HuggingFaceSummarizationFineTuner(
+    klass = TextSummarizationFineTuner(
         input=input,
         output=output,
         state=state,

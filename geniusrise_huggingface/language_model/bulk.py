@@ -26,10 +26,10 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 import uuid
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_huggingface.base import HuggingFaceBulk
+from geniusrise_huggingface.base import TextBulk
 
 
-class LanguageModelBulk(HuggingFaceBulk):
+class LanguageModelBulk(TextBulk):
     """
     A class for bulk completion using Hugging Face models.
 

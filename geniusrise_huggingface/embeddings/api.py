@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 import cherrypy
 from sentence_transformers import SentenceTransformer
 
-from geniusrise_huggingface.base import HuggingFaceAPI
+from geniusrise_huggingface.base import TextAPI
 from geniusrise_huggingface.embeddings.embeddings import (
     generate_combination_embeddings,
     generate_contiguous_embeddings,
@@ -28,7 +28,7 @@ from geniusrise_huggingface.embeddings.embeddings import (
 )
 
 
-class EmbeddingsAPI(HuggingFaceAPI):
+class EmbeddingsAPI(TextAPI):
     r"""
     A CherryPy API for generating various types of embeddings using Hugging Face and Sentence Transformer models.
 
@@ -37,7 +37,7 @@ class EmbeddingsAPI(HuggingFaceAPI):
     and permutations of words in a given sentence.
 
     Args:
-        Inherits all arguments from HuggingFaceAPI.
+        Inherits all arguments from TextAPI.
 
     CLI Usage:
 

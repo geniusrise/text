@@ -27,10 +27,10 @@ from pyarrow import parquet as pq
 import torch
 import uuid
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_huggingface.base import HuggingFaceBulk
+from geniusrise_huggingface.base import TextBulk
 
 
-class ClassificationBulk(HuggingFaceBulk):
+class TextClassificationBulk(TextBulk):
     """
     A class for bulk classification using Hugging Face models.
 

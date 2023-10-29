@@ -13,4 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fine_tune import HuggingFaceClassificationFineTuner
+from .fine_tune import TextClassificationFineTuner
+from .api import TextClassificationAPI
+from .bulk import TextClassificationBulk

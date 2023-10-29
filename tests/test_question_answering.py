@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface import HuggingFaceQuestionAnsweringFineTuner
+from geniusrise_huggingface import TextQuestionAnsweringFineTuner
 
 
 # Helper function to create synthetic data in different formats
@@ -102,7 +102,7 @@ def question_answering_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = HuggingFaceQuestionAnsweringFineTuner(
+    klass = TextQuestionAnsweringFineTuner(
         input=input,
         output=output,
         state=state,

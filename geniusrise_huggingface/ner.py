@@ -30,10 +30,10 @@ from datasets import Dataset, DatasetDict, load_from_disk
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import DataCollatorForTokenClassification, EvalPrediction
 
-from geniusrise_huggingface.base import HuggingFaceFineTuner
+from geniusrise_huggingface.base import TextFineTuner
 
 
-class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
+class TextNamedEntityRecognitionFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on named entity recognition tasks.
 
@@ -45,7 +45,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
     CLI Usage:
 
     ```bash
-        genius HuggingFaceNamedEntityRecognitionFineTuner rise \
+        genius TextNamedEntityRecognitionFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -62,7 +62,7 @@ class HuggingFaceNamedEntityRecognitionFineTuner(HuggingFaceFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "HuggingFaceNamedEntityRecognitionFineTuner"
+                name: "TextNamedEntityRecognitionFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
