@@ -15,7 +15,6 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import cherrypy
 import torch
 import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
@@ -80,48 +79,12 @@ class HuggingFaceBulk(Bolt):
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
 
-    @cherrypy.expose
-    @cherrypy.tools.json_in()
-    @cherrypy.tools.json_out()
-    @cherrypy.tools.allow(methods=["POST"])
-    def text(self, **kwargs: Any) -> Dict[str, Any]:
-        data = cherrypy.request.json
-        prompt = data.get("prompt")
-        decoding_strategy = data.get("decoding_strategy", "generate")
-
-        max_new_tokens = data.get("max_new_tokens")
-        max_length = data.get("max_length")
-        temperature = data.get("temperature")
-        diversity_penalty = data.get("diversity_penalty")
-        num_beams = data.get("num_beams")
-        length_penalty = data.get("length_penalty")
-        early_stopping = data.get("early_stopping")
-
-        others = data.__dict__
-
-        return {
-            "prompt": prompt,
-            "args": others,
-            "completion": self.generate(
-                prompt=prompt,
-                decoding_strategy=decoding_strategy,
-                max_new_tokens=max_new_tokens,
-                max_length=max_length,
-                temperature=temperature,
-                diversity_penalty=diversity_penalty,
-                num_beams=num_beams,
-                length_penalty=length_penalty,
-                early_stopping=early_stopping,
-                **others,
-            ),
-        }
-
     def generate(
         self,
         prompt: str,
         decoding_strategy: str = "generate",
         **generation_params: Any,
-    ) -> dict:
+    ) -> str:
         """ """
         results: Dict[int, Dict[str, Union[str, List[str]]]] = {}
         eos_token_id = self.model.config.eos_token_id
