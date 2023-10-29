@@ -29,7 +29,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_huggingface.summarization import TextSummarizationFineTuner
+from geniusrise_text.summarization import TextSummarizationFineTuner
 
 
 # Helper function to create synthetic data in different formats

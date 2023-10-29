@@ -13,29 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import os
+import pytest
+import json
 import sqlite3
-import tempfile
 import xml.etree.ElementTree as ET
 
-import numpy as np
 import pandas as pd
-import pytest
+from pyarrow import feather
+from pyarrow import parquet as pq
 import yaml  # type: ignore
 from datasets import Dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from pyarrow import feather
-from pyarrow import parquet as pq
-from transformers import EvalPrediction
-
-from geniusrise_text import TextCommonsenseReasoningFineTuner
+from geniusrise_text.embeddings.bulk import EmbeddingsBulk
+import glob
 
 
 # Helper function to create synthetic data in different formats
 def create_dataset_in_format(directory, ext):
     os.makedirs(directory, exist_ok=True)
-    data = [{"premise": f"premise_{i}", "hypothesis": f"hypothesis_{i}", "label": i % 2} for i in range(10)]
+    data = [{"text": f"text_{i}"} for i in range(10)]
     df = pd.DataFrame(data)
 
     if ext == "huggingface":
@@ -56,9 +53,7 @@ def create_dataset_in_format(directory, ext):
         root = ET.Element("root")
         for item in data:
             record = ET.SubElement(root, "record")
-            ET.SubElement(record, "premise").text = item["premise"]
-            ET.SubElement(record, "hypothesis").text = item["hypothesis"]
-            ET.SubElement(record, "label").text = str(item["label"])
+            ET.SubElement(record, "text").text = item["text"]
         tree = ET.ElementTree(root)
         tree.write(os.path.join(directory, "data.xml"))
     elif ext == "yaml":
@@ -75,15 +70,16 @@ def create_dataset_in_format(directory, ext):
     elif ext == "feather":
         feather.write_feather(df, os.path.join(directory, "data.feather"))
 
+    return directory
+
 
 # Fixtures for each file type
 @pytest.fixture(
     params=[
-        "huggingface",
         "csv",
+        "json",
         "jsonl",
         "parquet",
-        "json",
         "xml",
         "yaml",
         "tsv",
@@ -94,78 +90,41 @@ def create_dataset_in_format(directory, ext):
 )
 def dataset_file(request, tmpdir):
     ext = request.param
-    create_dataset_in_format(tmpdir + "/train", ext)
-    create_dataset_in_format(tmpdir + "/eval", ext)
-    return tmpdir, ext
+    directory = create_dataset_in_format(f"{tmpdir}/input", ext)
+    return directory, ext
 
 
 @pytest.fixture
-def commonsense_bolt():
-    input_dir = tempfile.mkdtemp()
-    output_dir = tempfile.mkdtemp()
+def embeddings_bulk_bolt(tmpdir):
+    input_dir = f"{tmpdir}/input"
+    output_dir = f"{tmpdir}/output"
+    os.makedirs(input_dir)
+    os.makedirs(output_dir)
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = TextCommonsenseReasoningFineTuner(
+    bolt = EmbeddingsBulk(
         input=input,
         output=output,
         state=state,
     )
-    klass.model_class = "BertForSequenceClassification"
-    klass.model_name = "bert-base-uncased"
-    klass.tokenizer_class = "BertTokenizer"
-    klass.tokenizer_name = "bert-base-uncased"
-    return klass
+    return bolt
 
 
-def test_commonsense_bolt_init(commonsense_bolt):
-    commonsense_bolt.load_models()
-
-    assert commonsense_bolt.model is not None
-    assert commonsense_bolt.tokenizer is not None
-    assert commonsense_bolt.input is not None
-    assert commonsense_bolt.output is not None
-    assert commonsense_bolt.state is not None
-
-
-def test_load_dataset_all_formats(commonsense_bolt, dataset_file):
-    tmpdir, ext = dataset_file
-    dataset_path = os.path.join(tmpdir, "train")
-
-    commonsense_bolt.load_models()
-    dataset = commonsense_bolt.load_dataset(dataset_path)
-    assert dataset is not None
-    assert len(dataset) == 10
-
-
-# Test for fine-tuning
-def test_commonsense_bolt_fine_tune(commonsense_bolt, dataset_file):
-    tmpdir, ext = dataset_file
-    commonsense_bolt.input.input_folder = tmpdir
-
-    commonsense_bolt.fine_tune(
-        model_name="bert-base-uncased",
-        tokenizer_name="bert-base-uncased",
-        num_train_epochs=1,
-        per_device_train_batch_size=1,
-        model_class="BertForSequenceClassification",
-        tokenizer_class="BertTokenizer",
-        evaluate=True,
+def test_generate_sentence_transformer_embeddings(embeddings_bulk_bolt, dataset_file):
+    directory, ext = dataset_file
+    embeddings_bulk_bolt.generate(
+        kind="sentence",
+        model_name="sentence-transformers/paraphrase-MiniLM-L6-v2",
+        use_cuda=False,
     )
-
-    output_dir = commonsense_bolt.output.output_folder
-    assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
-    assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
-    assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
+    files = glob.glob(f"{embeddings_bulk_bolt.output.output_folder}/embeddings-*.json")
+    assert len(files) > 0
 
 
-# Test for computing metrics
-def test_commonsense_bolt_compute_metrics(commonsense_bolt):
-    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-    labels = np.array([0, 1])
-    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-    metrics = commonsense_bolt.compute_metrics(eval_pred)
-    assert "accuracy" in metrics
-    assert "precision" in metrics
-    assert "recall" in metrics
-    assert "f1" in metrics
+def test_generate_huggingface_embeddings(embeddings_bulk_bolt, dataset_file):
+    directory, ext = dataset_file
+    for kind in ["sentence_windows", "sentence_combinations", "sentence_permutations"]:
+        embeddings_bulk_bolt.generate(kind=kind, model_name="bert-base-uncased", use_cuda=True, device_map="cuda:0")
+        files = glob.glob(f"{embeddings_bulk_bolt.output.output_folder}/embeddings-*.json")
+        assert len(files) > 0

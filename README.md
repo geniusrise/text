@@ -6,10 +6,10 @@
 </h2>
 
 <p align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/geniusrise/geniusrise-huggingface/pytest.yml?branch=master" alt="GitHub Workflow Status"/>
-  <img src="https://codecov.io/gh/geniusrise/geniusrise-huggingface/branch/main/graph/badge.svg?token=0b359b3a-f29c-4966-9661-a79386b3450d" alt="Codecov"/>
-  <img src="https://img.shields.io/github/license/geniusrise/geniusrise-huggingface" alt="Codecov"/>
-  <img src="https://img.shields.io/github/issues/geniusrise/geniusrise-huggingface" alt="Codecov"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/geniusrise/geniusrise-text/pytest.yml?branch=master" alt="GitHub Workflow Status"/>
+  <img src="https://codecov.io/gh/geniusrise/geniusrise-text/branch/main/graph/badge.svg?token=0b359b3a-f29c-4966-9661-a79386b3450d" alt="Codecov"/>
+  <img src="https://img.shields.io/github/license/geniusrise/geniusrise-text" alt="Codecov"/>
+  <img src="https://img.shields.io/github/issues/geniusrise/geniusrise-text" alt="Codecov"/>
 </p>
 
 ---

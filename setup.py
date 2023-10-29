@@ -7,8 +7,8 @@ with open("requirements.txt", "r", encoding="utf-8") as f:
     requirements = f.read().splitlines()
 
 setup(
-    name="geniusrise-huggingface",
-    version="0.4.9",
+    name="geniusrise-text",
+    version="0.1.0",
     packages=find_packages(exclude=["tests", "tests.*"]),
     install_requires=requirements,
     python_requires=">=3.10",
@@ -17,7 +17,7 @@ setup(
     description="Huggingface bolts for geniusrise",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/geniusrise/geniusrise-huggingface",
+    url="https://github.com/geniusrise/geniusrise-text",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
@@ -29,8 +29,8 @@ setup(
     ],
     keywords="mlops, llm, geniusrise, machine learning, data processing",
     project_urls={
-        "Bug Reports": "https://github.com/geniusrise/geniusrise-huggingface/issues",
-        "Source": "https://github.com/geniusrise/geniusrise-huggingface",
+        "Bug Reports": "https://github.com/geniusrise/geniusrise-text/issues",
+        "Source": "https://github.com/geniusrise/geniusrise-text",
         "Documentation": "https://docs.geniusrise.ai/",
     },
     package_data={
