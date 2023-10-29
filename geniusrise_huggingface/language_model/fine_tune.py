@@ -102,7 +102,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         - Feather
     """
 
-    def load_dataset(self, dataset_path, masked: bool = True, max_length: int = 512, **kwargs):
+    def load_dataset(self, dataset_path, masked: bool = False, max_length: int = 512, **kwargs):
         r"""
         Load a language modeling dataset from a directory.
 
@@ -241,7 +241,7 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
 
             # Preprocess the dataset
             if self.tokenizer and self.tokenizer.pad_token_id is None:
-                self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+                self.tokenizer.pad_token = self.tokenizer.eos_token
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,
                 batched=True,
@@ -267,12 +267,9 @@ class HuggingFaceLanguageModelingFineTuner(HuggingFaceFineTuner):
         tokenized_inputs = self.tokenizer(
             examples["text"],
             truncation=True,
-            padding=False,
+            padding="max_length",
             max_length=self.max_length,
         )
-
-        # Include the labels in the returned dictionary
-        tokenized_inputs["labels"] = tokenized_inputs["input_ids"]
 
         return tokenized_inputs
 
