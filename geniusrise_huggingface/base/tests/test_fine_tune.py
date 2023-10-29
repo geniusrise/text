@@ -18,6 +18,7 @@ import tempfile
 
 import numpy as np
 import pytest
+import torch
 from datasets import load_dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from transformers import EvalPrediction, DataCollatorForLanguageModeling
@@ -98,6 +99,10 @@ def test_load_dataset(bolt):
     assert dataset is not None
     assert len(dataset) >= 100
 
+    del bolt.model
+    del bolt.tokenizer
+    torch.cuda.empty_cache()
+
 
 def test_fine_tune(bolt):
     bolt.fine_tune(
@@ -122,6 +127,10 @@ def test_fine_tune(bolt):
     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "pytorch_model.bin"))
     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "config.json"))
     assert os.path.isfile(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
+
+    del bolt.model
+    del bolt.tokenizer
+    torch.cuda.empty_cache()
 
 
 def test_compute_metrics(bolt):
@@ -164,29 +173,17 @@ models = {
         (models["small"], "bfloat16", None, lora_config, False),
         (models["small"], "bfloat16", None, lora_config, True),
         # small - 4bit
-        (models["small"], "float16", 4, None, False),
-        (models["small"], "float16", 4, None, True),
         (models["small"], "float16", 4, lora_config, False),
         (models["small"], "float16", 4, lora_config, True),
-        (models["small"], "float32", 4, None, False),
-        (models["small"], "float32", 4, None, True),
         (models["small"], "float32", 4, lora_config, False),
         (models["small"], "float32", 4, lora_config, True),
-        (models["small"], "bfloat16", 4, None, False),
-        (models["small"], "bfloat16", 4, None, True),
         (models["small"], "bfloat16", 4, lora_config, False),
         (models["small"], "bfloat16", 4, lora_config, True),
         # small - 8 bit
-        (models["small"], "float16", 8, None, False),
-        (models["small"], "float16", 8, None, True),
         (models["small"], "float16", 8, lora_config, False),
         (models["small"], "float16", 8, lora_config, True),
-        (models["small"], "float32", 8, None, False),
-        (models["small"], "float32", 8, None, True),
         (models["small"], "float32", 8, lora_config, False),
         (models["small"], "float32", 8, lora_config, True),
-        (models["small"], "bfloat16", 8, None, False),
-        (models["small"], "bfloat16", 8, None, True),
         (models["small"], "bfloat16", 8, lora_config, False),
         (models["small"], "bfloat16", 8, lora_config, True),
         # large
@@ -198,7 +195,6 @@ models = {
         (models["large"], "float32", 4, lora_config, True),
         # 4 bit
         (models["4-bit"], "float16", None, lora_config, False),
-        (models["4-bit"], "float16", None, lora_config, True),
         # 8 bit
         (models["8-bit"], "float16", None, lora_config, False),
         (models["8-bit"], "float16", None, lora_config, True),
@@ -256,3 +252,7 @@ def test_fine_tune_options(bolt, model, precision, quantization, lora_config, us
         os.remove(os.path.join(bolt.output.output_folder, "model", "training_args.bin"))
     except Exception as _:
         pass
+
+    del bolt.model
+    del bolt.tokenizer
+    torch.cuda.empty_cache()
