@@ -19,12 +19,13 @@ import sqlite3
 import tempfile
 import xml.etree.ElementTree as ET
 
+import numpy as np
 import pandas as pd
 import pytest
 import torch
 import yaml  # type: ignore
 from datasets import Dataset
-from geniusrise.core import BatchInput, BatchOutput, InMemoryState
+from geniusrise.core import BatchInput, BatchOutput, InMemoryState, EvalPrediction
 from pyarrow import feather
 from pyarrow import parquet as pq
 
@@ -288,23 +289,23 @@ def test_language_modeling_bolt_fine_tune(
         raise
 
 
-# def test_language_modeling_bolt_compute_metrics(language_modeling_bolt, model):
-#     name, model_name = model
-#     tokenizer_name = model_name
-#     model_class = "AutoModelForSequenceClassification"
-#     tokenizer_class = "AutoTokenizer"
+def test_language_modeling_bolt_compute_metrics(language_modeling_bolt, model):
+    name, model_name = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForSequenceClassification"
+    tokenizer_class = "AutoTokenizer"
 
-#     language_modeling_bolt.load_models(
-#         model_name=model_name,
-#         tokenizer_name=tokenizer_name,
-#         model_class=model_class,
-#         tokenizer_class=tokenizer_class,
-#         device_map="cuda:0",
-#     )
+    language_modeling_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
 
-#     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
-#     labels = np.array([[0, 1], [1, 0]])
-#     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
-#     metrics = language_modeling_bolt.compute_metrics(eval_pred)
-#     assert "bleu" in metrics
-#     assert "sacrebleu" in metrics
+    logits = np.array([[0.6, 0.4], [0.4, 0.6]])
+    labels = np.array([[0, 1], [1, 0]])
+    eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
+    metrics = language_modeling_bolt.compute_metrics(eval_pred)
+    assert "bleu" in metrics
+    assert "sacrebleu" in metrics
