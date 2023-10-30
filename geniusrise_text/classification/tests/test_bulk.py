@@ -60,6 +60,7 @@ MODELS_TO_TEST = {
     "ProsusAI/finbert": ["positive", "neutral", "negative"],
     "yiyanghkust/finbert-tone": ["Positive", "Neutral", "Negative"],
     "wajidlinux99/gibberish-text-detector": ["clean", "mild gibberish", "word salad", "noise"],
+    "cnut1648/biolinkbert-large-mnli-snli": ["entailment", "neutral", "contradiction"],
     # fmt: on
 }
 
