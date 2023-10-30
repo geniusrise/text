@@ -470,7 +470,7 @@ class TextFineTuner(Bolt):
                 **training_kwargs,
             )
 
-            if self.lora_config:
+            if self.lora_config and not use_trl:
                 self.model.enable_input_require_grads()
                 self.model = get_peft_model(self.model, peft_config=self.lora_config)
 
