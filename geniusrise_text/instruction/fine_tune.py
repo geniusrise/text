@@ -15,18 +15,17 @@
 
 import glob
 import json
-import logging
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
+import torch
 import pandas as pd
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset as HFDataset
-from datasets import load_from_disk
+from datasets import Dataset, load_from_disk
 from nltk.translate.bleu_score import corpus_bleu
 from pyarrow import feather
 from transformers import EvalPrediction
@@ -111,7 +110,7 @@ class TextInstructionTuningFineTuner(TextFineTuner):
         - Feather
     """
 
-    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs: Any) -> Union[HFDataset, Dict]:
+    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs: Any) -> Union[Dataset, Dict]:
         r"""
         Load an instruction tuning dataset from a directory.
 
@@ -179,7 +178,7 @@ class TextInstructionTuningFineTuner(TextFineTuner):
         """
 
         try:
-            logging.info(f"Loading dataset from {dataset_path}")
+            self.log.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
@@ -239,16 +238,16 @@ class TextInstructionTuningFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if self.data_extractor_lambda:
-                    fn = eval(self.data_extractor_lambda)
+                if hasattr(self, "map_data") and self.map_data:
+                    fn = eval(self.map_data)  # type: ignore
                     data = [fn(d) for d in data]
                 else:
                     data = data
 
-                dataset = HFDataset.from_pandas(pd.DataFrame(data))
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
                 return dataset.map(self.prepare_train_features, batched=True)
         except Exception as e:
-            logging.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
+            self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
 
     def prepare_train_features(self, examples: Dict) -> Dict:
@@ -265,21 +264,45 @@ class TextInstructionTuningFineTuner(TextFineTuner):
             if not self.tokenizer:
                 raise Exception("Tokenizer not initialized")
 
-            # Tokenize the examples
-            encoding = self.tokenizer(
+            if not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
+            # Tokenize the instructions and outputs separately
+            input_encoding = self.tokenizer(
                 examples["instruction"],
+                truncation=True,
+                padding="max_length",
+                max_length=self.max_length // 2,
+                return_tensors="pt",
+            )
+            output_encoding = self.tokenizer(
                 examples["output"],
                 truncation=True,
                 padding="max_length",
-                max_length=self.max_length,
+                max_length=self.max_length // 2,
                 return_tensors="pt",
             )
 
-            encoding["labels"] = encoding["input_ids"].clone()  # Assuming that 'output' is the labels
+            sep_token = self.tokenizer.sep_token_id if self.tokenizer.sep_token_id else self.tokenizer.eos_token_id
+            # Convert sep_token to a tensor, then expand dimensions
+            sep_token_tensor = torch.tensor([sep_token], dtype=torch.long).unsqueeze(0)
 
-            return encoding
+            input_ids = torch.cat([input_encoding["input_ids"], sep_token_tensor, output_encoding["input_ids"]], dim=1)
+            attention_mask = torch.cat(
+                [
+                    input_encoding["attention_mask"],
+                    torch.tensor([[1]], dtype=torch.long),
+                    output_encoding["attention_mask"],
+                ],
+                dim=1,
+            )
+
+            # Use the tokenized output as the labels
+            labels = output_encoding["input_ids"]
+
+            return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
         except Exception as e:
-            print(f"Error preparing train features: {e}")
+            self.log.exception(f"Error preparing train features: {e}")
             raise
 
     def compute_metrics(self, eval_pred: EvalPrediction) -> Optional[Dict[str, float]]:

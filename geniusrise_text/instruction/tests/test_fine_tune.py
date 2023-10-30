@@ -20,6 +20,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import numpy as np
+import torch
 import pandas as pd
 import pytest
 import yaml  # type: ignore
@@ -29,7 +30,15 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_text import TextInstructionTuningFineTuner
+from geniusrise_text.instruction.fine_tune import TextInstructionTuningFineTuner
+
+lora_config = {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "task_type": "CAUSAL_LM",
+}
 
 
 # Helper function to create synthetic data in different formats
@@ -98,6 +107,19 @@ def dataset_file(request, tmpdir):
     return tmpdir, ext
 
 
+MODELS_TO_TEST = {
+    # fmt: off
+    "small": "TheBloke/Mistral-7B-Instruct-v0.1-GPTQ",
+    # fmt: on
+}
+
+
+# Fixture for models
+@pytest.fixture(params=MODELS_TO_TEST.items())
+def model(request):
+    return request.param
+
+
 @pytest.fixture
 def instruction_tuning_bolt():
     input_dir = tempfile.mkdtemp()
@@ -110,15 +132,22 @@ def instruction_tuning_bolt():
         output=output,
         state=state,
     )
-    klass.model_class = "BartForConditionalGeneration"
-    klass.model_name = "facebook/bart-base"
-    klass.tokenizer_class = "BartTokenizer"
-    klass.tokenizer_name = "facebook/bart-base"
     return klass
 
 
-def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
-    instruction_tuning_bolt.load_models()
+def test_instruction_tuning_bolt_init(instruction_tuning_bolt, model):
+    name, model_name = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForCausalLM"
+    tokenizer_class = "AutoTokenizer"
+
+    instruction_tuning_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
 
     assert instruction_tuning_bolt.model is not None
     assert instruction_tuning_bolt.tokenizer is not None
@@ -127,39 +156,172 @@ def test_instruction_tuning_bolt_init(instruction_tuning_bolt):
     assert instruction_tuning_bolt.state is not None
 
 
-def test_load_dataset_all_formats(instruction_tuning_bolt, dataset_file):
+def test_load_dataset_all_formats(instruction_tuning_bolt, dataset_file, model):
+    name, model_name = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForCausalLM"
+    tokenizer_class = "AutoTokenizer"
+
+    instruction_tuning_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
+
     tmpdir, ext = dataset_file
     dataset_path = os.path.join(tmpdir, "train")
-
-    instruction_tuning_bolt.load_models()
     dataset = instruction_tuning_bolt.load_dataset(dataset_path)
     assert dataset is not None
     assert len(dataset) == 10
 
 
+# Models to test
+models = {
+    # fmt: off
+    "small": "PY007/TinyLlama-1.1B-Chat-v0.3",
+    "medium": "HuggingFaceH4/zephyr-7b-beta",
+    "large": "mistralai/Mistral-7B-Instruct-v0.1",
+    # mistral
+    "4-bit-mistral": "TheBloke/Mistral-7B-Instruct-v0.1-GPTQ:gptq-4bit-32g-actorder_True",
+    "8-bit-mistral": "TheBloke/Mistral-7B-Instruct-v0.1-GPTQ:gptq-8bit-32g-actorder_True",
+    "4-bit-mistral-code": "TheBloke/Mistral-7B-Code-16K-qlora-GPTQ:gptq-4bit-32g-actorder_True",
+    "4-bit-mistral-32k": "TheBloke/Mistral-7B-Phibrarian-32K-GPTQ",
+    # zephyr
+    "4-bit-zephyr": "TheBloke/zephyr-7B-beta-GPTQ:gptq-4bit-32g-actorder_True",
+    "8-bit-zephyr": "TheBloke/zephyr-7B-beta-GPTQ:gptq-8bit-32g-actorder_True",
+    # falcon
+    "4-bit-falcon": "TheBloke/falcon-7b-instruct-GPTQ",
+    # llama-based
+    "4-bit-llama-2": "TheBloke/Llama-2-7b-Chat-GPTQ:gptq-4bit-32g-actorder_True",
+    "4-bit-llama-2-32k": "TheBloke/Llama-2-7B-32K-Instruct-GPTQ:gptq-4bit-32g-actorder_True",
+    "4-bit-wizard": "TheBloke/WizardLM-7B-uncensored-GPTQ",
+    "4-bit-vicuna": "TheBloke/vicuna-7B-v1.5-GPTQ:gptq-4bit-32g-actorder_True",
+    "4-bit-wizard-vicuna": "TheBloke/Wizard-Vicuna-7B-Uncensored-GPTQ",
+    "4-bit-yarn-64k": "TheBloke/Yarn-Llama-2-7B-64K-GPTQ:gptq-4bit-32g-actorder_True",
+    "4-bit-yarn-128k": "TheBloke/Yarn-Llama-2-7B-128K-GPTQ:gptq-4bit-32g-actorder_True",
+    # fmt: on
+}
+
+
 # Test for fine-tuning
-def test_instruction_tuning_bolt_fine_tune(instruction_tuning_bolt, dataset_file):
-    tmpdir, ext = dataset_file
-    instruction_tuning_bolt.input.input_folder = tmpdir
+@pytest.mark.parametrize(
+    "model_name, precision, quantization, lora_config, use_accelerate",
+    [
+        # small
+        (models["small"], "float16", None, None, False),
+        (models["small"], "float16", None, None, True),
+        (models["small"], "float16", None, lora_config, False),
+        (models["small"], "float16", None, lora_config, True),
+        (models["small"], "bfloat16", None, None, False),
+        (models["small"], "bfloat16", None, None, True),
+        (models["small"], "bfloat16", None, lora_config, False),
+        (models["small"], "bfloat16", None, lora_config, True),
+        # small - 4bit
+        (models["small"], "float16", 4, lora_config, False),
+        (models["small"], "float16", 4, lora_config, True),
+        (models["small"], "bfloat16", 4, lora_config, False),
+        (models["small"], "bfloat16", 4, lora_config, True),
+        # small - 8 bit
+        (models["small"], "float16", 8, lora_config, False),
+        (models["small"], "float16", 8, lora_config, True),
+        (models["small"], "float32", 8, lora_config, False),
+        (models["small"], "float32", 8, lora_config, True),
+        (models["small"], "bfloat16", 8, lora_config, False),
+        (models["small"], "bfloat16", 8, lora_config, True),
+        # large
+        (models["large"], "bfloat16", 4, lora_config, False),
+        (models["large"], "bfloat16", 4, lora_config, True),
+        (models["large"], "float16", 4, lora_config, False),
+        (models["large"], "float16", 4, lora_config, True),
+        (models["large"], "float32", 4, lora_config, False),
+        (models["large"], "float32", 4, lora_config, True),
+        # # 4 bit
+        (models["4-bit-mistral"], "float16", None, lora_config, False),
+        (models["4-bit-mistral-code"], "float16", None, lora_config, False),
+        (models["4-bit-mistral-32k"], "float16", None, lora_config, False),
+        (models["4-bit-zephyr"], "float16", None, lora_config, False),
+        (models["4-bit-falcon"], "float16", None, lora_config, False),
+        (models["4-bit-llama-2"], "float16", None, lora_config, False),
+        (models["4-bit-llama-2-32k"], "float16", None, lora_config, False),
+        (models["4-bit-wizard"], "float16", None, lora_config, False),
+        (models["4-bit-vicuna"], "float16", None, lora_config, False),
+        (models["4-bit-wizard-vicuna"], "float16", None, lora_config, False),
+        (models["4-bit-yarn-64k"], "float16", None, lora_config, False),
+        (models["4-bit-yarn-128k"], "float16", None, lora_config, False),
+        # # 8 bit
+        (models["8-bit-mistral"], "float16", None, lora_config, False),
+        (models["8-bit-zephyr"], "float16", None, lora_config, False),
+    ],
+)
+def test_instruction_tuning_bolt_fine_tune(
+    instruction_tuning_bolt, dataset_file, model_name, precision, quantization, lora_config, use_accelerate
+):
+    try:
+        tokenizer_name = model_name
 
-    instruction_tuning_bolt.fine_tune(
-        model_name="facebook/bart-base",
-        tokenizer_name="facebook/bart-base",
-        num_train_epochs=1,
-        per_device_train_batch_size=1,
-        model_class="BartForConditionalGeneration",
-        tokenizer_class="BartTokenizer",
-        evaluate=True,
-    )
+        tmpdir, ext = dataset_file
+        instruction_tuning_bolt.input.input_folder = tmpdir
 
-    output_dir = instruction_tuning_bolt.output.output_folder
-    assert os.path.isfile(os.path.join(output_dir + "/model", "pytorch_model.bin"))
-    assert os.path.isfile(os.path.join(output_dir + "/model", "config.json"))
-    assert os.path.isfile(os.path.join(output_dir + "/model", "training_args.bin"))
+        instruction_tuning_bolt.fine_tune(
+            model_name=model_name,
+            tokenizer_name=model_name,
+            model_class="AutoModelForCausalLM",
+            tokenizer_class="AutoTokenizer",
+            num_train_epochs=1,
+            per_device_batch_size=2,
+            precision=precision,
+            quantization=quantization,
+            lora_config=lora_config,
+            use_accelerate=use_accelerate,
+            device_map="auto" if "GPTQ" in model_name else None,
+            data_masked=False,
+        )
+        output_dir = instruction_tuning_bolt.output.output_folder
+        assert os.path.exists(
+            os.path.join(instruction_tuning_bolt.output.output_folder, "model", "pytorch_model.bin")
+        ) or os.path.exists(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "adapter_model.bin"))
+        assert os.path.exists(
+            os.path.join(instruction_tuning_bolt.output.output_folder, "model", "config.json")
+        ) or os.path.exists(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "adapter_config.json"))
+        assert os.path.exists(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "training_args.bin"))
+
+        del instruction_tuning_bolt.model
+        del instruction_tuning_bolt.tokenizer
+        torch.cuda.empty_cache()
+
+        try:
+            os.remove(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "pytorch_model.bin"))
+            os.remove(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "adapter_model.bin"))
+            os.remove(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "config.json"))
+            os.remove(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "adapter_config.json"))
+            os.remove(os.path.join(instruction_tuning_bolt.output.output_folder, "model", "training_args.bin"))
+        except Exception as _:
+            pass
+
+    except Exception as e:
+        del instruction_tuning_bolt.model
+        del instruction_tuning_bolt.tokenizer
+        torch.cuda.empty_cache()
+        raise
 
 
 # Test for computing metrics
-def test_instruction_tuning_bolt_compute_metrics(instruction_tuning_bolt):
+def test_instruction_tuning_bolt_compute_metrics(instruction_tuning_bolt, model):
+    name, model_name = model
+    tokenizer_name = model_name
+    model_class = "AutoModelForCausalLM"
+    tokenizer_class = "AutoTokenizer"
+
+    instruction_tuning_bolt.load_models(
+        model_name=model_name,
+        tokenizer_name=tokenizer_name,
+        model_class=model_class,
+        tokenizer_class=tokenizer_class,
+        device_map="cuda:0",
+    )
+
     logits = np.array([[0.6, 0.4], [0.4, 0.6]])
     labels = np.array([0, 1])
     eval_pred = EvalPrediction(predictions=logits, label_ids=labels)
