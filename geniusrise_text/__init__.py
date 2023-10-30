@@ -12,13 +12,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from geniusrise_text.base import TextFineTuner
-from geniusrise_text.classification import TextClassificationFineTuner
-from geniusrise_text.commonsense_reasoning import TextCommonsenseReasoningFineTuner
-from geniusrise_text.instruction_tuning import TextInstructionTuningFineTuner
-from geniusrise_text.language_model import LanguageModelingFineTuner
-from geniusrise_text.ner import TextNamedEntityRecognitionFineTuner
-from geniusrise_text.question_answering import TextQuestionAnsweringFineTuner
-from geniusrise_text.summarization import TextSummarizationFineTuner
-from geniusrise_text.translation import TextTranslationFineTuner
