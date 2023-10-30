@@ -136,7 +136,7 @@ def language_modeling_bolt():
 def test_language_modeling_bolt_init(model, language_modeling_bolt):
     name, model_name = model
     tokenizer_name = model_name
-    model_class = "AutoModelForSequenceClassification"
+    model_class = "AutoModelForCausalLM"
     tokenizer_class = "AutoTokenizer"
 
     language_modeling_bolt.load_models(
@@ -157,7 +157,7 @@ def test_language_modeling_bolt_init(model, language_modeling_bolt):
 def test_load_dataset_all_formats(language_modeling_bolt, dataset_file, model):
     name, model_name = model
     tokenizer_name = model_name
-    model_class = "AutoModelForSequenceClassification"
+    model_class = "AutoModelForCausalLM"
     tokenizer_class = "AutoTokenizer"
 
     language_modeling_bolt.load_models(
@@ -292,7 +292,7 @@ def test_language_modeling_bolt_fine_tune(
 def test_language_modeling_bolt_compute_metrics(language_modeling_bolt, model):
     name, model_name = model
     tokenizer_name = model_name
-    model_class = "AutoModelForSequenceClassification"
+    model_class = "AutoModelForCausalLM"
     tokenizer_class = "AutoTokenizer"
 
     language_modeling_bolt.load_models(
