@@ -85,7 +85,51 @@ class TextBulk(Bolt):
         decoding_strategy: str = "generate",
         **generation_params: Any,
     ) -> str:
-        """ """
+        """
+        Generate text completion for the given prompt using the specified decoding strategy.
+
+        Args:
+            prompt (str): The prompt to generate text completion for.
+            decoding_strategy (str, optional): The decoding strategy to use. Defaults to "generate".
+            **generation_params (Any): Additional parameters to pass to the decoding strategy.
+
+        Returns:
+            str: The generated text completion.
+
+        Raises:
+            Exception: If an error occurs during generation.
+
+        Supported decoding strategies:
+            - "generate": Generate text using the model's default generation method.
+            - "greedy_search": Generate text using greedy search decoding strategy.
+            - "contrastive_search": Generate text using contrastive search decoding strategy.
+            - "sample": Generate text using sampling decoding strategy.
+            - "beam_search": Generate text using beam search decoding strategy.
+            - "beam_sample": Generate text using beam search with sampling decoding strategy.
+            - "group_beam_search": Generate text using group beam search decoding strategy.
+            - "constrained_beam_search": Generate text using constrained beam search decoding strategy.
+
+        Additional parameters for each decoding strategy:
+            - "generate": {"max_length": int}
+            - "greedy_search": {"max_length": int, "eos_token_id": int, "pad_token_id": int}
+            - "contrastive_search": {"max_length": int}
+            - "sample": {"do_sample": bool, "temperature": float, "top_p": float, "max_length": int}
+            - "beam_search": {"num_beams": int, "max_length": int}
+            - "beam_sample": {"num_beams": int, "temperature": float, "max_length": int}
+            - "group_beam_search": {"num_beams": int, "diversity_penalty": float, "max_length": int}
+            - "constrained_beam_search": {"num_beams": int, "max_length": int, "constraints": None}
+
+        Note:
+            - The `max_length` parameter specifies the maximum length of the generated text.
+            - The `eos_token_id` parameter specifies the end-of-sequence token ID.
+            - The `pad_token_id` parameter specifies the padding token ID.
+            - The `do_sample` parameter specifies whether to use sampling during decoding.
+            - The `temperature` parameter controls the randomness of the sampling.
+            - The `top_p` parameter controls the diversity of the sampling.
+            - The `num_beams` parameter specifies the number of beams to use during beam search.
+            - The `diversity_penalty` parameter controls the diversity of the generated text during group beam search.
+            - The `constraints` parameter specifies any constraints to apply during decoding.
+        """
         results: Dict[int, Dict[str, Union[str, List[str]]]] = {}
         eos_token_id = self.model.config.eos_token_id
         pad_token_id = self.model.config.pad_token_id
@@ -181,14 +225,19 @@ class TextBulk(Bolt):
         """
         Loads a Hugging Face model and tokenizer optimized for inference.
 
-        Parameters:
+        Args:
         - model_name (str): The name of the model to load.
+        - tokenizer_name (str): The name of the tokenizer to load.
+        - model_revision (Optional[str]): The revision of the model to load. Default is None.
+        - tokenizer_revision (Optional[str]): The revision of the tokenizer to load. Default is None.
         - model_class (str): The class name of the model to load. Default is "AutoModelForCausalLM".
         - tokenizer_class (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
         - use_cuda (bool): Whether to use CUDA for GPU acceleration. Default is False.
         - precision (str): The bit precision for model and tokenizer. Options are 'float32', 'float16', 'bfloat16'. Default is 'float16'.
-        - device_map (Union[str, Dict]): Device map for model placement. Default is "auto".
-        - max_memory (Dict): Maximum GPU memory to be allocated.
+        - quantization (int): The number of bits to use for quantization. Default is 0.
+        - device_map (Union[str, Dict, None]): Device map for model placement. Default is "auto".
+        - max_memory (Dict): Maximum GPU memory to be allocated. Default is {0: "24GB"}.
+        - torchscript (bool): Whether to use TorchScript for model optimization. Default is True.
         - model_args (Any): Additional keyword arguments for the model.
 
         Returns:
@@ -196,7 +245,7 @@ class TextBulk(Bolt):
 
         Usage:
         ```python
-        model, tokenizer = load_models("gpt-2", use_cuda=True, precision='float32', quantize=True, quantize_bits=8)
+        model, tokenizer = load_models("gpt-2", "gpt-2", use_cuda=True, precision='float32', quantization=8)
         ```
         """
         self.log.info(f"Loading Hugging Face model: {model_name}")
