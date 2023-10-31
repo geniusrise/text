@@ -166,7 +166,7 @@ class TextFineTuner(Bolt):
             elif precision == "qint32":
                 torch_dtype = torch.qint32
             else:
-                raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
+                torch_dtype = None
 
             peft_target_modules = []
             if ":" in model_name:
