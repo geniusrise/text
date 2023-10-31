@@ -201,7 +201,7 @@ models = {
     [
         # small
         (models["bart"], "bfloat16", None, None, False),
-        (models["deberta"], "bfloat32", None, None, False),
+        (models["deberta"], "bfloat16", None, None, False),
         (models["large"], "bfloat16", None, None, False),
         (models["distill"], "bfloat16", None, None, False),
         (models["roberta"], "bfloat16", None, None, False),
