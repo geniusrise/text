@@ -131,12 +131,40 @@ class TextFineTuner(Bolt):
         """
         try:
             # Determine the torch dtype based on precision
-            if precision == "float16":
-                torch_dtype = torch.float16
-            elif precision == "float32":
+            if precision == "float32":
                 torch_dtype = torch.float32
+            elif precision == "float":
+                torch_dtype = torch.float
+            elif precision == "float64":
+                torch_dtype = torch.float64
+            elif precision == "double":
+                torch_dtype = torch.double
+            elif precision == "float16":
+                torch_dtype = torch.float16
             elif precision == "bfloat16":
                 torch_dtype = torch.bfloat16
+            elif precision == "half":
+                torch_dtype = torch.half
+            elif precision == "uint8":
+                torch_dtype = torch.uint8
+            elif precision == "int8":
+                torch_dtype = torch.int8
+            elif precision == "int16":
+                torch_dtype = torch.int16
+            elif precision == "short":
+                torch_dtype = torch.short
+            elif precision == "int32":
+                torch_dtype = torch.int32
+            elif precision == "int":
+                torch_dtype = torch.int
+            elif precision == "int64":
+                torch_dtype = torch.int64
+            elif precision == "quint8":
+                torch_dtype = torch.quint8
+            elif precision == "qint8":
+                torch_dtype = torch.qint8
+            elif precision == "qint32":
+                torch_dtype = torch.qint32
             else:
                 raise ValueError("Unsupported precision. Choose from 'float32', 'float16', 'bfloat16'.")
 
