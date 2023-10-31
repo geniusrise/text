@@ -29,7 +29,7 @@ from transformers import DataCollatorWithPadding
 from geniusrise_text.base import TextFineTuner
 
 
-class TextCommonsenseReasoningFineTuner(TextFineTuner):
+class CommonsenseReasoningFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
@@ -44,7 +44,7 @@ class TextCommonsenseReasoningFineTuner(TextFineTuner):
     CLI Usage:
 
     ```bash
-        genius TextCommonsenseReasoningFineTuner rise \
+        genius CommonsenseReasoningFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -61,7 +61,7 @@ class TextCommonsenseReasoningFineTuner(TextFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "TextCommonsenseReasoningFineTuner"
+                name: "CommonsenseReasoningFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
@@ -243,7 +243,7 @@ class TextCommonsenseReasoningFineTuner(TextFineTuner):
                 )
 
         except Exception as e:
-            print(f"Error loading dataset: {e}")
+            self.log.exception(f"Error loading dataset: {e}")
             raise
 
     def prepare_train_features(self, examples: Dict) -> Dict:
@@ -273,7 +273,7 @@ class TextCommonsenseReasoningFineTuner(TextFineTuner):
 
             return tokenized_inputs
         except Exception as e:
-            print(f"Error preparing train features: {e}")
+            self.log.exception(f"Error preparing train features: {e}")
             raise
 
     def data_collator(self, examples: Dict) -> Dict:
@@ -290,5 +290,5 @@ class TextCommonsenseReasoningFineTuner(TextFineTuner):
             return DataCollatorWithPadding(self.tokenizer)(examples)
 
         except Exception as e:
-            print(f"Error in data collation: {e}")
+            self.log.exception(f"Error in data collation: {e}")
             raise
