@@ -29,7 +29,7 @@ from transformers import DataCollatorWithPadding
 from geniusrise_text.base import TextFineTuner
 
 
-class CommonsenseReasoningFineTuner(TextFineTuner):
+class NLIFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models for text classification tasks.
 
@@ -44,7 +44,7 @@ class CommonsenseReasoningFineTuner(TextFineTuner):
     CLI Usage:
 
     ```bash
-        genius CommonsenseReasoningFineTuner rise \
+        genius NLIFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -61,7 +61,7 @@ class CommonsenseReasoningFineTuner(TextFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "CommonsenseReasoningFineTuner"
+                name: "NLIFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
