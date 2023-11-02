@@ -30,7 +30,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_text.nli.fine_tune import CommonsenseReasoningFineTuner
+from geniusrise_text.nli.fine_tune import NLIFineTuner
 
 
 lora_config = {
@@ -129,7 +129,7 @@ def commonsense_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = CommonsenseReasoningFineTuner(
+    klass = NLIFineTuner(
         input=input,
         output=output,
         state=state,
