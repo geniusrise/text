@@ -172,6 +172,7 @@ class TextAPI(TextBulk):
         else:
             model_revision = None
             tokenizer_revision = None
+        tokenizer_name = model_name
         self.model_name = model_name
         self.model_revision = model_revision
         self.tokenizer_name = tokenizer_name
