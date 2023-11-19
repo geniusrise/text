@@ -19,10 +19,10 @@ import json
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from .bulk import TextBulk
+from base import TextAPI
 
 
-class InstructionAPI(TextBulk):
+class InstructionAPI(TextAPI):
     """
     A class representing a Hugging Face API for generating text using a pre-trained instruction-tuned model.
 
@@ -59,6 +59,7 @@ class InstructionAPI(TextBulk):
         input: BatchInput,
         output: BatchOutput,
         state: State,
+        **kwargs: Any,
     ):
         """
         Initializes a new instance of the TextAPI class.
