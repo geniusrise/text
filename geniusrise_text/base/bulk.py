@@ -195,9 +195,9 @@ class TextBulk(Bolt):
 
         # Merge default params with user-provided params
         strategy_params = {**default_params.get(decoding_strategy, {})}
-        for k, _ in generation_params.items():
+        for k, v in generation_params.items():
             if k in strategy_params:
-                strategy_params[k] = generation_params.get(k)
+                strategy_params[k] = v
 
         # Prepare LogitsProcessorList and BeamSearchScorer for beam search strategies
         if decoding_strategy in ["beam_search", "beam_sample", "group_beam_search"]:
