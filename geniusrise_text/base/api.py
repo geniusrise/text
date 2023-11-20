@@ -163,6 +163,8 @@ class TextAPI(TextBulk):
         self.max_memory = max_memory
         self.torchscript = torchscript
         self.model_args = model_args
+        self.username = username
+        self.password = password
 
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
