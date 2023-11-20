@@ -135,54 +135,55 @@ class TextBulk(Bolt):
         pad_token_id = self.model.config.pad_token_id
         if not pad_token_id:
             pad_token_id = eos_token_id
+            self.model.config.pad_token_id = pad_token_id
 
         # Default parameters for each strategy
         default_params = {
             "generate": {
-                "max_length": 20,
-                "max_new_tokens": None,
-                "min_length": 0,
-                "min_new_tokens": None,
-                "early_stopping": False,
-                "max_time": None,
-                "do_sample": False,
-                "num_beams": 1,
-                "num_beam_groups": 1,
-                "penalty_alpha": None,
-                "use_cache": True,
-                "temperature": 1.0,
-                "top_k": 50,
-                "top_p": 1.0,
-                "typical_p": 1.0,
-                "epsilon_cutoff": 0.0,
-                "eta_cutoff": 0.0,
-                "diversity_penalty": 0.0,
-                "repetition_penalty": 1.0,
-                "encoder_repetition_penalty": 1.0,
-                "length_penalty": 1.0,
-                "no_repeat_ngram_size": 0,
-                "bad_words_ids": None,
-                "force_words_ids": None,
-                "renormalize_logits": False,
-                "constraints": None,
-                "forced_bos_token_id": None,  # Defaults to model.config.forced_bos_token_id
-                "forced_eos_token_id": None,  # Defaults to model.config.forced_eos_token_id
-                "remove_invalid_values": False,  # Defaults to model.config.remove_invalid_values
-                "exponential_decay_length_penalty": None,
-                "suppress_tokens": None,
-                "begin_suppress_tokens": None,
-                "forced_decoder_ids": None,
-                "sequence_bias": None,
-                "guidance_scale": None,
-                "low_memory": None,
-                "num_return_sequences": 1,
-                "output_attentions": False,
-                "output_hidden_states": False,
-                "output_scores": False,
-                "return_dict_in_generate": False,
-                "pad_token_id": None,
-                "bos_token_id": None,
-                "eos_token_id": None,
+                "max_length": 20,  # Maximum length the generated tokens can have
+                "max_new_tokens": None,  # Maximum number of tokens to generate, ignoring prompt tokens
+                "min_length": 0,  # Minimum length of the sequence to be generated
+                "min_new_tokens": None,  # Minimum number of tokens to generate, ignoring prompt tokens
+                "early_stopping": False,  # Stopping condition for beam-based methods
+                "max_time": None,  # Maximum time allowed for computation in seconds
+                "do_sample": False,  # Whether to use sampling for generation
+                "num_beams": 1,  # Number of beams for beam search
+                "num_beam_groups": 1,  # Number of groups for beam search to ensure diversity
+                "penalty_alpha": None,  # Balances model confidence and degeneration penalty in contrastive search
+                "use_cache": True,  # Whether the model should use past key/values attentions to speed up decoding
+                "temperature": 1.0,  # Modulates next token probabilities
+                "top_k": 50,  # Number of highest probability tokens to keep for top-k-filtering
+                "top_p": 1.0,  # Smallest set of most probable tokens with cumulative probability >= top_p
+                "typical_p": 1.0,  # Conditional probability of predicting a target token next
+                "epsilon_cutoff": 0.0,  # Tokens with a conditional probability > epsilon_cutoff will be sampled
+                "eta_cutoff": 0.0,  # Eta sampling, a hybrid of locally typical sampling and epsilon sampling
+                "diversity_penalty": 0.0,  # Penalty subtracted from a beam's score if it generates a token same as any other group
+                "repetition_penalty": 1.0,  # Penalty for repetition of ngrams
+                "encoder_repetition_penalty": 1.0,  # Penalty on sequences not in the original input
+                "length_penalty": 1.0,  # Exponential penalty to the length for beam-based generation
+                "no_repeat_ngram_size": 0,  # All ngrams of this size can only occur once
+                "bad_words_ids": None,  # List of token ids that are not allowed to be generated
+                "force_words_ids": None,  # List of token ids that must be generated
+                "renormalize_logits": False,  # Renormalize the logits after applying all logits processors
+                "constraints": None,  # Custom constraints for generation
+                "forced_bos_token_id": None,  # Token ID to force as the first generated token
+                "forced_eos_token_id": None,  # Token ID to force as the last generated token
+                "remove_invalid_values": False,  # Remove possible NaN and inf outputs
+                "exponential_decay_length_penalty": None,  # Exponentially increasing length penalty after a certain number of tokens
+                "suppress_tokens": None,  # Tokens that will be suppressed during generation
+                "begin_suppress_tokens": None,  # Tokens that will be suppressed at the beginning of generation
+                "forced_decoder_ids": None,  # Mapping from generation indices to token indices that will be forced
+                "sequence_bias": None,  # Maps a sequence of tokens to its bias term
+                "guidance_scale": None,  # Guidance scale for classifier free guidance (CFG)
+                "low_memory": None,  # Switch to sequential topk for contrastive search to reduce peak memory
+                "num_return_sequences": 1,  # Number of independently computed returned sequences for each batch element
+                "output_attentions": False,  # Whether to return the attentions tensors of all layers
+                "output_hidden_states": False,  # Whether to return the hidden states of all layers
+                "output_scores": False,  # Whether to return the prediction scores
+                "return_dict_in_generate": False,  # Whether to return a ModelOutput instead of a plain tuple
+                "pad_token_id": None,  # The id of the padding token
+                "bos_token_id": None,  # The id of the beginning-of-sequence token
+                "eos_token_id": None,  # The id of the end-of-sequence token
             },
             "greedy_search": {"max_length": 4096, "eos_token_id": eos_token_id, "pad_token_id": pad_token_id},
             "contrastive_search": {"max_length": 4096},
@@ -354,6 +355,11 @@ class TextBulk(Bolt):
 
         if tokenizer and tokenizer.eos_token and (not tokenizer.pad_token):
             tokenizer.pad_token = tokenizer.eos_token
+
+        eos_token_id = model.config.eos_token_id
+        pad_token_id = model.config.pad_token_id
+        if not pad_token_id:
+            model.config.pad_token_id = eos_token_id
 
         self.log.debug("Hugging Face model and tokenizer loaded successfully.")
         return model, tokenizer

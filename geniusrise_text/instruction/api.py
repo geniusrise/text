@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from typing import Any, Dict
-import json
 
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
@@ -90,9 +89,6 @@ class InstructionAPI(TextAPI):
         prompt = data.get("prompt")
         decoding_strategy = data.get("decoding_strategy", "generate")
 
-        special_tokens = data.get("special_tokens", "{}")
-        special_tokens = json.loads(special_tokens)
-
         generation_params = data
         if "decoding_strategy" in generation_params:
             del generation_params["decoding_strategy"]
@@ -101,19 +97,8 @@ class InstructionAPI(TextAPI):
         if "special_tokens" in generation_params:
             del generation_params["special_tokens"]
 
-        sep_token_id = (
-            special_tokens.get("sep_token")
-            if "sep_token" in special_tokens
-            else self.tokenizer.sep_token_id
-            if self.tokenizer.sep_token_id
-            else self.tokenizer.eos_token_id
-        )
-        sep_token = self.tokenizer.decode(sep_token_id)
-
         return {
             "prompt": prompt,
             "args": data,
-            "completion": self.generate(
-                prompt=prompt + " " + sep_token + "\n", decoding_strategy=decoding_strategy, **generation_params
-            ),
+            "completion": self.generate(prompt=prompt, decoding_strategy=decoding_strategy, **generation_params),
         }

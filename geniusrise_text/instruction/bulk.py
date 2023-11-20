@@ -196,7 +196,6 @@ class InstructionBulk(TextBulk):
         max_memory={0: "24GB"},
         torchscript: bool = True,
         decoding_strategy: str = "generate",
-        special_tokens: Dict[str, str] = {},
         **kwargs: Any,
     ) -> None:
         if ":" in model_name:
@@ -247,15 +246,6 @@ class InstructionBulk(TextBulk):
         dataset_path = self.input.input_folder
         output_path = self.output.output_folder
 
-        sep_token_id = (
-            special_tokens.get("sep_token")
-            if "sep_token" in special_tokens
-            else self.tokenizer.sep_token_id
-            if self.tokenizer.sep_token_id
-            else self.tokenizer.eos_token_id
-        )
-        sep_token = self.tokenizer.decode(sep_token_id)
-
         # Load dataset
         _dataset = self.load_dataset(dataset_path)
         if _dataset is None:
@@ -265,7 +255,7 @@ class InstructionBulk(TextBulk):
 
         for i, prompt in enumerate(dataset):
             completions = self.generate(
-                prompt=prompt + " " + sep_token + "\n",
+                prompt=prompt,
                 decoding_strategy=decoding_strategy,
                 **generation_args,
             )
