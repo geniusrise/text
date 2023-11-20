@@ -90,17 +90,16 @@ class InstructionAPI(TextAPI):
         prompt = data.get("prompt")
         decoding_strategy = data.get("decoding_strategy", "generate")
 
-        max_new_tokens = data.get("max_new_tokens")
-        max_length = data.get("max_length")
-        temperature = data.get("temperature")
-        diversity_penalty = data.get("diversity_penalty")
-        num_beams = data.get("num_beams")
-        length_penalty = data.get("length_penalty")
-        early_stopping = data.get("early_stopping")
         special_tokens = data.get("special_tokens", "{}")
         special_tokens = json.loads(special_tokens)
 
-        others = data.__dict__
+        generation_params = data
+        if "decoding_strategy" in generation_params:
+            del generation_params["decoding_strategy"]
+        if "prompt" in generation_params:
+            del generation_params["prompt"]
+        if "special_tokens" in generation_params:
+            del generation_params["special_tokens"]
 
         sep_token_id = (
             special_tokens.get("sep_token")
@@ -113,17 +112,8 @@ class InstructionAPI(TextAPI):
 
         return {
             "prompt": prompt,
-            "args": others,
+            "args": data,
             "completion": self.generate(
-                prompt=prompt + " " + sep_token + "\n",
-                decoding_strategy=decoding_strategy,
-                max_new_tokens=max_new_tokens,
-                max_length=max_length,
-                temperature=temperature,
-                diversity_penalty=diversity_penalty,
-                num_beams=num_beams,
-                length_penalty=length_penalty,
-                early_stopping=early_stopping,
-                **others,
+                prompt=prompt + " " + sep_token + "\n", decoding_strategy=decoding_strategy, **generation_params
             ),
         }

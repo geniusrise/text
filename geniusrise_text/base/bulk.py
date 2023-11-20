@@ -138,10 +138,55 @@ class TextBulk(Bolt):
 
         # Default parameters for each strategy
         default_params = {
-            "generate": {"max_length": 4096},
+            "generate": {
+                "max_length": 20,
+                "max_new_tokens": None,
+                "min_length": 0,
+                "min_new_tokens": None,
+                "early_stopping": False,
+                "max_time": None,
+                "do_sample": False,
+                "num_beams": 1,
+                "num_beam_groups": 1,
+                "penalty_alpha": None,
+                "use_cache": True,
+                "temperature": 1.0,
+                "top_k": 50,
+                "top_p": 1.0,
+                "typical_p": 1.0,
+                "epsilon_cutoff": 0.0,
+                "eta_cutoff": 0.0,
+                "diversity_penalty": 0.0,
+                "repetition_penalty": 1.0,
+                "encoder_repetition_penalty": 1.0,
+                "length_penalty": 1.0,
+                "no_repeat_ngram_size": 0,
+                "bad_words_ids": None,
+                "force_words_ids": None,
+                "renormalize_logits": False,
+                "constraints": None,
+                "forced_bos_token_id": None,  # Defaults to model.config.forced_bos_token_id
+                "forced_eos_token_id": None,  # Defaults to model.config.forced_eos_token_id
+                "remove_invalid_values": False,  # Defaults to model.config.remove_invalid_values
+                "exponential_decay_length_penalty": None,
+                "suppress_tokens": None,
+                "begin_suppress_tokens": None,
+                "forced_decoder_ids": None,
+                "sequence_bias": None,
+                "guidance_scale": None,
+                "low_memory": None,
+                "num_return_sequences": 1,
+                "output_attentions": False,
+                "output_hidden_states": False,
+                "output_scores": False,
+                "return_dict_in_generate": False,
+                "pad_token_id": None,
+                "bos_token_id": None,
+                "eos_token_id": None,
+            },
             "greedy_search": {"max_length": 4096, "eos_token_id": eos_token_id, "pad_token_id": pad_token_id},
             "contrastive_search": {"max_length": 4096},
-            "sample": {"do_sample": True, "temperature": 0.6, "top_p": 0.9, "max_length": 4096},
+            "sample": {"do_sample": True, "temperature": 0.6, "top_k": 50, "top_p": 0.9, "max_length": 4096},
             "beam_search": {"num_beams": 4, "max_length": 4096},
             "beam_sample": {"num_beams": 4, "temperature": 0.6, "max_length": 4096},
             "group_beam_search": {"num_beams": 4, "diversity_penalty": 0.5, "max_length": 4096},
@@ -149,7 +194,10 @@ class TextBulk(Bolt):
         }
 
         # Merge default params with user-provided params
-        strategy_params = {**default_params.get(decoding_strategy, {}), **generation_params}  # type: ignore
+        strategy_params = {**default_params.get(decoding_strategy, {})}
+        for k, _ in generation_params.items():
+            if k in strategy_params:
+                strategy_params[k] = generation_params.get(k)
 
         # Prepare LogitsProcessorList and BeamSearchScorer for beam search strategies
         if decoding_strategy in ["beam_search", "beam_sample", "group_beam_search"]:
