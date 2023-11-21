@@ -94,8 +94,6 @@ class InstructionAPI(TextAPI):
             del generation_params["decoding_strategy"]
         if "prompt" in generation_params:
             del generation_params["prompt"]
-        if "special_tokens" in generation_params:
-            del generation_params["special_tokens"]
 
         return {
             "prompt": prompt,
