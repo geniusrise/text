@@ -18,10 +18,10 @@ from typing import Any, Dict
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from .bulk import TextBulk
+from geniusrise_text.base import TextAPI
 
 
-class LanguageModelAPI(TextBulk):
+class LanguageModelAPI(TextAPI):
     """
     A class representing a Hugging Face API for generating text using a pre-trained language model.
 
@@ -58,6 +58,7 @@ class LanguageModelAPI(TextBulk):
         input: BatchInput,
         output: BatchOutput,
         state: State,
+        **kwargs: Any,
     ):
         """
         Initializes a new instance of the TextAPI class.
@@ -88,29 +89,14 @@ class LanguageModelAPI(TextBulk):
         prompt = data.get("prompt")
         decoding_strategy = data.get("decoding_strategy", "generate")
 
-        max_new_tokens = data.get("max_new_tokens")
-        max_length = data.get("max_length")
-        temperature = data.get("temperature")
-        diversity_penalty = data.get("diversity_penalty")
-        num_beams = data.get("num_beams")
-        length_penalty = data.get("length_penalty")
-        early_stopping = data.get("early_stopping")
-
-        others = data.__dict__
+        generation_params = data
+        if "decoding_strategy" in generation_params:
+            del generation_params["decoding_strategy"]
+        if "prompt" in generation_params:
+            del generation_params["prompt"]
 
         return {
             "prompt": prompt,
-            "args": others,
-            "completion": self.generate(
-                prompt=prompt,
-                decoding_strategy=decoding_strategy,
-                max_new_tokens=max_new_tokens,
-                max_length=max_length,
-                temperature=temperature,
-                diversity_penalty=diversity_penalty,
-                num_beams=num_beams,
-                length_penalty=length_penalty,
-                early_stopping=early_stopping,
-                **others,
-            ),
+            "args": data,
+            "completion": self.generate(prompt=prompt, decoding_strategy=decoding_strategy, **generation_params),
         }
