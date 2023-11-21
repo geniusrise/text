@@ -57,7 +57,7 @@ class InstructionBulk(TextBulk):
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
         super().__init__(input, output, state, **kwargs)
 
-    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
+    def load_dataset(self, dataset_path: str, max_length: int = 1024, **kwargs) -> Optional[Dataset]:
         r"""
         Load a completion dataset from a directory.
 
@@ -78,37 +78,33 @@ class InstructionBulk(TextBulk):
         The following data formats and structures are supported:
 
         - JSONL: Each line is a JSON object representing an example.
-            {"text": "The text content"}
+            {"instruction": "The text content"}
 
-        - CSV: Should contain 'text' column.
-            text
+        - CSV: Should contain 'instruction' column.
+            instruction
             "The text content"
 
-        - Parquet: Should contain 'text' column.
+        - Parquet: Should contain 'instruction' column.
 
-        - JSON: An array of dictionaries with 'text' key.
-            [{"text": "The text content"}]
+        - JSON: An array of dictionaries with 'instruction' key.
+            [{"instruction": "The text content"}]
 
-        - XML: Each 'record' element should contain a 'text' child element.
+        - XML: Each 'record' element should contain a 'instruction' child element.
             <record>
-                <text>The text content</text>
+                <instruction>The text content</instruction>
             </record>
 
         - YAML: Each document should be a dictionary with 'text' key.
-            - text: "The text content"
+            - instruction: "The text content"
 
-        - TSV: Should contain 'text' column separated by tabs.
+        - TSV: Should contain 'instruction' column separated by tabs.
 
-        - Excel (.xls, .xlsx): Should contain 'text' column.
+        - Excel (.xls, .xlsx): Should contain 'instruction' column.
 
-        - SQLite (.db): Should contain a table with 'text' column.
+        - SQLite (.db): Should contain a table with 'instruction' column.
 
-        - Feather: Should contain 'text' column.
+        - Feather: Should contain 'instruction' column.
         """
-
-        self.max_length = max_length
-
-        self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else {}  # type: ignore
 
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
@@ -118,7 +114,7 @@ class InstructionBulk(TextBulk):
                 return load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in glob.glob(f"{dataset_path}/*"):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -184,9 +180,6 @@ class InstructionBulk(TextBulk):
     def perform(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForCausalLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
@@ -251,23 +244,26 @@ class InstructionBulk(TextBulk):
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return
-        dataset = _dataset["text"]
+        dataset = _dataset["instruction"]
 
-        for i, prompt in enumerate(dataset):
-            completions = self.generate(
+        prompts = []
+        completions = []
+
+        for _, prompt in enumerate(dataset):
+            completion = self.generate(
                 prompt=prompt,
                 decoding_strategy=decoding_strategy,
                 **generation_args,
             )
+            completions.append(completion)
+            prompts.append(prompt)
 
-            self._save_completions([completions], [prompt], output_path, i)
+        self._save_completions(completions, prompts, output_path)
 
-    def _save_completions(
-        self, completions: List[str], input_batch: List[str], output_path: str, batch_idx: int
-    ) -> None:
+    def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
         # Prepare data for saving
         data_to_save = [
-            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, completions)
+            {"prompt": prompt, "completion": completion} for prompt, completion in zip(prompts, completions)
         ]
-        with open(os.path.join(output_path, f"completions-{batch_idx}-{str(uuid.uuid4())}.json"), "w") as f:
+        with open(os.path.join(output_path, f"completions-{str(uuid.uuid4())}.json"), "w") as f:
             json.dump(data_to_save, f)

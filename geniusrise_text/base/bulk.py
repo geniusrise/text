@@ -75,6 +75,7 @@ class TextBulk(Bolt):
         input: BatchInput,
         output: BatchOutput,
         state: State,
+        **kwargs,
     ):
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
