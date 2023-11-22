@@ -169,7 +169,6 @@ def test_classify(classification_bolt, dataset_file, model):
         device_map="cuda:0",
         num_train_epochs=2,
         per_device_batch_size=2,
-        evaluate=True,
         precision="float16",
     )
     # Check output

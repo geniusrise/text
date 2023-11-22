@@ -85,6 +85,6 @@ class TextClassificationAPI(TextAPI):
             scores = softmax.numpy().tolist()  # Convert scores to list
 
         id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
-        label_scores = [{id_to_label[label_id]: score} for label_id, score in enumerate(scores[0])]
+        label_scores = {id_to_label[label_id]: score for label_id, score in enumerate(scores[0])}
 
         return {"input": text, "label_scores": label_scores}
