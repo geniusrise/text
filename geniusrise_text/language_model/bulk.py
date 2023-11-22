@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional, List
 import json
 import os
 import sqlite3
+import glob
 import xml.etree.ElementTree as ET
 
 import pandas as pd
@@ -116,7 +117,7 @@ class LanguageModelBulk(TextBulk):
                 return load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -181,9 +182,6 @@ class LanguageModelBulk(TextBulk):
     def complete(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForCausalLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
@@ -250,21 +248,23 @@ class LanguageModelBulk(TextBulk):
             return
         dataset = _dataset["text"]
 
-        for i, prompt in enumerate(dataset):
-            completions = self.generate(
+        prompts = []
+        completions = []
+        for _, prompt in enumerate(dataset):
+            completion = self.generate(
                 prompt=prompt,
                 decoding_strategy=decoding_strategy,
                 **generation_args,
             )
+            completions.append(completion)
+            prompts.append(prompt)
 
-            self._save_completions([completions], [prompt], output_path, i)
+        self._save_completions(completions, prompts, output_path)
 
-    def _save_completions(
-        self, completions: List[str], input_batch: List[str], output_path: str, batch_idx: int
-    ) -> None:
+    def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
         # Prepare data for saving
         data_to_save = [
-            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, completions)
+            {"prompt": prompt, "completion": completion} for prompt, completion in zip(prompts, completions)
         ]
-        with open(os.path.join(output_path, f"completions-{batch_idx}-{str(uuid.uuid4())}.json"), "w") as f:
+        with open(os.path.join(output_path, f"completions-{str(uuid.uuid4())}.json"), "w") as f:
             json.dump(data_to_save, f)
