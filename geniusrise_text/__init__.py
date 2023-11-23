@@ -35,6 +35,7 @@ from .ner import NamedEntityRecognitionFineTuner
 # TODO: NLI API
 from .nli import NLIBulk
 from .nli import NLIFineTuner
+from .nli import NLIAPI
 
 # TODO: QA API
 from .qa import TextQABulk

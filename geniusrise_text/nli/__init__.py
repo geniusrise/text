@@ -15,3 +15,4 @@
 
 from .bulk import NLIBulk
 from .fine_tune import NLIFineTuner
+from .api import NLIAPI
