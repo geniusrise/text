@@ -297,8 +297,6 @@ class TextClassificationFineTuner(TextFineTuner):
         labels = labels[0] if isinstance(labels, tuple) else labels
         predictions = np.argmax(predictions, axis=1)
 
-        print(labels, predictions, "*****************************")
-
         is_binary = len(self.label_to_id.keys()) == 2
         average_type = "binary" if is_binary else "weighted"
 
