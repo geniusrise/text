@@ -16,6 +16,7 @@
 from typing import Any, Dict, Optional, List
 import json
 import os
+import glob
 import sqlite3
 import xml.etree.ElementTree as ET
 
@@ -117,7 +118,7 @@ class TextClassificationBulk(TextBulk):
                 return load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -182,13 +183,10 @@ class TextClassificationBulk(TextBulk):
     def classify(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
-        model_class: str = "AutoModelForCausalLM",
+        model_class: str = "AutoModelForSequenceClassification",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
-        precision: str = "float16",
+        precision: str = "float",
         quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
@@ -261,15 +259,17 @@ class TextClassificationBulk(TextBulk):
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
             predictions = self.model(**inputs)
-            predictions = predictions[0] if isinstance(predictions, tuple) else predictions
-            if next(self.model.parameters()).is_cuda:
-                predictions = predictions.cpu()
-            predictions = torch.argmax(predictions, dim=-1)
+            predictions = predictions[0] if isinstance(predictions, tuple) else predictions.logits
+            predictions = torch.argmax(predictions, dim=-1).cpu().numpy()
 
             self._save_predictions(predictions, batch, output_path, i)
 
     def _save_predictions(
-        self, predictions: torch.Tensor, input_batch: List[str], output_path: str, batch_idx: int
+        self,
+        predictions: torch.Tensor,
+        input_batch: List[str],
+        output_path: str,
+        batch_idx: int,
     ) -> None:
         # Convert tensor of label ids to list of label strings
         id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
@@ -279,5 +279,8 @@ class TextClassificationBulk(TextBulk):
         data_to_save = [
             {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, label_predictions)
         ]
-        with open(os.path.join(output_path, f"predictions-{batch_idx}-{str(uuid.uuid4())}.json"), "w") as f:
+        with open(
+            os.path.join(output_path, f"predictions-{batch_idx}-{str(uuid.uuid4())}.json"),
+            "w",
+        ) as f:
             json.dump(data_to_save, f)
