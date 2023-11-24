@@ -28,19 +28,6 @@ class LanguageModelAPI(TextAPI):
     Attributes:
         model (Any): The pre-trained language model.
         tokenizer (Any): The tokenizer used to preprocess input text.
-        model_name (str): The name of the pre-trained language model.
-        model_revision (Optional[str]): The revision of the pre-trained language model.
-        tokenizer_name (str): The name of the tokenizer used to preprocess input text.
-        tokenizer_revision (Optional[str]): The revision of the tokenizer used to preprocess input text.
-        model_class (str): The name of the class of the pre-trained language model.
-        tokenizer_class (str): The name of the class of the tokenizer used to preprocess input text.
-        use_cuda (bool): Whether to use a GPU for inference.
-        quantization (int): The level of quantization to use for the pre-trained language model.
-        precision (str): The precision to use for the pre-trained language model.
-        device_map (str | Dict | None): The mapping of devices to use for inference.
-        max_memory (Dict[int, str]): The maximum memory to use for inference.
-        torchscript (bool): Whether to use a TorchScript-optimized version of the pre-trained language model.
-        model_args (Any): Additional arguments to pass to the pre-trained language model.
 
     Methods:
         text(**kwargs: Any) -> Dict[str, Any]:

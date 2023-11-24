@@ -16,3 +16,4 @@
 
 from .bulk import TextQABulk
 from .fine_tune import QuestionAnsweringFineTuner
+from .api import QuestionAnsweringAPI

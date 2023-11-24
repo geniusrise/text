@@ -40,6 +40,7 @@ from .nli import NLIAPI
 # TODO: QA API
 from .qa import TextQABulk
 from .qa import QuestionAnsweringFineTuner
+from .qa import QuestionAnsweringAPI
 
 # TODO: summarization API
 from .summarization import TextSummarizationBulk
