@@ -109,9 +109,6 @@ class TextQABulk(TextBulk):
     def qa_inference(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForQuestionAnswering",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
