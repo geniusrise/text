@@ -15,3 +15,4 @@
 
 from .bulk import TextSummarizationBulk
 from .fine_tune import SummarizationFineTuner
+from .api import SummarizationAPI
