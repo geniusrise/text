@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional, List
+import uuid
 import json
+import glob
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
@@ -49,7 +51,7 @@ class TextQABulk(TextBulk):
                 return load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -74,9 +76,9 @@ class TextQABulk(TextBulk):
                         tree = ET.parse(filepath)
                         root = tree.getroot()
                         for record in root.findall("record"):
-                            context = record.find("context").text  # type: ignore
+                            context = record.find("data").text  # type: ignore
                             question = record.find("question").text  # type: ignore
-                            data.append({"context": context, "question": question})
+                            data.append({"data": context, "question": question})
 
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
@@ -93,7 +95,7 @@ class TextQABulk(TextBulk):
 
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = "SELECT context, question FROM dataset_table;"
+                        query = "SELECT data, question FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
 
@@ -106,7 +108,7 @@ class TextQABulk(TextBulk):
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
 
-    def qa_inference(
+    def answer_questions(
         self,
         model_name: str,
         model_class: str = "AutoModelForQuestionAnswering",
@@ -167,50 +169,166 @@ class TextQABulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
-        if _dataset is None:
+        dataset = self.load_dataset(dataset_path)
+        if dataset is None:
             self.log.error("Failed to load dataset.")
             return
-        dataset = _dataset["text"]
 
-        # Process data in batches
-        for i in range(0, len(dataset), batch_size):
-            batch = dataset[i : i + batch_size]
-            inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
+        model_type = "traditional"
+        if "tapas" in self.model_name.lower():
+            model_type = "tapas"
+        elif "tapex" in self.model_name.lower():
+            model_type = "tapex"
 
-            if next(self.model.parameters()).is_cuda:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
+        output_data = []
+        for batch in range(0, len(dataset), self.batch_size):
+            batch_data = dataset[batch : batch + self.batch_size]
 
-            outputs = self.model(**inputs)
-            start_logits = outputs.start_logits
-            end_logits = outputs.end_logits
+            if model_type == "traditional":
+                questions = batch_data["question"]
+                contexts = batch_data["data"]
 
-            if next(self.model.parameters()).is_cuda:
-                start_logits = start_logits.cpu()
-                end_logits = end_logits.cpu()
+                inputs = self.tokenizer(
+                    questions,
+                    contexts,
+                    add_special_tokens=True,
+                    return_tensors="pt",
+                    truncation="only_second",
+                    max_length=self.max_length,
+                )
 
-            self._save_predictions(start_logits, end_logits, inputs, batch, output_path, i)
+                # Move inputs to GPU if CUDA is available
+                if self.use_cuda and torch.cuda.is_available():
+                    inputs = {k: v.to("cuda") for k, v in inputs.items()}
 
-    def _save_predictions(
-        self,
-        start_logits: torch.Tensor,
-        end_logits: torch.Tensor,
-        inputs: Dict[str, Any],
-        input_batch: List[str],
-        output_path: str,
-        batch_idx: int,
-    ) -> None:
-        # Convert tensor of logits to list of answers
-        all_tokens = self.tokenizer.convert_ids_to_tokens(inputs["input_ids"])
-        answers = []
-        for i in range(start_logits.shape[0]):
-            answer_start = torch.argmax(start_logits[i])
-            answer_end = torch.argmax(end_logits[i]) + 1
-            answer = self.tokenizer.convert_tokens_to_string(all_tokens[int(answer_start) : int(answer_end)])
-            answers.append(answer)
+                outputs = self.model(**inputs)
 
-        # Prepare data for saving
-        data_to_save = [{"input": input_text, "answer": answer} for input_text, answer in zip(input_batch, answers)]
-        with open(os.path.join(output_path, f"batch_{batch_idx}.jsonl"), "w") as f:
-            for item in data_to_save:
-                f.write(json.dumps(item) + "\n")
+                answer_start_scores, answer_end_scores = outputs.start_logits, outputs.end_logits
+                answer_start = torch.argmax(answer_start_scores, dim=1)
+                answer_end = torch.argmax(answer_end_scores, dim=1) + 1
+
+                for i in range(outputs.start_logits.shape[0]):
+                    answer = self.tokenizer.convert_tokens_to_string(
+                        self.tokenizer.convert_ids_to_tokens(
+                            inputs["input_ids"][i][int(answer_start[i]) : int(answer_end[i])]
+                        )
+                    )
+                    output_data.append(
+                        {
+                            "data": contexts[i],
+                            "question": questions[i],
+                            "answer": answer,
+                        }
+                    )
+            elif model_type == "tapas":
+                questions = batch_data["question"]
+                tables = [pd.DataFrame.from_dict(json.loads(x)) for x in batch_data["data"]]
+
+                for table, question in zip(tables, questions):
+                    inputs = self.tokenizer(table=table, queries=[question], padding="max_length", return_tensors="pt")
+
+                    if next(self.model.parameters()).is_cuda:
+                        inputs = {k: v.cuda() for k, v in inputs.items()}
+                    outputs = self.model(**inputs)
+
+                    # Decode the predicted tokens
+                    if hasattr(outputs, "logits_aggregation") and outputs.logits_aggregation is not None:
+                        (
+                            predicted_answer_coordinates,
+                            predicted_aggregation_indices,
+                        ) = self.tokenizer.convert_logits_to_predictions(
+                            {k: v.cpu() for k, v in inputs.items()},
+                            outputs.logits.detach().cpu(),
+                            outputs.logits_aggregation.detach().cpu(),
+                        )
+                    else:
+                        predicted_answer_coordinates = self.tokenizer.convert_logits_to_predictions(
+                            {k: v.cpu() for k, v in inputs.items()},
+                            outputs.logits.detach().cpu(),
+                        )
+                        predicted_aggregation_indices = None
+
+                    cell_answers = [
+                        self._convert_coordinates_to_answer(table, x) for x in predicted_answer_coordinates[0]
+                    ]
+                    if type(cell_answers[0]) is list:
+                        cell_answers = [y for x in cell_answers for y in x]  # type: ignore
+
+                    if predicted_aggregation_indices:
+                        aggregation_answer = self._convert_aggregation_to_answer(predicted_aggregation_indices[0])
+                    else:
+                        aggregation_answer = "NONE"
+                    output_data.append(
+                        {
+                            "data": table.to_dict("records"),
+                            "question": question,
+                            "answers": cell_answers,
+                            "aggregation": aggregation_answer,
+                        }
+                    )
+
+            elif model_type == "tapex":
+                questions = batch_data["question"]
+                tables = [pd.DataFrame.from_dict(json.loads(x)) for x in batch_data["data"]]
+
+                for table, question in zip(tables, questions):
+                    encoding = self.tokenizer(table, question, return_tensors="pt")
+                    if next(self.model.parameters()).is_cuda:
+                        encoding = {k: v.cuda() for k, v in encoding.items()}
+
+                    outputs = self.model.generate(**encoding)
+                    answers = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                    output_data.append(
+                        {
+                            "data": table.to_dict("records"),
+                            "question": question,
+                            "answers": answers,
+                            "aggregation": "NONE",
+                        }
+                    )
+
+        # Save the results
+        output_file = os.path.join(output_path, f"qa_results-{str(uuid.uuid4())}.json")
+        with open(output_file, "w") as file:
+            json.dump(output_data, file)
+        self.log.info(f"Results saved to {output_file}")
+
+    def _convert_aggregation_to_answer(self, aggregation_index: int) -> str:
+        """
+        Converts the aggregation index predicted by TAPAS into an aggregation operation.
+
+        Args:
+            aggregation_index (int): The index of the aggregation operation.
+
+        Returns:
+            str: The string representation of the aggregation operation.
+        """
+        aggregation_operations = {
+            0: "NONE",
+            1: "SUM",
+            2: "AVERAGE",
+            3: "COUNT",
+            4: "MIN",
+            5: "MAX",
+            6: "OR",
+            7: "AND",
+            8: "CONCAT",
+            9: "FIRST",
+            10: "LAST",
+        }
+        return aggregation_operations.get(aggregation_index, "NONE")
+
+    def _convert_coordinates_to_answer(self, table: pd.DataFrame, coordinates: Any) -> List[str]:
+        """
+        Converts the coordinates predicted by TAPAS into an answer string.
+
+        Args:
+            table (pd.DataFrame): The table used for the QA.
+            coordinates (Any): The coordinates of the cells predicted as part of the answer.
+
+        Returns:
+            List[str]: The answer strings.
+        """
+        if type(coordinates) is tuple:
+            coordinates = [coordinates]
+        return [table.iat[coord] for coord in coordinates]
