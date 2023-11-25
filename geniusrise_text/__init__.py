@@ -45,6 +45,7 @@ from .qa import QuestionAnsweringAPI
 # TODO: summarization API
 from .summarization import TextSummarizationBulk
 from .summarization import SummarizationFineTuner
+from .summarization import SummarizationAPI
 
 # TODO: translation API
 from .translation import TextTranslationBulk
