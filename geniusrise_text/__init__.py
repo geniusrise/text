@@ -50,3 +50,4 @@ from .summarization import SummarizationAPI
 # TODO: translation API
 from .translation import TextTranslationBulk
 from .translation import TranslationFineTuner
+from .api import TranslationAPI

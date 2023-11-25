@@ -15,3 +15,4 @@
 
 from .bulk import TextTranslationBulk
 from .fine_tune import TranslationFineTuner
+from .api import TranslationAPI
