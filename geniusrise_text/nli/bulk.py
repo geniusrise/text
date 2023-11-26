@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 import json
 import os
 import sqlite3
@@ -154,6 +154,18 @@ class NLIBulk(TextBulk):
 
     def infer(
         self,
+        model_name: str,
+        origin: str,
+        target: str,
+        max_length: int = 512,
+        model_class: str = "AutoModelForSeq2SeqLM",
+        tokenizer_class: str = "AutoTokenizer",
+        use_cuda: bool = False,
+        precision: str = "float16",
+        quantization: int = 0,
+        device_map: str | Dict | None = "auto",
+        max_memory={0: "24GB"},
+        torchscript: bool = True,
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
@@ -164,51 +176,95 @@ class NLIBulk(TextBulk):
             batch_size (int, optional): The batch size for inference. Defaults to 32.
             **kwargs: Additional keyword arguments.
         """
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.model_revision = model_revision
+        self.tokenizer_revision = tokenizer_revision
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
+        self.use_cuda = use_cuda
+        self.precision = precision
+        self.quantization = quantization
+        self.device_map = device_map
+        self.max_memory = max_memory
+        self.torchscript = torchscript
+        self.batch_size = batch_size
+
+        model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
+        self.model_args = model_args
+
+        generation_args = {k.replace("generation_", ""): v for k, v in kwargs.items() if "generation_" in k}
+        self.generation_args = generation_args
+
+        self.model, self.tokenizer = self.load_models(
+            model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
+            use_cuda=self.use_cuda,
+            precision=self.precision,
+            quantization=self.quantization,
+            device_map=self.device_map,
+            max_memory=self.max_memory,
+            torchscript=self.torchscript,
+            **self.model_args,
+        )
 
         dataset_path = self.input.input_folder
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
-        if _dataset is None:
+        dataset = self.load_dataset(dataset_path)
+        if dataset is None:
             self.log.error("Failed to load dataset.")
             return
-        dataset = _dataset["text"]
 
-        # Process dataset
-        dataset = dataset.map(
-            lambda example: self.tokenizer(
-                example["premise"],
-                example["hypothesis"],
-                padding="max_length",
-                truncation=True,
-                max_length=self.max_length,
-            ),
-            batched=True,
-        )
-
-        # Perform inference
-        self.log.info(f"Performing NLI inference on {len(dataset)} examples.")
         predictions = []
         for i in range(0, len(dataset), batch_size):
             batch = dataset[i : i + batch_size]
-            inputs = self.tokenizer(batch["input_ids"], padding=True, return_tensors="pt")
+
+            inputs = self.tokenizer(
+                batch["premise"],
+                batch["hypothesis"],
+                padding=True,
+                return_tensors="pt",
+            )
             with torch.no_grad():
                 outputs = self.model(**inputs)
-                logits = outputs.logits
-                preds = torch.argmax(logits, dim=1)
-                predictions.extend(preds.tolist())
+                logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
+                if next(self.model.parameters()).is_cuda:
+                    logits = logits.cpu()
+                softmax = torch.nn.functional.softmax(logits, dim=-1)
+                scores = softmax.numpy().tolist()
+
+                for score in scores:
+                    label_scores = {
+                        self.model.config.id2label[label_id]: score for label_id, score in enumerate(scores[0])
+                    }
+                    predictions.append(label_scores)
 
         # Save results
         self.log.info(f"Saving results to {output_path}")
         os.makedirs(output_path, exist_ok=True)
         output_file = os.path.join(output_path, f"nli_results_{uuid.uuid4().hex}.jsonl")
         with open(output_file, "w") as f:
-            for example, pred in zip(dataset, predictions):
+            for data, pred in zip(dataset, predictions):
                 result = {
-                    "premise": example["premise"],
-                    "hypothesis": example["hypothesis"],
-                    "prediction": self.id2label[pred],
+                    "premise": data["premise"],
+                    "hypothesis": data["hypothesis"],
+                    "prediction": pred,
                 }
                 f.write(json.dumps(result) + "\n")
 

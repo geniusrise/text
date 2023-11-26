@@ -13,15 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import Any, Dict
 import torch
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextAPI
 from geniusrise.logger import setup_logger
-
-log = logging.getLogger(__name__)
 
 
 class NamedEntityRecognitionAPI(TextAPI):
