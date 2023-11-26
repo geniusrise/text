@@ -186,7 +186,7 @@ class TextTranslationBulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
+        _dataset = self.load_dataset(dataset_path, origin=origin, target=target, max_length=max_length)
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return
