@@ -112,7 +112,6 @@ class TextSummarizationBulk(TextBulk):
         max_memory={0: "24GB"},
         torchscript: bool = True,
         batch_size: int = 32,
-        decoding_strategy: str = "generate",
         max_length: int = 512,
         **kwargs: Any,
     ) -> None:
