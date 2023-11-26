@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 import json
 import os
 import sqlite3
@@ -66,8 +66,8 @@ class TextSummarizationBulk(TextBulk):
                         tree = ET.parse(filepath)
                         root = tree.getroot()
                         for record in root.findall("record"):
-                            document = record.find("document").text  # type: ignore
-                            data.append({"document": document})
+                            text = record.find("text").text  # type: ignore
+                            data.append({"text": text})
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
                             yaml_data = yaml.safe_load(f)
@@ -80,7 +80,7 @@ class TextSummarizationBulk(TextBulk):
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = "SELECT document FROM dataset_table;"
+                        query = "SELECT text FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".feather"):
@@ -103,37 +103,65 @@ class TextSummarizationBulk(TextBulk):
     def summarize(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForSeq2SeqLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
-        device_map: Union[str, Dict, None] = "auto",
+        device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
         batch_size: int = 32,
+        decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
         """
         Perform bulk text summarization.
         """
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.model_revision = model_revision
+        self.tokenizer_revision = tokenizer_revision
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
+        self.use_cuda = use_cuda
+        self.precision = precision
+        self.quantization = quantization
+        self.device_map = device_map
+        self.max_memory = max_memory
+        self.torchscript = torchscript
+        self.batch_size = batch_size
+
+        model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
+        self.model_args = model_args
+
+        generation_args = {k.replace("generation_", ""): v for k, v in kwargs.items() if "generation_" in k}
+        self.generation_args = generation_args
+
         self.model, self.tokenizer = self.load_models(
-            model_name=model_name,
-            tokenizer_name=tokenizer_name,
-            model_revision=model_revision,
-            tokenizer_revision=tokenizer_revision,
-            model_class=model_class,
-            tokenizer_class=tokenizer_class,
-            use_cuda=use_cuda,
-            precision=precision,
-            quantization=quantization,
-            device_map=device_map,
-            max_memory=max_memory,
-            torchscript=torchscript,
-            **kwargs,
+            model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
+            use_cuda=self.use_cuda,
+            precision=self.precision,
+            quantization=self.quantization,
+            device_map=self.device_map,
+            max_memory=self.max_memory,
+            torchscript=self.torchscript,
+            **self.model_args,
         )
 
         dataset_path = self.input.input_folder
@@ -155,7 +183,7 @@ class TextSummarizationBulk(TextBulk):
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
             # Generate summaries
-            summaries = self.model.generate(**inputs)
+            summaries = self.model.generate(**inputs, **self.generation_args)
             if next(self.model.parameters()).is_cuda:
                 summaries = summaries.cpu()
 
