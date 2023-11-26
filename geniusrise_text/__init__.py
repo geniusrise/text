@@ -46,4 +46,4 @@ from .summarization import SummarizationAPI
 
 from .translation import TextTranslationBulk
 from .translation import TranslationFineTuner
-from .api import TranslationAPI
+from .translation import TranslationAPI
