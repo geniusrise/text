@@ -159,8 +159,6 @@ class NLIBulk(TextBulk):
     def infer(
         self,
         model_name: str,
-        origin: str,
-        target: str,
         max_length: int = 512,
         model_class: str = "AutoModelForSeq2SeqLM",
         tokenizer_class: str = "AutoTokenizer",
@@ -245,6 +243,9 @@ class NLIBulk(TextBulk):
                 padding=True,
                 return_tensors="pt",
             )
+            if next(self.model.parameters()).is_cuda:
+                inputs = {k: v.cuda() for k, v in inputs.items()}
+
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
