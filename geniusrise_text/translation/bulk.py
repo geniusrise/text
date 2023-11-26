@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 import uuid
 
 import pandas as pd
+import glob
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
 from pyarrow import feather
@@ -60,7 +61,7 @@ class TextTranslationBulk(TextBulk):
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
