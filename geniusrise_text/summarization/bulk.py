@@ -113,6 +113,7 @@ class TextSummarizationBulk(TextBulk):
         torchscript: bool = True,
         batch_size: int = 32,
         decoding_strategy: str = "generate",
+        max_length: int = 512,
         **kwargs: Any,
     ) -> None:
         """
@@ -168,7 +169,7 @@ class TextSummarizationBulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
+        _dataset = self.load_dataset(dataset_path, max_lengt=max_length)
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return
