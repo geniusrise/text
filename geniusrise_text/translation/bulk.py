@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List
 import json
 import os
 import sqlite3
@@ -38,12 +38,22 @@ class TextTranslationBulk(TextBulk):
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
         super().__init__(input, output, state, **kwargs)
 
-    def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
+    def load_dataset(
+        self,
+        dataset_path: str,
+        max_length: int = 512,
+        origin: str = "en",
+        target: str = "hi",
+        **kwargs,
+    ) -> Optional[Dataset]:
         """
         Load a translation dataset from a directory.
         """
 
         self.max_length = max_length
+        self.origin = origin
+        self.target = target
+        self.tokenizer.src_lang = self.origin
 
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
@@ -72,8 +82,7 @@ class TextTranslationBulk(TextBulk):
                         root = tree.getroot()
                         for record in root.findall("record"):
                             origin = record.find(self.origin).text  # type: ignore
-                            target = record.find(self.target).text  # type: ignore
-                            data.append({"translation": {self.origin: origin, self.target: target}})
+                            data.append({"translation": {self.origin: origin}})
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
                             yaml_data = yaml.safe_load(f)
@@ -86,7 +95,7 @@ class TextTranslationBulk(TextBulk):
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = f"SELECT {self.origin}, {self.target} FROM dataset_table;"
+                        query = f"SELECT {self.origin} FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".feather"):
@@ -109,15 +118,15 @@ class TextTranslationBulk(TextBulk):
     def translate(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
+        origin: str,
+        target: str,
+        max_length: int = 512,
         model_class: str = "AutoModelForSeq2SeqLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
-        device_map: Union[str, Dict, None] = "auto",
+        device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
         batch_size: int = 32,
@@ -126,21 +135,50 @@ class TextTranslationBulk(TextBulk):
         """
         Perform bulk translation.
         """
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.model_revision = model_revision
+        self.tokenizer_revision = tokenizer_revision
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
+        self.use_cuda = use_cuda
+        self.precision = precision
+        self.quantization = quantization
+        self.device_map = device_map
+        self.max_memory = max_memory
+        self.torchscript = torchscript
+        self.batch_size = batch_size
+
+        model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
+        self.model_args = model_args
+
+        generation_args = {k.replace("generation_", ""): v for k, v in kwargs.items() if "generation_" in k}
+        self.generation_args = generation_args
 
         self.model, self.tokenizer = self.load_models(
-            model_name=model_name,
-            tokenizer_name=tokenizer_name,
-            model_revision=model_revision,
-            tokenizer_revision=tokenizer_revision,
-            model_class=model_class,
-            tokenizer_class=tokenizer_class,
-            use_cuda=use_cuda,
-            precision=precision,
-            quantization=quantization,
-            device_map=device_map,
-            max_memory=max_memory,
-            torchscript=torchscript,
-            **kwargs,
+            model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
+            use_cuda=self.use_cuda,
+            precision=self.precision,
+            quantization=self.quantization,
+            device_map=self.device_map,
+            max_memory=self.max_memory,
+            torchscript=self.torchscript,
+            **self.model_args,
         )
 
         dataset_path = self.input.input_folder
@@ -151,7 +189,7 @@ class TextTranslationBulk(TextBulk):
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return
-        dataset = _dataset["text"]
+        dataset = _dataset[self.origin]
 
         # Process data in batches
         for i in range(0, len(dataset), batch_size):
@@ -161,7 +199,7 @@ class TextTranslationBulk(TextBulk):
             if next(self.model.parameters()).is_cuda:
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
-            outputs = self.model.generate(**inputs)
+            outputs = self.model.generate(**inputs, **self.generation_args)
             translations = [self.tokenizer.decode(t, skip_special_tokens=True) for t in outputs]
 
             self._save_translations(translations, batch, output_path, i)
