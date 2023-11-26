@@ -18,7 +18,7 @@ import torch
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextAPI
-from geniusrise.logger import setup_logger
+from geniusrise.logging import setup_logger
 
 
 class NamedEntityRecognitionAPI(TextAPI):
@@ -69,6 +69,10 @@ class NamedEntityRecognitionAPI(TextAPI):
         """
         data = cherrypy.request.json
         text = data.get("text")
+        generation_args = data
+
+        if "text" in generation_args:
+            del generation_args["text"]
 
         inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True)
 
@@ -76,9 +80,12 @@ class NamedEntityRecognitionAPI(TextAPI):
             inputs = {k: v.cuda() for k, v in inputs.items()}
 
         with torch.no_grad():
-            outputs = self.model(**inputs)
+            outputs = self.model(**inputs, **generation_args)
             predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()
 
-        entities = [self.model.config.id2label[x] for x in predictions]
+        entities = [
+            {"token": self.tokenizer.convert_ids_to_tokens(i), "class": self.model.config.id2label[x]}
+            for (x, i) in zip(predictions, inputs["input_ids"].squeeze().tolist())
+        ]
 
         return {"input": text, "entities": entities}
