@@ -47,7 +47,7 @@ exceptiongroup==1.1.2
 executing==1.2.0
 filelock==3.12.2
 flake8==6.1.0
-flash-attn==2.3.3
+flash-attn==2.3.4
 frozenlist==1.4.0
 fsspec==2023.6.0
 geniusrise==0.0.16
@@ -117,7 +117,6 @@ nvidia-nvtx-cu12==12.1.105
 oauthlib==3.2.2
 openpyxl==3.1.2
 optimum==1.13.2
-packaging==23.1
 pandas==2.0.3
 parso==0.8.3
 pathspec==0.11.2
