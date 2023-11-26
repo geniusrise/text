@@ -81,7 +81,6 @@ class NLIAPI(TextAPI):
             return_tensors="pt",
         )
 
-        print(inputs)
         if next(self.model.parameters()).is_cuda:
             inputs = {k: v.cuda() for k, v in inputs.items()}
 
