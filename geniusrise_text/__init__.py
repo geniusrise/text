@@ -28,26 +28,22 @@ from .language_model import LanguageModelingFineTuner
 from .language_model import LanguageModelBulk
 from .language_model import LanguageModelAPI
 
-# TODO: NER API
 from .ner import NamedEntityRecognitionBulk
 from .ner import NamedEntityRecognitionFineTuner
+from .ner import NamedEntityRecognitionAPI
 
-# TODO: NLI API
 from .nli import NLIBulk
 from .nli import NLIFineTuner
 from .nli import NLIAPI
 
-# TODO: QA API
 from .qa import TextQABulk
 from .qa import QuestionAnsweringFineTuner
 from .qa import QuestionAnsweringAPI
 
-# TODO: summarization API
 from .summarization import TextSummarizationBulk
 from .summarization import SummarizationFineTuner
 from .summarization import SummarizationAPI
 
-# TODO: translation API
 from .translation import TextTranslationBulk
 from .translation import TranslationFineTuner
 from .api import TranslationAPI

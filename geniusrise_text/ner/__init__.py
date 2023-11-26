@@ -15,3 +15,4 @@
 
 from .bulk import NamedEntityRecognitionBulk
 from .fine_tune import NamedEntityRecognitionFineTuner
+from .api import NamedEntityRecognitionAPI
