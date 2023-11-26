@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 import json
 import os
 import sqlite3
@@ -23,7 +23,7 @@ import uuid
 import yaml  # type: ignore
 from pyarrow import feather
 from pyarrow import parquet as pq
-import torch
+import glob
 from datasets import Dataset, load_from_disk
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextBulk
@@ -51,13 +51,13 @@ class NamedEntityRecognitionBulk(TextBulk):
         Raises:
             Exception: If there was an error loading the dataset.
         """
+        self.log.info(f"Loading dataset from {dataset_path}")
         try:
-            self.log.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 return load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -104,8 +104,18 @@ class NamedEntityRecognitionBulk(TextBulk):
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
 
-    def infer(
+    def recognize_entities(
         self,
+        model_name: str,
+        max_length: int = 512,
+        model_class: str = "AutoModelForSeq2SeqLM",
+        tokenizer_class: str = "AutoTokenizer",
+        use_cuda: bool = False,
+        precision: str = "float16",
+        quantization: int = 0,
+        device_map: str | Dict | None = "auto",
+        max_memory={0: "24GB"},
+        torchscript: bool = True,
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
@@ -119,11 +129,60 @@ class NamedEntityRecognitionBulk(TextBulk):
         Returns:
             None
         """
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.model_revision = model_revision
+        self.tokenizer_revision = tokenizer_revision
+        self.model_class = model_class
+        self.tokenizer_class = tokenizer_class
+        self.use_cuda = use_cuda
+        self.precision = precision
+        self.quantization = quantization
+        self.device_map = device_map
+        self.max_memory = max_memory
+        self.torchscript = torchscript
+        self.batch_size = batch_size
+
+        model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
+        self.model_args = model_args
+
+        generation_args = {k.replace("generation_", ""): v for k, v in kwargs.items() if "generation_" in k}
+        self.generation_args = generation_args
+
+        self.model, self.tokenizer = self.load_models(
+            model_name=self.model_name,
+            tokenizer_name=self.tokenizer_name,
+            model_revision=self.model_revision,
+            tokenizer_revision=self.tokenizer_revision,
+            model_class=self.model_class,
+            tokenizer_class=self.tokenizer_class,
+            use_cuda=self.use_cuda,
+            precision=self.precision,
+            quantization=self.quantization,
+            device_map=self.device_map,
+            max_memory=self.max_memory,
+            torchscript=self.torchscript,
+            **self.model_args,
+        )
+
         dataset_path = self.input.input_folder
         output_path = self.output.output_folder
 
         # Load dataset
         dataset = self.load_dataset(dataset_path)
+        if dataset is None:
+            self.log.error("Failed to load dataset.")
+            return
         if dataset:
             dataset = dataset["text"]
 
@@ -135,15 +194,14 @@ class NamedEntityRecognitionBulk(TextBulk):
             if next(self.model.parameters()).is_cuda:
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
-            predictions = self.model(**inputs)
-            predictions = predictions[0] if isinstance(predictions, tuple) else predictions
-            if next(self.model.parameters()).is_cuda:
-                predictions = predictions.cpu()
+            predictions = self.model(**inputs, **generation_args)
+            predictions = predictions[0] if isinstance(predictions, tuple) else predictions.logits
+            predictions = predictions.argmax(dim=-1).squeeze().tolist()
 
-            self._save_predictions(predictions, batch, output_path, i)
+            self._save_predictions(inputs["input_ids"].tolist(), predictions, batch, output_path, i)
 
     def _save_predictions(
-        self, predictions: torch.Tensor, input_batch: List[str], output_path: str, batch_idx: int
+        self, inputs: list, predictions: list, input_batch: List[str], output_path: str, batch_idx: int
     ) -> None:
         """
         Save the NER predictions to disk.
@@ -159,8 +217,15 @@ class NamedEntityRecognitionBulk(TextBulk):
         """
         # Convert tensor of label ids to list of label strings
         label_predictions = [
-            [{"label": self.model.config.id2label[label_id], "position": i} for i, label_id in enumerate(pred)]
-            for pred in predictions.tolist()
+            [
+                {
+                    "label": self.model.config.id2label[label_id],
+                    "position": i,
+                    "token": self.tokenizer.convert_ids_to_tokens(inp[i]),
+                }
+                for i, label_id in enumerate(pred)
+            ]
+            for pred, inp in zip(predictions, inputs)
         ]
 
         # Prepare data for saving

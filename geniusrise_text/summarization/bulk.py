@@ -24,6 +24,7 @@ from datasets import Dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 import uuid
+import glob
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextBulk
 
@@ -45,7 +46,7 @@ class TextSummarizationBulk(TextBulk):
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in os.listdir(dataset_path):
+                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
