@@ -78,8 +78,8 @@ class NamedEntityRecognitionBulk(TextBulk):
                         tree = ET.parse(filepath)
                         root = tree.getroot()
                         for record in root.findall("record"):
-                            tokens = record.find("tokens").text.split()  # type: ignore
-                            data.append({"tokens": tokens})
+                            text = record.find("text").text.split()  # type: ignore
+                            data.append({"text": text})
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
                             yaml_data = yaml.safe_load(f)
@@ -92,7 +92,7 @@ class NamedEntityRecognitionBulk(TextBulk):
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = "SELECT tokens FROM dataset_table;"
+                        query = "SELECT text FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
                     elif filename.endswith(".feather"):
@@ -123,11 +123,9 @@ class NamedEntityRecognitionBulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
-        if _dataset is None:
-            self.log.error("Failed to load dataset.")
-            return
-        dataset = _dataset["text"]
+        dataset = self.load_dataset(dataset_path)
+        if dataset:
+            dataset = dataset["text"]
 
         # Process data in batches
         for i in range(0, len(dataset), batch_size):
@@ -160,12 +158,14 @@ class NamedEntityRecognitionBulk(TextBulk):
             None
         """
         # Convert tensor of label ids to list of label strings
-        id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
-        label_predictions = [[id_to_label[label_id] for label_id in pred] for pred in predictions.tolist()]
+        label_predictions = [
+            [{"label": self.model.config.id2label[label_id], "position": i} for i, label_id in enumerate(pred)]
+            for pred in predictions.tolist()
+        ]
 
         # Prepare data for saving
         data_to_save = [
-            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, label_predictions)
+            {"input": input_text, "labels": label} for input_text, label in zip(input_batch, label_predictions)
         ]
         with open(os.path.join(output_path, f"predictions-{batch_idx}-{str(uuid.uuid4())}.jsonl"), "w") as f:
             for item in data_to_save:
