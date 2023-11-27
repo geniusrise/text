@@ -29,7 +29,7 @@ from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextBulk
 
 
-class TextSummarizationBulk(TextBulk):
+class SummarizationBulk(TextBulk):
     """
     A class for bulk text summarization using Hugging Face models.
     """

@@ -15,4 +15,4 @@
 
 from .api import InstructionAPI
 from .bulk import InstructionBulk
-from .fine_tune import TextInstructionTuningFineTuner
+from .fine_tune import InstructionFineTuner

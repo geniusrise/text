@@ -30,7 +30,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_text.instruction.fine_tune import TextInstructionTuningFineTuner
+from geniusrise_text.instruction.fine_tune import InstructionFineTuner
 
 lora_config = {
     "r": 16,
@@ -127,7 +127,7 @@ def instruction_tuning_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = TextInstructionTuningFineTuner(
+    klass = InstructionFineTuner(
         input=input,
         output=output,
         state=state,

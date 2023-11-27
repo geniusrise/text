@@ -30,7 +30,7 @@ from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextBulk
 
 
-class TextQABulk(TextBulk):
+class QABulk(TextBulk):
     """
     A class for bulk question-answering using Hugging Face models.
     """

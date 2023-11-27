@@ -34,7 +34,7 @@ from transformers import EvalPrediction
 from geniusrise_text.base import TextFineTuner
 
 
-class QuestionAnsweringFineTuner(TextFineTuner):
+class QAFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on question answering tasks.
 
@@ -46,7 +46,7 @@ class QuestionAnsweringFineTuner(TextFineTuner):
     CLI Usage:
 
     ```bash
-        genius QuestionAnsweringFineTuner rise \
+        genius QAFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -63,7 +63,7 @@ class QuestionAnsweringFineTuner(TextFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "QuestionAnsweringFineTuner"
+                name: "QAFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"

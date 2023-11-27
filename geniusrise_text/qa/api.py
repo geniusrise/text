@@ -23,7 +23,7 @@ import pandas as pd
 from transformers import AutoModelForQuestionAnswering, AutoModelForTableQuestionAnswering, AutoTokenizer
 
 
-class QuestionAnsweringAPI(TextAPI):
+class QAAPI(TextAPI):
     model: AutoModelForQuestionAnswering | AutoModelForTableQuestionAnswering
     tokenizer: AutoTokenizer
 

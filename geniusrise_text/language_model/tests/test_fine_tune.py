@@ -29,7 +29,7 @@ from geniusrise.core import BatchInput, BatchOutput, InMemoryState, EvalPredicti
 from pyarrow import feather
 from pyarrow import parquet as pq
 
-from geniusrise_text.language_model import LanguageModelingFineTuner
+from geniusrise_text.language_model import LanguageModelFineTuner
 
 lora_config = {
     "r": 16,
@@ -125,7 +125,7 @@ def language_modeling_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = LanguageModelingFineTuner(
+    klass = LanguageModelFineTuner(
         input=input,
         output=output,
         state=state,

@@ -22,9 +22,9 @@ from .embeddings import EmbeddingsBulk
 
 from .instruction import InstructionAPI
 from .instruction import InstructionBulk
-from .instruction import TextInstructionTuningFineTuner
+from .instruction import InstructionFineTuner
 
-from .language_model import LanguageModelingFineTuner
+from .language_model import LanguageModelFineTuner
 from .language_model import LanguageModelBulk
 from .language_model import LanguageModelAPI
 
@@ -36,14 +36,14 @@ from .nli import NLIBulk
 from .nli import NLIFineTuner
 from .nli import NLIAPI
 
-from .qa import TextQABulk
-from .qa import QuestionAnsweringFineTuner
-from .qa import QuestionAnsweringAPI
+from .qa import QABulk
+from .qa import QAFineTuner
+from .qa import QAAPI
 
-from .summarization import TextSummarizationBulk
+from .summarization import SummarizationBulk
 from .summarization import SummarizationFineTuner
 from .summarization import SummarizationAPI
 
-from .translation import TextTranslationBulk
+from .translation import TranslationBulk
 from .translation import TranslationFineTuner
 from .translation import TranslationAPI
