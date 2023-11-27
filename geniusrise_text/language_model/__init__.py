@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fine_tune import LanguageModelingFineTuner
+from .fine_tune import LanguageModelFineTuner
 from .bulk import LanguageModelBulk
 from .api import LanguageModelAPI

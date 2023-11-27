@@ -30,7 +30,7 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
-from geniusrise_text.qa.fine_tune import QuestionAnsweringFineTuner
+from geniusrise_text.qa.fine_tune import QAFineTuner
 
 
 lora_config = {
@@ -137,7 +137,7 @@ def question_answering_bolt():
     input = BatchInput(input_dir, "geniusrise-test", "test-🤗-input")
     output = BatchOutput(output_dir, "geniusrise-test", "test-🤗-output")
     state = InMemoryState()
-    klass = QuestionAnsweringFineTuner(
+    klass = QAFineTuner(
         input=input,
         output=output,
         state=state,

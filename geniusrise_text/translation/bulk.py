@@ -31,7 +31,7 @@ from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextBulk
 
 
-class TextTranslationBulk(TextBulk):
+class TranslationBulk(TextBulk):
     """
     A class for bulk translation using Hugging Face models.
     """

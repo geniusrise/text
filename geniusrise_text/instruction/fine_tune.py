@@ -33,7 +33,7 @@ from transformers import EvalPrediction
 from geniusrise_text.base import TextFineTuner
 
 
-class TextInstructionTuningFineTuner(TextFineTuner):
+class InstructionFineTuner(TextFineTuner):
     r"""
     A bolt for fine-tuning Hugging Face models on instruction tuning tasks.
 
@@ -51,7 +51,7 @@ class TextInstructionTuningFineTuner(TextFineTuner):
     CLI Usage:
 
     ```bash
-        genius TextInstructionTuningFineTuner rise \
+        genius InstructionFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
                 --input_s3_folder train \
@@ -68,7 +68,7 @@ class TextInstructionTuningFineTuner(TextFineTuner):
         version: "1"
         bolts:
             my_fine_tuner:
-                name: "TextInstructionTuningFineTuner"
+                name: "InstructionFineTuner"
                 method: "fine_tune"
                 args:
                     model_name: "my_model"
