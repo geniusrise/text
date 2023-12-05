@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Any, Dict, Optional
+import json
 
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
@@ -212,6 +213,22 @@ class TextAPI(TextBulk):
                 "server.socket_port": port,
                 "log.screen": False,
                 "tools.CORS.on": True,
+                "error_page.400": error_page,
+                "error_page.401": error_page,
+                "error_page.402": error_page,
+                "error_page.403": error_page,
+                "error_page.404": error_page,
+                "error_page.405": error_page,
+                "error_page.406": error_page,
+                "error_page.408": error_page,
+                "error_page.415": error_page,
+                "error_page.429": error_page,
+                "error_page.500": error_page,
+                "error_page.501": error_page,
+                "error_page.502": error_page,
+                "error_page.503": error_page,
+                "error_page.504": error_page,
+                "error_page.default": error_page,
             }
         )
 
@@ -220,3 +237,11 @@ class TextAPI(TextBulk):
         cherrypy.tools.CORS = cherrypy.Tool("before_finalize", CORS)
         cherrypy.engine.start()
         cherrypy.engine.block()
+
+
+def error_page(status, message, traceback, version):
+    response = {
+        "status": status,
+        "message": message,
+    }
+    return json.dumps(response)
