@@ -116,6 +116,20 @@ class TextAPI(TextBulk):
             ),
         }
 
+    def validate_password(self, realm, username, password):
+        """
+        Validate the username and password against expected values.
+
+        Args:
+            realm (str): The authentication realm.
+            username (str): The provided username.
+            password (str): The provided password.
+
+        Returns:
+            bool: True if credentials are valid, False otherwise.
+        """
+        return username == self.username and password == self.password
+
     def listen(
         self,
         model_name: str,
@@ -232,8 +246,22 @@ class TextAPI(TextBulk):
             }
         )
 
+        if username and password:
+            # Configure basic authentication
+            conf = {
+                "/": {
+                    "tools.auth_basic.on": True,
+                    "tools.auth_basic.realm": "geniusrise",
+                    "tools.auth_basic.checkpassword": self.validate_password,
+                    "tools.CORS.on": True,
+                }
+            }
+        else:
+            # Configuration without authentication
+            conf = {"/": {"tools.CORS.on": True}}
+
         cherrypy.tools.CORS = cherrypy.Tool("before_handler", CORS)
-        cherrypy.tree.mount(self, "/api/v1/", {"/": {"tools.CORS.on": True}})
+        cherrypy.tree.mount(self, "/api/v1/", conf)
         cherrypy.tools.CORS = cherrypy.Tool("before_finalize", CORS)
         cherrypy.engine.start()
         cherrypy.engine.block()
