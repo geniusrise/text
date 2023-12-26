@@ -49,60 +49,21 @@ class QAFineTuner(TextFineTuner):
         genius QAFineTuner rise \
             batch \
                 --input_s3_bucket geniusrise-test \
-                --input_s3_folder train \
+                --input_s3_folder none \
             batch \
                 --output_s3_bucket geniusrise-test \
-                --output_s3_folder model \
+                --output_s3_folder none \
+            postgres \
+                --postgres_host 127.0.0.1 \
+                --postgres_port 5432 \
+                --postgres_user postgres \
+                --postgres_password postgres \
+                --postgres_database geniusrise\
+                --postgres_table state \
+            --id microsoft/tapex-large-finetuned-wtq-lol \
             fine_tune \
                 --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
     ```
-
-    YAML Configuration:
-
-    ```yaml
-        version: "1"
-        bolts:
-            my_fine_tuner:
-                name: "QAFineTuner"
-                method: "fine_tune"
-                args:
-                    model_name: "my_model"
-                    tokenizer_name: "my_tokenizer"
-                    num_train_epochs: 3
-                    per_device_train_batch_size: 8
-                    data_max_length: 512
-                input:
-                    type: "batch"
-                    args:
-                        bucket: "my_bucket"
-                        folder: "my_dataset"
-                output:
-                    type: "batch"
-                    args:
-                        bucket: "my_bucket"
-                        folder: "my_model"
-                deploy:
-                    type: k8s
-                    args:
-                        kind: deployment
-                        name: my_fine_tuner
-                        context_name: arn:aws:eks:us-east-1:genius-dev:cluster/geniusrise-dev
-                        namespace: geniusrise
-                        image: geniusrise/geniusrise
-                        kube_config_path: ~/.kube/config
-    ```
-
-    Supported Data Formats:
-        - JSONL
-        - CSV
-        - Parquet
-        - JSON
-        - XML
-        - YAML
-        - TSV
-        - Excel (.xls, .xlsx)
-        - SQLite (.db)
-        - Feather
     """
 
     def __init__(
