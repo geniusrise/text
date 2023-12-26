@@ -30,16 +30,126 @@ from geniusrise_text.base import TextBulk
 
 
 class SummarizationBulk(TextBulk):
-    """
-    A class for bulk text summarization using Hugging Face models.
+    r"""
+    SummarizationBulk is a class for managing bulk text summarization tasks using Hugging Face models. It is
+    designed to handle large-scale summarization tasks efficiently and effectively, utilizing state-of-the-art
+    machine learning models to provide high-quality summaries.
+
+    The class provides methods to load datasets, configure summarization models, and execute bulk summarization tasks.
+
+    Args:
+        input (BatchInput): Configuration and data inputs for the batch process.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the summarization task.
+        **kwargs: Arbitrary keyword arguments for extended configurations.
+
+    Example CLI Usage:
+    ```bash
+    genius SummarizationBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/summz \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/summz \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id facebook/bart-large-cnn-lol \
+        summarize \
+            --args \
+                model_name="facebook/bart-large-cnn" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                generation_bos_token_id=0 \
+                generation_decoder_start_token_id=2 \
+                generation_early_stopping=true \
+                generation_eos_token_id=2 \
+                generation_forced_bos_token_id=0 \
+                generation_forced_eos_token_id=2 \
+                generation_length_penalty=2.0 \
+                generation_max_length=142 \
+                generation_min_length=56 \
+                generation_no_repeat_ngram_size=3 \
+                generation_num_beams=4 \
+                generation_pad_token_id=1 \
+                generation_do_sample=false
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-        """
-        Load a summarization dataset from a directory.
+        r"""
+        Load a dataset from a directory.
+
+        Args:
+            dataset_path (str): The path to the dataset directory.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Dataset | DatasetDict: The loaded dataset.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content"}
+        ```
+
+        ### CSV
+        Should contain a 'text' column.
+        ```csv
+        text
+        "The text content"
+        ```
+
+        ### Parquet
+        Should contain a 'text' column.
+
+        ### JSON
+        An array of dictionaries with a 'text' key.
+        ```json
+        [{"text": "The text content"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'text' child element.
+        ```xml
+        <record>
+            <text>The text content</text>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with a 'text' key.
+        ```yaml
+        - text: "The text content"
+        ```
+
+        ### TSV
+        Should contain a 'text' column.
+
+        ### Excel (.xls, .xlsx)
+        Should contain a 'text' column.
+
+        ### SQLite (.db)
+        Should contain a table with a 'text' column.
+
+        ### Feather
+        Should contain a 'text' column.
         """
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
@@ -118,8 +228,28 @@ class SummarizationBulk(TextBulk):
         max_length: int = 512,
         **kwargs: Any,
     ) -> None:
-        """
-        Perform bulk text summarization.
+        r"""
+        Perform bulk summarization using the specified model and tokenizer. This method handles the entire summarization
+        process including loading the model, processing input data, generating summarization, and saving the results.
+
+        Args:
+            model_name (str): Name or path of the translation model.
+            origin (str): Source language ISO code.
+            target (str): Target language ISO code.
+            max_length (int): Maximum length of the tokens (default 512).
+            model_class (str): Class name of the model (default "AutoModelForSeq2SeqLM").
+            tokenizer_class (str): Class name of the tokenizer (default "AutoTokenizer").
+            use_cuda (bool): Whether to use CUDA for model inference (default False).
+            precision (str): Precision for model computation (default "float16").
+            quantization (int): Level of quantization for optimizing model size and speed (default 0).
+            device_map (str | Dict | None): Specific device to use for computation (default "auto").
+            max_memory (Dict): Maximum memory configuration for devices.
+            torchscript (bool): Whether to use TorchScript for optimization (default True).
+            awq_enabled (bool): Whether to enable AWQ optimization (default False).
+            flash_attention (bool): Whether to use flash attention optimization (default False).
+            batch_size (int): Number of translations to process simultaneously (default 32).
+            max_length (int): Maximum lenght of the summary to be generated (default 512).
+            **kwargs: Arbitrary keyword arguments for model and generation configurations.
         """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
@@ -200,7 +330,14 @@ class SummarizationBulk(TextBulk):
 
     def _save_summaries(self, summaries: List[str], input_batch: List[str], output_path: str, batch_idx: int) -> None:
         """
-        Save the generated summaries to disk.
+        Saves the generated summaries to a specified output path. This method is called internally by the summarize method
+        to persist the summarization results.
+
+        Args:
+            summaries (List[str]): List of generated summaries.
+            input_batch (List[str]): List of original texts that were summarized.
+            output_path (str): Path to save the summaries.
+            batch_idx (int): Index of the current batch (for naming files).
         """
         data_to_save = [
             {"input": input_text, "summary": summary} for input_text, summary in zip(input_batch, summaries)

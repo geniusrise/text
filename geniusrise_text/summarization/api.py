@@ -24,8 +24,10 @@ log = logging.getLogger(__name__)
 
 
 class SummarizationAPI(TextAPI):
-    """
-    A class for serving a Hugging Face-based summarization model.
+    r"""
+    A class for serving a Hugging Face-based summarization model. This API provides an interface to
+    submit text and receive a summarized version, utilizing state-of-the-art machine learning models for
+    text summarization.
 
     Attributes:
         model (AutoModelForSeq2SeqLM): The loaded Hugging Face model for summarization.
@@ -34,6 +36,41 @@ class SummarizationAPI(TextAPI):
     Methods:
         summarize(self, **kwargs: Any) -> Dict[str, Any]:
             Summarizes the input text based on the given parameters.
+
+    CLI Usage:
+    ```bash
+    genius SummarizationAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id facebook/bart-large-cnn-lol \
+        listen \
+            --args \
+                model_name="facebook/bart-large-cnn" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     def __init__(
@@ -44,13 +81,13 @@ class SummarizationAPI(TextAPI):
         **kwargs: Any,
     ) -> None:
         """
-        Initializes the SummarizationAPI class.
+        Initializes the SummarizationAPI class with input, output, and state configurations.
 
         Args:
-            input (BatchInput): The input data.
-            output (BatchOutput): The output data.
-            state (State): The state data.
-            **kwargs: Additional keyword arguments.
+            input (BatchInput): Configuration for input data.
+            output (BatchOutput): Configuration for output data.
+            state (State): State management for API.
+            **kwargs (Any): Additional keyword arguments for extended functionality.
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
@@ -60,14 +97,53 @@ class SummarizationAPI(TextAPI):
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
     def summarize(self, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Summarizes the input text based on the given parameters.
+        r"""
+        Summarizes the input text based on the given parameters using a machine learning model. The method
+        accepts parameters via a POST request and returns the summarized text.
 
         Args:
-            **kwargs (Any): Additional arguments for summarization.
+            **kwargs (Any): Arbitrary keyword arguments. Expected to receive these from the POST request's JSON body.
 
         Returns:
             Dict[str, Any]: A dictionary containing the input text and its summary.
+
+        Example CURL Requests:
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/summarize \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
+                "decoding_strategy": "generate",
+                "bos_token_id": 0,
+                "decoder_start_token_id": 2,
+                "early_stopping": true,
+                "eos_token_id": 2,
+                "forced_bos_token_id": 0,
+                "forced_eos_token_id": 2,
+                "length_penalty": 2.0,
+                "max_length": 142,
+                "min_length": 56,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4,
+                "pad_token_id": 1,
+                "do_sample": false
+            }' | jq
+        ```
+
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/summarize \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
+                "decoding_strategy": "generate",
+                "early_stopping": true,
+                "length_penalty": 2.0,
+                "max_length": 142,
+                "min_length": 56,
+                "no_repeat_ngram_size": 3,
+                "num_beams": 4
+            }' | jq
+        ```
         """
         data = cherrypy.request.json
         text = data.get("text")
