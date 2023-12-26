@@ -27,12 +27,122 @@ class QAAPI(TextAPI):
     model: AutoModelForQuestionAnswering | AutoModelForTableQuestionAnswering
     tokenizer: AutoTokenizer
 
-    """
-    A class for handling different types of QA models: Traditional, TAPAS, and TAPEX.
+    r"""
+    A class for handling different types of QA models, including traditional QA, TAPAS (Table-based QA), and TAPEX.
+    It utilizes the Hugging Face transformers library to provide state-of-the-art question answering capabilities
+    across various formats of data including plain text and tabular data.
 
     Attributes:
-        model (Any): The pre-trained QA model (traditional, TAPAS, or TAPEX).
-        tokenizer (Any): The tokenizer used to preprocess input text.
+        model (AutoModelForQuestionAnswering | AutoModelForTableQuestionAnswering):
+            The pre-trained QA model (traditional, TAPAS, or TAPEX).
+        tokenizer (AutoTokenizer): The tokenizer used to preprocess input text.
+
+    Methods:
+        answer(self, **kwargs: Any) -> Dict[str, Any]:
+            Answers questions based on the provided context (text or table).
+
+    CLI Usage Example:
+    ```bash
+    genius QAAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id distilbert-base-uncased-distilled-squad-lol \
+        listen \
+            --args \
+                model_name="distilbert-base-uncased-distilled-squad" \
+                model_class="AutoModelForQuestionAnswering" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
+
+    ```bash
+    genius QAAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id google/tapas-base-finetuned-wtq-lol \
+        listen \
+            --args \
+                model_name="google/tapas-base-finetuned-wtq" \
+                model_class="AutoModelForTableQuestionAnswering" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
+
+    ```bash
+    genius QAAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id microsoft/tapex-large-finetuned-wtq-lol \
+        listen \
+            --args \
+                model_name="microsoft/tapex-large-finetuned-wtq" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     def __init__(
@@ -42,6 +152,15 @@ class QAAPI(TextAPI):
         state: State,
         **kwargs: Any,
     ):
+        """
+        Initializes the QAAPI with configurations for input, output, and state management.
+
+        Args:
+            input (BatchInput): Configuration for the input data.
+            output (BatchOutput): Configuration for the output data.
+            state (State): State management for the API.
+            **kwargs (Any): Additional keyword arguments for extended functionality.
+        """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
 
@@ -50,14 +169,56 @@ class QAAPI(TextAPI):
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
     def answer(self, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Answers a question based on the provided context or table.
+        r"""
+        Answers questions based on the provided context (text or table). It adapts to the model type (traditional, TAPAS, TAPEX)
+        and provides answers accordingly.
 
         Args:
-            **kwargs (Any): Additional arguments to pass to the QA model.
+            **kwargs (Any): Arbitrary keyword arguments, typically containing the 'question' and 'data' (context or table).
 
         Returns:
-            Dict[str, Any]: A dictionary containing the question, context/table, and answer.
+            Dict[str, Any]: A dictionary containing the question, context/table, and answer(s).
+
+        Example CURL Request for Text-based QA:
+        ```bash
+        curl -X POST localhost:3000/api/v1/answer \
+            -H "Content-Type: application/json" \
+            -d '{"question": "What is the capital of France?", "data": "France is a country in Europe. Its capital is Paris."}'
+        ```
+
+        Example CURL Requests:
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/answer \
+            -H "Content-Type: application/json" \
+            -d '{
+                "data": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
+                "question": "What is the common wisdom about RNNs?"
+
+            }' | jq
+        ```
+
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/answer \
+            -H "Content-Type: application/json" \
+            -d '{
+            "data": [
+                {"Name": "Alice", "Age": "30"},
+                {"Name": "Bob", "Age": "25"}
+            ],
+            "question": "what is their total age?"
+        }
+        ' | jq
+        ```
+
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/answer \
+            -H "Content-Type: application/json" \
+            -d '{
+            "data": {"Actors": ["Brad Pitt", "Leonardo Di Caprio", "George Clooney"], "Number of movies": ["87", "53", "69"]},
+            "question": "how many movies does Leonardo Di Caprio have?"
+        }
+        ' | jq
+        ```
         """
         data = cherrypy.request.json
         question = data.get("question")

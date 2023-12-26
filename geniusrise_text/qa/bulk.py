@@ -31,16 +31,182 @@ from geniusrise_text.base import TextBulk
 
 
 class QABulk(TextBulk):
-    """
-    A class for bulk question-answering using Hugging Face models.
+    r"""
+    QABulk is a class designed for managing bulk question-answering tasks using Hugging Face models. It is
+    capable of handling both traditional text-based QA and table-based QA (using TAPAS and TAPEX models),
+    providing a versatile solution for automated question answering at scale.
+
+    Args:
+        input (BatchInput): Configuration and data inputs for batch processing.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the bulk QA task.
+        **kwargs: Arbitrary keyword arguments for extended functionality.
+
+    Example CLI Usage:
+    ```bash
+    # For traditional text-based QA:
+    genius QABulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/qa-traditional \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/qa-traditional \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id distilbert-base-uncased-distilled-squad-lol \
+        answer_questions \
+            --args \
+                model_name="distilbert-base-uncased-distilled-squad" \
+                model_class="AutoModelForQuestionAnswering" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="bfloat16" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False
+
+    # For table-based QA using TAPAS:
+    genius QABulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/qa-table \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/qa-table \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id google/tapas-base-finetuned-wtq-lol \
+        answer_questions \
+            --args \
+                model_name="google/tapas-base-finetuned-wtq" \
+                model_class="AutoModelForTableQuestionAnswering" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False
+
+    # For table-based QA using TAPEX:
+    genius QABulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/qa-table \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/qa-table \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id microsoft/tapex-large-finetuned-wtq-lol \
+        answer_questions \
+            --args \
+                model_name="microsoft/tapex-large-finetuned-wtq" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the QABulk class with configurations for input, output, and state.
+
+        Args:
+            input (BatchInput): Configuration for the input data.
+            output (BatchOutput): Configuration for the output data.
+            state (State): State management for the QA task.
+            **kwargs (Any): Additional keyword arguments for extended functionality.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-        """
-        Load a question-answering dataset from a directory.
+        r"""
+        Load a dataset from a directory.
+
+        ## Supported Data Formats and Structures:
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"context": "The context content", "question": "The question"}
+        ```
+
+        ### CSV
+        Should contain 'context' and 'question' columns.
+        ```csv
+        context,question
+        "The context content","The question"
+        ```
+
+        ### Parquet
+        Should contain 'context' and 'question' columns.
+
+        ### JSON
+        An array of dictionaries with 'context' and 'question' keys.
+        ```json
+        [{"context": "The context content", "question": "The question"}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'context' and 'question' elements.
+        ```xml
+        <record>
+            <context>The context content</context>
+            <question>The question</question>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'context' and 'question' keys.
+        ```yaml
+        - context: "The context content"
+          question: "The question"
+        ```
+
+        ### TSV
+        Should contain 'context' and 'question' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'context' and 'question' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'context' and 'question' columns.
+
+        ### Feather
+        Should contain 'context' and 'question' columns.
+
+        Args:
+            dataset_path (str): The path to the dataset directory.
+            pad_on_right (bool): Whether to pad on the right.
+            max_length (int): The maximum length of the sequences.
+            doc_stride (int): The document stride.
+            evaluate_squadv2 (bool): Whether to evaluate using SQuAD v2 metrics.
+
+        Returns:
+            Dataset: The loaded dataset.
         """
 
         self.max_length = max_length
@@ -124,6 +290,29 @@ class QABulk(TextBulk):
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
+        r"""
+        Perform bulk question-answering using the specified model and tokenizer. This method can handle various types
+        of QA models including traditional, TAPAS, and TAPEX.
+
+        Args:
+            model_name (str): Name or path of the question-answering model.
+            model_class (str, optional): Class name of the model (e.g., "AutoModelForQuestionAnswering").
+            tokenizer_class (str, optional): Class name of the tokenizer (e.g., "AutoTokenizer").
+            use_cuda (bool, optional): Whether to use CUDA for model inference. Defaults to False.
+            precision (str, optional): Precision for model computation. Defaults to "float16".
+            quantization (int, optional): Level of quantization for optimizing model size and speed. Defaults to 0.
+            device_map (str | Dict | None, optional): Specific device to use for computation. Defaults to "auto".
+            max_memory (Dict, optional): Maximum memory configuration for devices. Defaults to {0: "24GB"}.
+            torchscript (bool, optional): Whether to use TorchScript for optimization. Defaults to True.
+            awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
+            flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
+            batch_size (int, optional): Number of questions to process simultaneously. Defaults to 32.
+            **kwargs: Arbitrary keyword arguments for model and generation configurations.
+
+        Processing:
+            The method processes the data in batches, utilizing the appropriate model based on the model name
+            and generating answers for the questions provided in the dataset.
+        """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
