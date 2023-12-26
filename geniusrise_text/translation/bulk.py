@@ -32,8 +32,58 @@ from geniusrise_text.base import TextBulk
 
 
 class TranslationBulk(TextBulk):
-    """
-    A class for bulk translation using Hugging Face models.
+    r"""
+    TranslationBulk is a class for managing bulk translations using Hugging Face models. It is designed to
+    handle large-scale translation tasks efficiently and effectively, using state-of-the-art machine learning models
+    to provide high-quality translations for various language pairs.
+
+    This class provides methods for loading datasets, configuring translation models, and executing bulk translation tasks.
+
+    Args:
+        input (BatchInput): Configuration and data inputs for batch processing.
+        output (BatchOutput): Configuration for output data handling.
+        state (State): State management for translation tasks.
+        **kwargs: Arbitrary keyword arguments for extended functionality.
+
+    Example CLI Usage for Bulk Translation Task:
+
+    ```bash
+    genius TranslationBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/trans \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/trans \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id facebook/mbart-large-50-many-to-many-mmt-lol \
+        translate \
+            --args \
+                model_name="facebook/mbart-large-50-many-to-many-mmt" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                origin="hi_IN" \
+                target="en_XX" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                generate_decoder_start_token_id=2 \
+                generate_early_stopping=true \
+                generate_eos_token_id=2 \
+                generate_forced_eos_token_id=2 \
+                generate_max_length=200 \
+                generate_num_beams=5 \
+                generate_pad_token_id=1
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
@@ -47,8 +97,78 @@ class TranslationBulk(TextBulk):
         target: str = "hi",
         **kwargs,
     ) -> Optional[Dataset]:
-        """
-        Load a translation dataset from a directory.
+        r"""
+        Load a dataset from a directory.
+
+        ## Supported Data Formats and Structures for Translation Tasks:
+
+        Note: All examples are assuming the source as "en", refer to the specific model for this parameter.
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {
+            "translation": {
+                "en": "English text"
+            }
+        }
+        ```
+
+        ### CSV
+        Should contain 'en' column.
+        ```csv
+        en
+        "English text"
+        ```
+
+        ### Parquet
+        Should contain 'en' column.
+
+        ### JSON
+        An array of dictionaries with 'en' key.
+        ```json
+        [
+            {
+                "en": "English text"
+            }
+        ]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'en' child elements.
+        ```xml
+        <record>
+            <en>English text</en>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'en' key.
+        ```yaml
+        - en: "English text"
+        ```
+
+        ### TSV
+        Should contain 'en' column separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'en' column.
+
+        ### SQLite (.db)
+        Should contain a table with 'en' column.
+
+        ### Feather
+        Should contain 'en' column.
+
+        Args:
+            dataset_path (str): The path to the directory containing the dataset files.
+            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
+            origin (str, optional): The origin language. Defaults to 'en'.
+            target (str, optional): The target language. Defaults to 'hi'.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            DatasetDict: The loaded dataset.
         """
 
         self.max_length = max_length
@@ -135,9 +255,29 @@ class TranslationBulk(TextBulk):
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
+        r"""
+        Perform bulk translation using the specified model and tokenizer. This method handles the entire translation
+        process including loading the model, processing input data, generating translations, and saving the results.
+
+        Args:
+            model_name (str): Name or path of the translation model.
+            origin (str): Source language ISO code.
+            target (str): Target language ISO code.
+            max_length (int): Maximum length of the tokens (default 512).
+            model_class (str): Class name of the model (default "AutoModelForSeq2SeqLM").
+            tokenizer_class (str): Class name of the tokenizer (default "AutoTokenizer").
+            use_cuda (bool): Whether to use CUDA for model inference (default False).
+            precision (str): Precision for model computation (default "float16").
+            quantization (int): Level of quantization for optimizing model size and speed (default 0).
+            device_map (str | Dict | None): Specific device to use for computation (default "auto").
+            max_memory (Dict): Maximum memory configuration for devices.
+            torchscript (bool): Whether to use TorchScript for optimization (default True).
+            awq_enabled (bool): Whether to enable AWQ optimization (default False).
+            flash_attention (bool): Whether to use flash attention optimization (default False).
+            batch_size (int): Number of translations to process simultaneously (default 32).
+            **kwargs: Arbitrary keyword arguments for model and generation configurations.
         """
-        Perform bulk translation.
-        """
+
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
@@ -214,8 +354,15 @@ class TranslationBulk(TextBulk):
     def _save_translations(
         self, translations: List[str], input_batch: List[str], output_path: str, batch_idx: int
     ) -> None:
-        """
-        Save the translated texts.
+        r"""
+        Saves the translated texts to a specified output path. This method is called internally by the translate method
+        to persist the translation results.
+
+        Args:
+            translations (List[str]): List of translated texts.
+            input_batch (List[str]): List of original texts that were translated.
+            output_path (str): Path to save the translated texts.
+            batch_idx (int): Index of the current batch (for naming files).
         """
 
         data_to_save = [

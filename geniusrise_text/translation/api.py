@@ -24,8 +24,66 @@ log = logging.getLogger(__name__)
 
 
 class TranslationAPI(TextAPI):
-    """
-    A class for serving a Hugging Face-based translation model.
+    r"""
+    A class for serving a Hugging Face-based translation model as a web API.
+    This API allows users to submit text for translation and receive translated text
+    in the specified target language using advanced machine learning models.
+
+    Args:
+        input (BatchInput): Configurations and data inputs for the batch process.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the translation task.
+        **kwargs: Additional keyword arguments for extended configurations.
+
+    Example CLI Usage for interacting with the API:
+
+    To start the API server:
+    ```bash
+    genius TranslationAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id facebook/mbart-large-50-many-to-many-mmt-lol \
+        listen \
+            --args \
+                model_name="facebook/mbart-large-50-many-to-many-mmt" \
+                model_class="AutoModelForSeq2SeqLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
+
+    To translate text using the API:
+    ```bash
+    curl -X POST localhost:8080/translate \
+        -H "Content-Type: application/json" \
+        -d '{
+            "text": "Hello, world!",
+            "source_lang": "en",
+            "target_lang": "fr",
+            "decoding_strategy": "beam_search",
+            "num_beams": 5
+        }'
+    ```
     """
 
     def __init__(
@@ -43,9 +101,54 @@ class TranslationAPI(TextAPI):
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
     def translate(self, **kwargs: Any) -> Dict[str, Any]:
+        r"""
+        Translates text to a specified target language using the underlying Hugging Face model.
+
+        This endpoint accepts JSON data with the text and language details,
+        processes it through the machine learning model, and returns the translated text.
+
+        Args:
+            **kwargs: Arbitrary keyword arguments, usually empty as parameters are in the POST body.
+
+        POST body parameters:
+            text (str): The text to be translated.
+            decoding_strategy (str): Strategy to use for decoding text; e.g., 'beam_search', 'greedy'. Default is 'generate'.
+            source_lang (str): Source language code.
+            target_lang (str): Target language code. Default is 'en'.
+            additional_params (dict): Other model-specific parameters for translation.
+
+        Returns:
+            Dict[str, Any]: A dictionary with the original text, target language, and translated text.
+
+        Example CURL requests:
+
+        To translate text from English to French:
+        ```bash
+        curl -X POST localhost:8080/translate \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "Hello, world!",
+                "source_lang": "en",
+                "target_lang": "fr",
+                "decoding_strategy": "beam_search",
+                "num_beams": 5
+            }'
+        ```
+
+        To translate text from Spanish to German:
+        ```bash
+        curl -X POST localhost:8080/translate \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "Hola mundo",
+                "source_lang": "es",
+                "target_lang": "de",
+                "decoding_strategy": "beam_search",
+                "num_beams": 5
+            }'
+        ```
         """
-        Translates text to a specified target language.
-        """
+
         data = cherrypy.request.json
         text = data.get("text")
         decoding_strategy = data.get("decoding_strategy", "generate")
