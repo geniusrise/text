@@ -190,6 +190,7 @@ class LanguageModelBulk(TextBulk):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
+        awq_enabled: bool = False,
         decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
@@ -215,6 +216,7 @@ class LanguageModelBulk(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.awq_enabled = awq_enabled
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -235,6 +237,7 @@ class LanguageModelBulk(TextBulk):
             device_map=self.device_map,
             max_memory=self.max_memory,
             torchscript=self.torchscript,
+            awq_enabled=self.awq_enabled,
             **self.model_args,
         )
 
