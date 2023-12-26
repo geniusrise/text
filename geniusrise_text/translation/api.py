@@ -137,15 +137,21 @@ class TranslationAPI(TextAPI):
 
         To translate text from Spanish to German:
         ```bash
-        curl -X POST localhost:8080/translate \
+        /usr/bin/curl -X POST localhost:3000/api/v1/translate \
             -H "Content-Type: application/json" \
             -d '{
-                "text": "Hola mundo",
-                "source_lang": "es",
-                "target_lang": "de",
-                "decoding_strategy": "beam_search",
-                "num_beams": 5
-            }'
+                "text": "संयुक्त राष्ट्र के प्रमुख का कहना है कि सीरिया में कोई सैन्य समाधान नहीं है",
+                "source_lang": "hi_IN",
+                "target_lang": "en_XX",
+                "decoding_strategy": "generate",
+                "decoder_start_token_id": 2,
+                "early_stopping": true,
+                "eos_token_id": 2,
+                "forced_eos_token_id": 2,
+                "max_length": 200,
+                "num_beams": 5,
+                "pad_token_id": 1
+            }' | jq
         ```
         """
 
