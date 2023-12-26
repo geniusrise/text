@@ -191,6 +191,7 @@ class LanguageModelBulk(TextBulk):
         max_memory={0: "24GB"},
         torchscript: bool = True,
         awq_enabled: bool = False,
+        flash_attention: bool = False,
         decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
@@ -217,6 +218,7 @@ class LanguageModelBulk(TextBulk):
         self.max_memory = max_memory
         self.torchscript = torchscript
         self.awq_enabled = awq_enabled
+        self.flash_attention = flash_attention
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -238,6 +240,7 @@ class LanguageModelBulk(TextBulk):
             max_memory=self.max_memory,
             torchscript=self.torchscript,
             awq_enabled=self.awq_enabled,
+            flash_attention=self.flash_attention,
             **self.model_args,
         )
 
