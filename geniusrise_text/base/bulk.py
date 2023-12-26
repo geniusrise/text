@@ -271,6 +271,7 @@ class TextBulk(Bolt):
         max_memory={0: "24GB"},
         torchscript: bool = True,
         awq_enabled: bool = False,
+        flash_attention: bool = False,
         **model_args: Any,
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
@@ -290,6 +291,7 @@ class TextBulk(Bolt):
         - max_memory (Dict): Maximum GPU memory to be allocated. Default is {0: "24GB"}.
         - torchscript (bool): Whether to use TorchScript for model optimization. Default is True.
         - awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
+        - flash_attention (bool): Whether to use flash attention 2. Default is False.
         - model_args (Any): Additional keyword arguments for the model.
 
         Returns:
@@ -353,6 +355,9 @@ class TextBulk(Bolt):
 
         # Load the model and tokenizer
         tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
+
+        if flash_attention:
+            model_args = {**model_args, **{"attn_implementation": "flash_attention_2"}}
 
         self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
         if awq_enabled and quantization > 0:

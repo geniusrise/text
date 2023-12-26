@@ -142,6 +142,7 @@ class TextAPI(TextBulk):
         max_memory={0: "24GB"},
         torchscript: bool = True,
         awq_enabled: bool = False,
+        flash_attention: bool = False,
         endpoint: str = "*",
         port: int = 3000,
         cors_domain: str = "http://localhost:3000",
@@ -163,6 +164,7 @@ class TextAPI(TextBulk):
             max_memory (Dict[int, str], optional): The maximum memory to use for inference. Defaults to {0: "24GB"}.
             torchscript (bool, optional): Whether to use a TorchScript-optimized version of the pre-trained language model. Defaults to True.
             awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
+            flash_attention (bool): Whether to use flash attention 2. Default is False.
             endpoint (str, optional): The endpoint to listen on. Defaults to "*".
             port (int, optional): The port to listen on. Defaults to 3000.
             cors_domain (str, optional): The domain to allow CORS requests from. Defaults to "http://localhost:3000".
@@ -179,6 +181,7 @@ class TextAPI(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.flash_attention = flash_attention
         self.awq_enabled = awq_enabled
         self.model_args = model_args
         self.username = username
@@ -212,6 +215,7 @@ class TextAPI(TextBulk):
             max_memory=self.max_memory,
             torchscript=self.torchscript,
             awq_enabled=self.awq_enabled,
+            flash_attention=self.flash_attention,
             **self.model_args,
         )
 
