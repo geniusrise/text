@@ -116,6 +116,7 @@ class NamedEntityRecognitionBulk(TextBulk):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = True,
+        awq_enabled: bool = False,
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
@@ -151,6 +152,7 @@ class NamedEntityRecognitionBulk(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.awq_enabled = awq_enabled
         self.batch_size = batch_size
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
@@ -172,6 +174,7 @@ class NamedEntityRecognitionBulk(TextBulk):
             device_map=self.device_map,
             max_memory=self.max_memory,
             torchscript=self.torchscript,
+            awq_enabled=self.awq_enabled,
             **self.model_args,
         )
 
