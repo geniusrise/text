@@ -31,81 +31,134 @@ from geniusrise_text.base import TextBulk
 
 
 class InstructionBulk(TextBulk):
-    """
-    A class for bulk completion using Hugging Face models.
-
-    Args:
-        input (BatchInput): The input data to classify.
-        output (BatchOutput): The output data to store the completion results.
-        state (State): The state object to store intermediate state.
-        **kwargs: Additional keyword arguments to pass to the base class.
+    r"""
+    InstructionBulk is a class designed to perform bulk text generation tasks using Hugging Face's instruction-tuned language models.
+    It is optimized for large-scale text generation, providing an efficient interface to use state-of-the-art machine learning
+    models for generating text based on a set of instructions or prompts.
 
     Attributes:
-        max_length (int): The maximum length for tokenization.
-        label_to_id (Dict[str, int]): A dictionary mapping label names to label IDs.
+        model (Any): The loaded, pre-trained instruction-tuned language model.
+        tokenizer (Any): The tokenizer for processing text compatible with the model.
 
     Methods:
-        load_dataset(dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-            Load a completion dataset from a directory.
+        load_dataset(dataset_path: str, max_length: int = 1024, **kwargs) -> Optional[Dataset]:
+            Loads a dataset for text generation tasks from the specified directory.
 
-        classify(model_name: str, tokenizer_name: str, model_args: Optional[Dict[str, Any]] = None,
-                 tokenizer_args: Optional[Dict[str, Any]] = None, batch_size: int = 32,
-                 num_processes: int = 1, **kwargs) -> None:
-            Classify the input data using the specified Hugging Face model and tokenizer.
+        perform(model_name: str, **kwargs: Any) -> None:
+            Performs bulk text generation using the specified model and tokenizer.
+
+    Example CLI Usage:
+    ```bash
+    genius InstructionBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/chat \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/chat \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id mistralai/Mistral-7B-Instruct-v0.1-lol \
+        perform \
+            --args \
+                model_name="mistralai/Mistral-7B-Instruct-v0.1" \
+                model_class="AutoModelForCausalLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="bfloat16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False \
+                decoding_strategy="generate" \
+                generation_max_new_tokens=100 \
+                generation_do_sample=true
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the InstructionBulk class with input, output, and state configurations for bulk text generation.
+
+        Args:
+            input (BatchInput): Configuration for input data handling.
+            output (BatchOutput): Configuration for output data handling.
+            state (State): State management for the text generation task.
+            **kwargs: Additional keyword arguments for extended functionalities.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 1024, **kwargs) -> Optional[Dataset]:
         r"""
-        Load a completion dataset from a directory.
+        Loads a dataset from the specified path. This method supports various data formats including JSON, CSV, Parquet,
+        and others. It's designed to facilitate the bulk processing of text data for generation tasks.
 
         Args:
-            dataset_path (str): The path to the dataset directory.
-            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
-            **kwargs: Additional keyword arguments to pass to the underlying dataset loading functions.
+            dataset_path (str): Path to the directory containing the dataset files.
+            max_length (int): Maximum token length for text processing (default is 1024).
+            **kwargs: Additional keyword arguments for dataset loading.
 
         Returns:
-            Dataset: The loaded dataset.
+            Optional[Dataset]: A Dataset object if loading is successful; otherwise, None.
 
         Raises:
-            Exception: If there was an error loading the dataset.
+            Exception: If an error occurs during dataset loading.
 
-        Supported Data Formats and Structures:
-        ---------------------------------------
+        ## Supported Data Formats and Structures:
 
-        The following data formats and structures are supported:
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"instruction": "The instruction"}
+        ```
 
-        - JSONL: Each line is a JSON object representing an example.
-            {"instruction": "The text content"}
+        ### CSV
+        Should contain 'instruction' columns.
+        ```csv
+        instruction
+        "The instruction"
+        ```
 
-        - CSV: Should contain 'instruction' column.
-            instruction
-            "The text content"
+        ### Parquet
+        Should contain 'instruction' columns.
 
-        - Parquet: Should contain 'instruction' column.
+        ### JSON
+        An array of dictionaries with 'instruction' keys.
+        ```json
+        [{"instruction": "The instruction"}]
+        ```
 
-        - JSON: An array of dictionaries with 'instruction' key.
-            [{"instruction": "The text content"}]
+        ### XML
+        Each 'record' element should contain 'instruction' child elements.
+        ```xml
+        <record>
+            <instruction>The instruction</instruction>
+        </record>
+        ```
 
-        - XML: Each 'record' element should contain a 'instruction' child element.
-            <record>
-                <instruction>The text content</instruction>
-            </record>
+        ### YAML
+        Each document should be a dictionary with 'instruction' keys.
+        ```yaml
+        - instruction: "The instruction"
+        ```
 
-        - YAML: Each document should be a dictionary with 'text' key.
-            - instruction: "The text content"
+        ### TSV
+        Should contain 'instruction' columns separated by tabs.
 
-        - TSV: Should contain 'instruction' column separated by tabs.
+        ### Excel (.xls, .xlsx)
+        Should contain 'instruction' columns.
 
-        - Excel (.xls, .xlsx): Should contain 'instruction' column.
+        ### SQLite (.db)
+        Should contain a table with 'instruction' columns.
 
-        - SQLite (.db): Should contain a table with 'instruction' column.
-
-        - Feather: Should contain 'instruction' column.
+        ### Feather
+        Should contain 'instruction' columns.
         """
-
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
@@ -193,6 +246,29 @@ class InstructionBulk(TextBulk):
         decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
+        """
+        Performs text generation in bulk using a specified instruction-tuned model. This method handles the entire
+        process, including model loading, prompt processing, text generation, and saving the results.
+
+        Args:
+            model_name (str): The name or path of the instruction-tuned model.
+            model_class (str, optional): The class of the language model. Defaults to "AutoModelForCausalLM".
+            tokenizer_class (str, optional): The class of the tokenizer. Defaults to "AutoTokenizer".
+            use_cuda (bool, optional): Whether to use CUDA for model inference. Defaults to False.
+            precision (str, optional): Precision for model computation. Defaults to "float16".
+            quantization (int, optional): Level of quantization for optimizing model size and speed. Defaults to 0.
+            device_map (str | Dict | None, optional): Specific device to use for computation. Defaults to "auto".
+            max_memory (Dict, optional): Maximum memory configuration for devices. Defaults to {0: "24GB"}.
+            torchscript (bool, optional): Whether to use TorchScript for optimization. Defaults to True.
+            awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
+            flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
+            decoding_strategy (str, optional): Strategy for decoding the completion. Defaults to "generate".
+            **kwargs: Configuration and additional arguments for text generation such as model class, tokenizer class,
+                      precision, device map, and other generation-related parameters.
+
+        Note:
+            Additional arguments are passed directly to the model and tokenizer initialization and the generation method.
+        """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
@@ -267,7 +343,15 @@ class InstructionBulk(TextBulk):
         self._save_completions(completions, prompts, output_path)
 
     def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
-        # Prepare data for saving
+        """
+        Saves the generated texts alongside their prompts to the specified output path. This method ensures the results
+        of text generation are persisted for later use or analysis.
+
+        Args:
+            completions (List[str]): The list of generated texts.
+            prompts (List[str]): The list of prompts corresponding to the generated texts.
+            output_path (str): The directory path to save the results.
+        """
         data_to_save = [
             {"prompt": prompt, "completion": completion} for prompt, completion in zip(prompts, completions)
         ]

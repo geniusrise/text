@@ -22,19 +22,58 @@ from base import TextAPI
 
 
 class InstructionAPI(TextAPI):
-    """
-    A class representing a Hugging Face API for generating text using a pre-trained instruction-tuned model.
+    r"""
+    InstructionAPI is designed for generating text based on prompts using instruction-tuned language models.
+    It serves as an interface to Hugging Face's pre-trained instruction-tuned models, providing a flexible API
+    for various text generation tasks. It can be used in scenarios ranging from generating creative content to
+    providing instructions or answers based on the prompts.
 
     Attributes:
-        model (Any): The pre-trained instruction-tuned model.
-        tokenizer (Any): The tokenizer used to preprocess input text.
+        model (Any): The loaded instruction-tuned language model.
+        tokenizer (Any): The tokenizer for processing text suitable for the model.
 
     Methods:
-        text(**kwargs: Any) -> Dict[str, Any]:
+        complete(**kwargs: Any) -> Dict[str, Any]:
             Generates text based on the given prompt and decoding strategy.
 
-        listen(model_name: str, model_class: str = "AutoModelForCausalLM", tokenizer_class: str = "AutoTokenizer", use_cuda: bool = False, precision: str = "float16", quantization: int = 0, device_map: str | Dict | None = "auto", max_memory={0: "24GB"}, torchscript: bool = True, endpoint: str = "*", port: int = 3000, cors_domain: str = "http://localhost:3000", username: Optional[str] = None, password: Optional[str] = None, **model_args: Any) -> None:
-            Starts a CherryPy server to listen for requests to generate text.
+        listen(**model_args: Any) -> None:
+            Starts a server to listen for text generation requests.
+
+    CLI Usage Example:
+    ```bash
+    genius InstructionAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        listen \
+            --args \
+                model_name="TheBloke/Mistral-7B-OpenOrca-AWQ" \
+                model_class="AutoModelForCausalLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False \
+                awq_enabled=True \
+                flash_attention=True \
+                endpoint="*" \
+                port=3001 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     model: Any
@@ -48,12 +87,14 @@ class InstructionAPI(TextAPI):
         **kwargs: Any,
     ):
         """
-        Initializes a new instance of the TextAPI class.
+        Initializes a new instance of the InstructionAPI class, setting up the necessary configurations
+        for input, output, and state.
 
         Args:
-            input (BatchInput): The input data to process.
-            output (BatchOutput): The output data to process.
+            input (BatchInput): Configuration for the input data.
+            output (BatchOutput): Configuration for the output data.
             state (State): The state of the API.
+            **kwargs (Any): Additional keyword arguments for extended functionality.
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
@@ -64,13 +105,29 @@ class InstructionAPI(TextAPI):
     @cherrypy.tools.allow(methods=["POST"])
     def complete(self, **kwargs: Any) -> Dict[str, Any]:
         """
-        Completes text based on the given prompt and decoding strategy.
+        Handles POST requests to generate text based on the given prompt and decoding strategy. It uses the pre-trained
+        model specified in the setup to generate a completion for the input prompt.
 
         Args:
-            **kwargs (Any): Additional arguments to pass to the pre-trained instruction-tuned model.
+            **kwargs (Any): Arbitrary keyword arguments containing the 'prompt' and other parameters for text generation.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the prompt, arguments, and generated text.
+            Dict[str, Any]: A dictionary containing the original prompt and the generated completion.
+
+        Example CURL Requests:
+        ```bash
+        /usr/bin/curl -X POST localhost:3001/api/v1/complete \
+            -H "Content-Type: application/json" \
+            -d '{
+                "prompt": "<|system|>\n<|end|>\n<|user|>\nHow do I sort a list in Python?<|end|>\n<|assistant|>",
+                "decoding_strategy": "generate",
+                "max_new_tokens": 100,
+                "do_sample": true,
+                "temperature": 0.7,
+                "top_k": 50,
+                "top_p": 0.95
+            }' | jq
+        ```
         """
         data = cherrypy.request.json
         prompt = data.get("prompt")
