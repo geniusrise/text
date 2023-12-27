@@ -32,21 +32,66 @@ from geniusrise_text.base import TextBulk
 
 
 class NLIBulk(TextBulk):
-    """
-    A class for bulk Natural Language Inference (NLI) using Hugging Face models.
+    r"""
+    The NLIBulk class provides functionality for large-scale natural language inference (NLI) processing using Hugging Face
+    transformers. It allows users to load datasets, configure models, and perform inference on batches of premise-hypothesis pairs.
+
+    Attributes:
+        input (BatchInput): Configuration and data inputs for the batch process.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the inference task.
+
+    Example CLI Usage:
+    ```bash
+    genius NLIBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/nli \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/nli \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7-lol \
+        infer \
+            --args \
+                model_name="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7" \
+                model_class="AutoModelForSequenceClassification" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the NLIBulk class with the specified input, output, and state configurations.
+
+        Args:
+            input (BatchInput): The input data.
+            output (BatchOutput): The output data.
+            state (State): The state data.
+            **kwargs: Additional keyword arguments.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-        """
-        Load an NLI dataset from a directory.
+        r"""
+        Load a commonsense reasoning dataset from a directory.
 
         Args:
-            dataset_path (str): The path to the dataset directory.
-            max_length (int, optional): The maximum length for tokenization. Defaults to 512.
-            **kwargs: Additional keyword arguments to pass to the underlying dataset loading functions.
+            dataset_path (str): The path to the dataset directory or file.
+            max_length (int, optional): Maximum length of text sequences for tokenization purposes. Defaults to 512.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dataset: The loaded dataset.
@@ -54,42 +99,61 @@ class NLIBulk(TextBulk):
         Raises:
             Exception: If there was an error loading the dataset.
 
-        Supported Data Formats and Structures:
-        ---------------------------------------
+        ## Supported Data Formats and Structures:
 
-        The following data formats and structures are supported:
+        ### Hugging Face Dataset
+        Dataset files saved by the Hugging Face datasets library.
 
-        - JSONL: Each line is a JSON object representing an example.
-            {"premise": "The premise text", "hypothesis": "The hypothesis text"}
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"premise": "The premise text", "hypothesis": "The hypothesis text"}
+        ```
 
-        - CSV: Should contain 'premise' and 'hypothesis' columns.
-            premise,hypothesis
-            "The premise text","The hypothesis text"
+        ### CSV
+        Should contain 'premise' and 'hypothesis' columns.
+        ```csv
+        premise,hypothesis
+        "The premise text","The hypothesis text"
+        ```
 
-        - Parquet: Should contain 'premise' and 'hypothesis' columns.
+        ### Parquet
+        Should contain 'premise' and 'hypothesis' columns.
 
-        - JSON: An array of dictionaries with 'premise' and 'hypothesis' keys.
-            [{"premise": "The premise text", "hypothesis": "The hypothesis text"}]
+        ### JSON
+        An array of dictionaries with 'premise' and 'hypothesis' keys.
+        ```json
+        [{"premise": "The premise text", "hypothesis": "The hypothesis text"}]
+        ```
 
-        - XML: Each 'record' element should contain a 'premise' and 'hypothesis' child elements.
-            <record>
-                <premise>The premise text</premise>
-                <hypothesis>The hypothesis text</hypothesis>
-            </record>
+        ### XML
+        Each 'record' element should contain 'premise' and 'hypothesis' child elements.
+        ```xml
+        <record>
+            <premise>The premise text</premise>
+            <hypothesis>The hypothesis text</hypothesis>
+        </record>
+        ```
 
-        - YAML: Each document should be a dictionary with 'premise' and 'hypothesis' keys.
-            - premise: "The premise text"
-              hypothesis: "The hypothesis text"
+        ### YAML
+        Each document should be a dictionary with 'premise' and 'hypothesis' keys.
+        ```yaml
+        - premise: "The premise text"
+          hypothesis: "The hypothesis text"
+        ```
 
-        - TSV: Should contain 'premise' and 'hypothesis' columns separated by tabs.
+        ### TSV
+        Should contain 'premise' and 'hypothesis' columns separated by tabs.
 
-        - Excel (.xls, .xlsx): Should contain 'premise' and 'hypothesis' columns.
+        ### Excel (.xls, .xlsx)
+        Should contain 'premise' and 'hypothesis' columns.
 
-        - SQLite (.db): Should contain a table with 'premise' and 'hypothesis' columns.
+        ### SQLite (.db)
+        Should contain a table with 'premise' and 'hypothesis' columns.
 
-        - Feather: Should contain 'premise' and 'hypothesis' columns.
+        ### Feather
+        Should contain 'premise' and 'hypothesis' columns.
         """
-
         self.max_length = max_length
 
         self.log.info(f"Loading dataset from {dataset_path}")
@@ -174,11 +238,25 @@ class NLIBulk(TextBulk):
         **kwargs: Any,
     ) -> None:
         """
-        Perform NLI inference on the loaded dataset.
+        Performs NLI inference on a loaded dataset using the specified model. The method processes the data in batches and saves
+        the results to the configured output path.
 
         Args:
-            batch_size (int, optional): The batch size for inference. Defaults to 32.
-            **kwargs: Additional keyword arguments.
+            model_name (str): Name or path of the NLI model.
+            max_length (int, optional): Maximum length of the sequences for tokenization purposes. Defaults to 512.
+            model_class (str, optional): Class name of the model (e.g., "AutoModelForSequenceClassification"). Defaults to "AutoModelForSeq2SeqLM".
+            tokenizer_class (str, optional): Class name of the tokenizer (e.g., "AutoTokenizer"). Defaults to "AutoTokenizer".
+            use_cuda (bool, optional): Whether to use CUDA for model inference. Defaults to False.
+            precision (str, optional): Precision for model computation (e.g., "float16"). Defaults to "float16".
+            quantization (int, optional): Level of quantization for optimizing model size and speed. Defaults to 0.
+            device_map (str | Dict | None, optional): Specific device to use for computation. Defaults to "auto".
+            max_memory (Dict, optional): Maximum memory configuration for devices. Defaults to {0: "24GB"}.
+            torchscript (bool, optional): Whether to use TorchScript for optimization. Defaults to True.
+            awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
+            flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
+            batch_size (int, optional): Number of premise-hypothesis pairs to process simultaneously. Defaults to 32.
+            **kwargs: Arbitrary keyword arguments for model and generation configurations.
+        ```
         """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
