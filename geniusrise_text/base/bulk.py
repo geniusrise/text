@@ -30,41 +30,31 @@ from transformers import (
 
 class TextBulk(Bolt):
     """
-    A class that provides bulk text generation functionality using Hugging Face models.
+    TextBulk is a foundational class for enabling bulk processing of text with various generation models.
+    It primarily focuses on using Hugging Face models to provide a robust and efficient framework for
+    large-scale text generation tasks. The class supports various decoding strategies to generate text
+    that can be tailored to specific needs or preferences.
 
     Attributes:
-        model (Any): The Hugging Face model to use for text generation.
-        tokenizer (Any): The Hugging Face tokenizer to use for text generation.
+        model (AutoModelForCausalLM): The language model for text generation.
+        tokenizer (AutoTokenizer): The tokenizer for preparing input data for the model.
 
     Args:
-        input (BatchInput): The input data to process.
-        output (BatchOutput): The output data to return.
-        state (State): The state of the Bolt.
+        input (BatchInput): Configuration and data inputs for the batch process.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the Bolt.
+        **kwargs: Arbitrary keyword arguments for extended configurations.
 
     Methods:
         text(**kwargs: Any) -> Dict[str, Any]:
-            Exposes the text generation functionality as a REST API endpoint.
-            Accepts a JSON payload with the following keys:
-                - prompt (str): The prompt to generate text from.
-                - decoding_strategy (str): The decoding strategy to use for text generation.
-                - max_new_tokens (int): The maximum number of new tokens to generate.
-                - max_length (int): The maximum length of the generated text.
-                - temperature (float): The temperature to use for sampling-based decoding strategies.
-                - diversity_penalty (float): The diversity penalty to use for beam search-based decoding strategies.
-                - num_beams (int): The number of beams to use for beam search-based decoding strategies.
-                - length_penalty (float): The length penalty to use for beam search-based decoding strategies.
-                - early_stopping (bool): Whether to stop decoding early for beam search-based decoding strategies.
-                - Any other key-value pairs will be passed as generation parameters to the Hugging Face model.
-            Returns a JSON payload with the following keys:
-                - prompt (str): The prompt used for text generation.
-                - args (Dict[str, Any]): The generation parameters used for text generation.
-                - completion (str): The generated text.
+            Provides an API endpoint for text generation functionality.
+            Accepts various parameters for customizing the text generation process.
 
         generate(prompt: str, decoding_strategy: str = "generate", **generation_params: Any) -> dict:
-            Generates text using the specified decoding strategy and generation parameters.
-            Returns a dictionary with the following keys:
-                - prompt (str): The prompt used for text generation.
-                - completion (str): The generated text.
+            Generates text based on the provided prompt and parameters. Supports multiple decoding strategies for diverse applications.
+
+    The class serves as a versatile tool for text generation, supporting various models and configurations.
+    It can be extended or used as is for efficient text generation tasks.
     """
 
     model: Any
@@ -77,6 +67,15 @@ class TextBulk(Bolt):
         state: State,
         **kwargs,
     ):
+        """
+        Initializes the TextBulk with configurations and sets up logging. It prepares the environment for text generation tasks.
+
+        Args:
+            input (BatchInput): The input data configuration for the text generation task.
+            output (BatchOutput): The output data configuration for the results of the text generation.
+            state (State): The state configuration for the Bolt, managing its operational status.
+            **kwargs: Additional keyword arguments for extended functionality and model configurations.
+        """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
 
@@ -86,7 +85,7 @@ class TextBulk(Bolt):
         decoding_strategy: str = "generate",
         **generation_params: Any,
     ) -> str:
-        """
+        r"""
         Generate text completion for the given prompt using the specified decoding strategy.
 
         Args:
@@ -120,16 +119,51 @@ class TextBulk(Bolt):
             - "group_beam_search": {"num_beams": int, "diversity_penalty": float, "max_length": int}
             - "constrained_beam_search": {"num_beams": int, "max_length": int, "constraints": None}
 
-        Note:
-            - The `max_length` parameter specifies the maximum length of the generated text.
-            - The `eos_token_id` parameter specifies the end-of-sequence token ID.
-            - The `pad_token_id` parameter specifies the padding token ID.
-            - The `do_sample` parameter specifies whether to use sampling during decoding.
-            - The `temperature` parameter controls the randomness of the sampling.
-            - The `top_p` parameter controls the diversity of the sampling.
-            - The `num_beams` parameter specifies the number of beams to use during beam search.
-            - The `diversity_penalty` parameter controls the diversity of the generated text during group beam search.
-            - The `constraints` parameter specifies any constraints to apply during decoding.
+        All generation parameters:
+            - max_length: Maximum length the generated tokens can have
+            - max_new_tokens: Maximum number of tokens to generate, ignoring prompt tokens
+            - min_length: Minimum length of the sequence to be generated
+            - min_new_tokens: Minimum number of tokens to generate, ignoring prompt tokens
+            - early_stopping: Stopping condition for beam-based methods
+            - max_time: Maximum time allowed for computation in seconds
+            - do_sample: Whether to use sampling for generation
+            - num_beams: Number of beams for beam search
+            - num_beam_groups: Number of groups for beam search to ensure diversity
+            - penalty_alpha: Balances model confidence and degeneration penalty in contrastive search
+            - use_cache: Whether the model should use past key/values attentions to speed up decoding
+            - temperature: Modulates next token probabilities
+            - top_k: Number of highest probability tokens to keep for top-k-filtering
+            - top_p: Smallest set of most probable tokens with cumulative probability >= top_p
+            - typical_p: Conditional probability of predicting a target token next
+            - epsilon_cutoff: Tokens with a conditional probability > epsilon_cutoff will be sampled
+            - eta_cutoff: Eta sampling, a hybrid of locally typical sampling and epsilon sampling
+            - diversity_penalty: Penalty subtracted from a beam's score if it generates a token same as any other group
+            - repetition_penalty: Penalty for repetition of ngrams
+            - encoder_repetition_penalty: Penalty on sequences not in the original input
+            - length_penalty: Exponential penalty to the length for beam-based generation
+            - no_repeat_ngram_size: All ngrams of this size can only occur once
+            - bad_words_ids: List of token ids that are not allowed to be generated
+            - force_words_ids: List of token ids that must be generated
+            - renormalize_logits: Renormalize the logits after applying all logits processors
+            - constraints: Custom constraints for generation
+            - forced_bos_token_id: Token ID to force as the first generated token
+            - forced_eos_token_id: Token ID to force as the last generated token
+            - remove_invalid_values: Remove possible NaN and inf outputs
+            - exponential_decay_length_penalty: Exponentially increasing length penalty after a certain number of tokens
+            - suppress_tokens: Tokens that will be suppressed during generation
+            - begin_suppress_tokens: Tokens that will be suppressed at the beginning of generation
+            - forced_decoder_ids: Mapping from generation indices to token indices that will be forced
+            - sequence_bias: Maps a sequence of tokens to its bias term
+            - guidance_scale: Guidance scale for classifier free guidance (CFG)
+            - low_memory: Switch to sequential topk for contrastive search to reduce peak memory
+            - num_return_sequences: Number of independently computed returned sequences for each batch element
+            - output_attentions: Whether to return the attentions tensors of all layers
+            - output_hidden_states: Whether to return the hidden states of all layers
+            - output_scores: Whether to return the prediction scores
+            - return_dict_in_generate: Whether to return a ModelOutput instead of a plain tuple
+            - pad_token_id: The id of the padding token
+            - bos_token_id: The id of the beginning-of-sequence token
+            - eos_token_id: The id of the end-of-sequence token
         """
         results: Dict[int, Dict[str, Union[str, List[str]]]] = {}
         eos_token_id = self.model.config.eos_token_id
@@ -275,32 +309,27 @@ class TextBulk(Bolt):
         **model_args: Any,
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
-        Loads a Hugging Face model and tokenizer optimized for inference.
+        Loads and configures the specified model and tokenizer for text generation. It ensures the models are optimized for inference.
 
         Args:
-        - model_name (str): The name of the model to load.
-        - tokenizer_name (str): The name of the tokenizer to load.
-        - model_revision (Optional[str]): The revision of the model to load. Default is None.
-        - tokenizer_revision (Optional[str]): The revision of the tokenizer to load. Default is None.
-        - model_class (str): The class name of the model to load. Default is "AutoModelForCausalLM".
-        - tokenizer_class (str): The class name of the tokenizer to load. Default is "AutoTokenizer".
-        - use_cuda (bool): Whether to use CUDA for GPU acceleration. Default is False.
-        - precision (str): The bit precision for model and tokenizer. Options are 'float32', 'float16', 'bfloat16'. Default is 'float16'.
-        - quantization (int): The number of bits to use for quantization. Default is 0.
-        - device_map (Union[str, Dict, None]): Device map for model placement. Default is "auto".
-        - max_memory (Dict): Maximum GPU memory to be allocated. Default is {0: "24GB"}.
-        - torchscript (bool): Whether to use TorchScript for model optimization. Default is True.
-        - awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
-        - flash_attention (bool): Whether to use flash attention 2. Default is False.
-        - model_args (Any): Additional keyword arguments for the model.
+            model_name (str): The name or path of the model to load.
+            tokenizer_name (str): The name or path of the tokenizer to load.
+            model_revision (Optional[str]): The specific model revision to load (e.g., a commit hash).
+            tokenizer_revision (Optional[str]): The specific tokenizer revision to load (e.g., a commit hash).
+            model_class (str): The class of the model to be loaded.
+            tokenizer_class (str): The class of the tokenizer to be loaded.
+            use_cuda (bool): Flag to utilize CUDA for GPU acceleration.
+            precision (str): The desired precision for computations ("float32", "float16", etc.).
+            quantization (int): The bit level for model quantization (0 for none, 8 for 8-bit quantization).
+            device_map (str | Dict | None): The specific device(s) to use for model operations.
+            max_memory (Dict): A dictionary defining the maximum memory to allocate for the model.
+            torchscript (bool): Flag to enable TorchScript for model optimization.
+            awq_enabled (bool): Flag to enable AWQ (Adaptive Weight Quantization).
+            flash_attention (bool): Flag to enable Flash Attention optimization for faster processing.
+            **model_args (Any): Additional arguments to pass to the model during its loading.
 
         Returns:
-        Tuple[AutoModelForCausalLM, AutoTokenizer]: The loaded model and tokenizer.
-
-        Usage:
-        ```python
-        model, tokenizer = load_models("gpt-2", "gpt-2", use_cuda=True, precision='float32', quantization=8)
-        ```
+            Tuple[AutoModelForCausalLM, AutoTokenizer]: The loaded model and tokenizer ready for text generation.
         """
         self.log.info(f"Loading Hugging Face model: {model_name}")
 
