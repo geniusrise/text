@@ -62,7 +62,11 @@ class QAFineTuner(TextFineTuner):
                 --postgres_table state \
             --id microsoft/tapex-large-finetuned-wtq-lol \
             fine_tune \
-                --args model_name=my_model tokenizer_name=my_tokenizer num_train_epochs=3 per_device_train_batch_size=8
+                --args \
+                    model_name=my_model \
+                    tokenizer_name=my_tokenizer \
+                    num_train_epochs=3 \
+                    per_device_train_batch_size=8
     ```
     """
 
