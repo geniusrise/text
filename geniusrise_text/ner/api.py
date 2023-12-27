@@ -22,16 +22,49 @@ from geniusrise.logging import setup_logger
 
 
 class NamedEntityRecognitionAPI(TextAPI):
-    """
-    A class for serving a Hugging Face-based Named Entity Recognition (NER) model.
+    r"""
+    NamedEntityRecognitionAPI serves a Named Entity Recognition (NER) model using the Hugging Face transformers library.
+    It is designed to recognize and classify named entities in text into predefined categories such as the names of persons,
+    organizations, locations, expressions of times, quantities, monetary values, percentages, etc.
 
     Attributes:
-        model (Any): The loaded NER model.
-        tokenizer (Any): The tokenizer for preprocessing text.
+        model (Any): The loaded NER model, typically a Hugging Face transformer model specialized for token classification.
+        tokenizer (Any): The tokenizer for preprocessing text compatible with the loaded model.
 
-    Methods:
-        recognize_entities(self, **kwargs: Any) -> Dict[str, Any]:
-            Recognizes named entities in the input text based on the given parameters.
+    Example CLI Usage:
+    ```bash
+    genius NamedEntityRecognitionAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id dslim/bert-large-NER-lol \
+        listen \
+            --args \
+                model_name="dslim/bert-large-NER" \
+                model_class="AutoModelForTokenClassification" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="0.0.0.0" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     def __init__(
@@ -58,14 +91,28 @@ class NamedEntityRecognitionAPI(TextAPI):
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
     def recognize_entities(self, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Recognizes named entities in the input text based on the given parameters.
+        r"""
+        Endpoint for recognizing named entities in the input text using the loaded NER model.
 
         Args:
-            **kwargs (Any): Additional arguments for entity recognition.
+            **kwargs (Any): Arbitrary keyword arguments, typically containing 'text' for the input text.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the input text and its recognized entities.
+            Dict[str, Any]: A dictionary containing the original input text and a list of recognized entities
+                            with their respective types.
+
+        Example CURL Requests:
+        ```bash
+        curl -X POST localhost:3000/api/v1/recognize_entities \
+            -H "Content-Type: application/json" \
+            -d '{"text": "John Doe works at OpenAI in San Francisco."}' | jq
+        ```
+
+        ```bash
+        curl -X POST localhost:3000/api/v1/recognize_entities \
+            -H "Content-Type: application/json" \
+            -d '{"text": "Alice is going to visit the Eiffel Tower in Paris next summer."}' | jq
+        ```
         """
         data = cherrypy.request.json
         text = data.get("text")

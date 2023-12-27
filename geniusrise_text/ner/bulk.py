@@ -30,26 +30,126 @@ from geniusrise_text.base import TextBulk
 
 
 class NamedEntityRecognitionBulk(TextBulk):
-    """
-    A class for bulk Named Entity Recognition (NER) using Hugging Face models.
+    r"""
+    NamedEntityRecognitionBulk is a class designed for bulk processing of Named Entity Recognition (NER) tasks.
+    It leverages state-of-the-art NER models from Hugging Face's transformers library to identify and classify entities
+    such as person names, locations, organizations, and other types of entities from a large corpus of text.
+
+    This class provides functionalities to load large datasets, configure NER models, and perform entity recognition
+    in bulk, making it suitable for processing large volumes of text data efficiently.
+
+    Attributes:
+        model (Any): The NER model loaded for entity recognition tasks.
+        tokenizer (Any): The tokenizer used for text pre-processing in alignment with the model.
+
+    Example CLI Usage:
+    ```bash
+    genius NamedEntityRecognitionBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/ner \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/ner \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id dslim/bert-large-NER-lol \
+        recognize_entities \
+            --args \
+                model_name="dslim/bert-large-NER" \
+                model_class="AutoModelForTokenClassification" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs: Any) -> None:
+        """
+        Initializes the NamedEntityRecognitionBulk class with specified input, output, and state configurations.
+        Sets up the NER model and tokenizer for bulk entity recognition tasks.
+
+        Args:
+            input (BatchInput): The input data configuration.
+            output (BatchOutput): The output data configuration.
+            state (State): The state management for the API.
+            **kwargs (Any): Additional keyword arguments for extended functionality.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, **kwargs: Any) -> Optional[Dataset]:
-        """
-        Load a NER dataset from a directory.
+        r"""
+        Loads a dataset from the specified directory path. The method supports various data formats and structures,
+        ensuring that the dataset is properly formatted for NER tasks.
 
         Args:
             dataset_path (str): The path to the dataset directory.
-            **kwargs: Additional keyword arguments.
+            **kwargs: Additional keyword arguments to handle specific dataset loading scenarios.
 
         Returns:
-            Dataset: The loaded dataset.
+            Optional[Dataset]: The loaded dataset or None if an error occurs during loading.
 
-        Raises:
-            Exception: If there was an error loading the dataset.
+        ## Supported Data Formats and Structures:
+
+        ### Hugging Face Dataset
+        Dataset files saved by the Hugging Face datasets library.
+
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"tokens": ["token1", "token2", ...]}
+        ```
+
+        ### CSV
+        Should contain 'tokens' columns.
+        ```csv
+        tokens
+        "['token1', 'token2', ...]"
+        ```
+
+        ### Parquet
+        Should contain 'tokens' columns.
+
+        ### JSON
+        An array of dictionaries with 'tokens' keys.
+        ```json
+        [{"tokens": ["token1", "token2", ...]}]
+        ```
+
+        ### XML
+        Each 'record' element should contain 'tokens' child elements.
+        ```xml
+        <record>
+            <tokens>token1 token2 ...</tokens>
+        </record>
+        ```
+
+        ### YAML
+        Each document should be a dictionary with 'tokens' keys.
+        ```yaml
+        - tokens: ["token1", "token2", ...]
+        ```
+
+        ### TSV
+        Should contain 'tokens' columns separated by tabs.
+
+        ### Excel (.xls, .xlsx)
+        Should contain 'tokens' columns.
+
+        ### SQLite (.db)
+        Should contain a table with 'tokens' columns.
+
+        ### Feather
+        Should contain 'tokens' columns.
         """
         self.log.info(f"Loading dataset from {dataset_path}")
         try:
@@ -122,14 +222,27 @@ class NamedEntityRecognitionBulk(TextBulk):
         **kwargs: Any,
     ) -> None:
         """
-        Perform NER inference on the loaded dataset.
+        Performs bulk named entity recognition on the loaded dataset. The method processes the text in batches,
+        applying the NER model to recognize entities.
 
         Args:
-            batch_size (int): The batch size for inference.
-            **kwargs: Additional keyword arguments.
+            model_name (str): The name or path of the NER model.
+            max_length (int): The maximum sequence length for the tokenizer.
+            model_class (str): The class of the model, defaults to "AutoModelForTokenClassification".
+            tokenizer_class (str): The class of the tokenizer, defaults to "AutoTokenizer".
+            use_cuda (bool): Whether to use CUDA for model inference, defaults to False.
+            precision (str): Model computation precision, defaults to "float16".
+            quantization (int): Level of quantization for model size and speed optimization, defaults to 0.
+            device_map (str | Dict | None): Specific device configuration for computation, defaults to "auto".
+            max_memory (Dict): Maximum memory configuration for the devices.
+            torchscript (bool): Whether to use TorchScript for model optimization, defaults to True.
+            awq_enabled (bool): Whether to enable AWQ optimization, defaults to False.
+            flash_attention (bool): Whether to use flash attention optimization, defaults to False.
+            batch_size (int): Number of documents to process simultaneously, defaults to 32.
+            **kwargs: Arbitrary keyword arguments for additional configuration.
 
         Returns:
-            None
+            None: The method processes the dataset and saves the predictions without returning any value.
         """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
@@ -210,16 +323,17 @@ class NamedEntityRecognitionBulk(TextBulk):
         self, inputs: list, predictions: list, input_batch: List[str], output_path: str, batch_idx: int
     ) -> None:
         """
-        Save the NER predictions to disk.
+        Saves the NER predictions to the specified output path.
 
         Args:
-            predictions (torch.Tensor): The NER predictions.
-            input_batch (List[str]): The input batch.
-            output_path (str): The output directory path.
-            batch_idx (int): The batch index.
+            inputs (list): List of input tokens.
+            predictions (list): List of prediction tensors from the NER model.
+            input_batch (List[str]): The input text batch.
+            output_path (str): The path to save the prediction results.
+            batch_idx (int): The index of the current batch, used for naming the output files.
 
         Returns:
-            None
+            None: The method saves the predictions to files and does not return any value.
         """
         # Convert tensor of label ids to list of label strings
         label_predictions = [
