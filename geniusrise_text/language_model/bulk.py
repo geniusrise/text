@@ -31,30 +31,65 @@ from geniusrise_text.base import TextBulk
 
 
 class LanguageModelBulk(TextBulk):
-    """
-    A class for bulk completion using Hugging Face models.
-
-    Args:
-        input (BatchInput): The input data to classify.
-        output (BatchOutput): The output data to store the completion results.
-        state (State): The state object to store intermediate state.
-        **kwargs: Additional keyword arguments to pass to the base class.
+    r"""
+    LanguageModelBulk is designed for large-scale text generation using Hugging Face language models in a bulk processing
+    manner. It's particularly useful for tasks such as bulk content creation, summarization, or any other scenario where
+    large datasets need to be processed with a language model.
 
     Attributes:
-        max_length (int): The maximum length for tokenization.
-        label_to_id (Dict[str, int]): A dictionary mapping label names to label IDs.
+        model (Any): The loaded language model used for text generation.
+        tokenizer (Any): The tokenizer corresponding to the language model, used for processing input text.
 
-    Methods:
-        load_dataset(dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-            Load a completion dataset from a directory.
+    Args:
+        input (BatchInput): Configuration for the input data.
+        output (BatchOutput): Configuration for the output data.
+        state (State): State management for the API.
+        **kwargs (Any): Arbitrary keyword arguments for extended functionality.
 
-        classify(model_name: str, tokenizer_name: str, model_args: Optional[Dict[str, Any]] = None,
-                 tokenizer_args: Optional[Dict[str, Any]] = None, batch_size: int = 32,
-                 num_processes: int = 1, **kwargs) -> None:
-            Classify the input data using the specified Hugging Face model and tokenizer.
+    CLI Usage Example:
+    ```bash
+    genius LanguageModelBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/lm \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/lm \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id mistralai/Mistral-7B-Instruct-v0.1-lol \
+        complete \
+            --args \
+                model_name="mistralai/Mistral-7B-Instruct-v0.1" \
+                model_class="AutoModelForCausalLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="bfloat16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False \
+                decoding_strategy="generate" \
+                generation_max_new_tokens=100 \
+                generation_do_sample=true
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the LanguageModelBulk object with the specified configurations for input, output, and state.
+
+        Args:
+            input (BatchInput): Configuration and data inputs for the bulk process.
+            output (BatchOutput): Configurations for output data handling.
+            state (State): State management for the bulk process.
+            **kwargs (Any): Additional keyword arguments for extended configurations.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
@@ -72,38 +107,58 @@ class LanguageModelBulk(TextBulk):
         Raises:
             Exception: If there was an error loading the dataset.
 
-        Supported Data Formats and Structures:
-        ---------------------------------------
+        ## Supported Data Formats and Structures:
 
-        The following data formats and structures are supported:
+        ### Dataset files saved by Hugging Face datasets library
+        The directory should contain 'dataset_info.json' and other related files.
 
-        - JSONL: Each line is a JSON object representing an example.
-            {"text": "The text content"}
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content"}
+        ```
 
-        - CSV: Should contain 'text' column.
-            text
-            "The text content"
+        ### CSV
+        Should contain 'text' column.
+        ```csv
+        text
+        "The text content"
+        ```
 
-        - Parquet: Should contain 'text' column.
+        ### Parquet
+        Should contain 'text' column.
 
-        - JSON: An array of dictionaries with 'text' key.
-            [{"text": "The text content"}]
+        ### JSON
+        An array of dictionaries with 'text' key.
+        ```json
+        [{"text": "The text content"}]
+        ```
 
-        - XML: Each 'record' element should contain a 'text' child element.
-            <record>
-                <text>The text content</text>
-            </record>
+        ### XML
+        Each 'record' element should contain 'text' child element.
+        ```xml
+        <record>
+            <text>The text content</text>
+        </record>
+        ```
 
-        - YAML: Each document should be a dictionary with 'text' key.
-            - text: "The text content"
+        ### YAML
+        Each document should be a dictionary with 'text' key.
+        ```yaml
+        - text: "The text content"
+        ```
 
-        - TSV: Should contain 'text' column separated by tabs.
+        ### TSV
+        Should contain 'text' column separated by tabs.
 
-        - Excel (.xls, .xlsx): Should contain 'text' column.
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' column.
 
-        - SQLite (.db): Should contain a table with 'text' column.
+        ### SQLite (.db)
+        Should contain a table with 'text' column.
 
-        - Feather: Should contain 'text' column.
+        ### Feather
+        Should contain 'text' column.
         """
 
         self.max_length = max_length
@@ -195,6 +250,25 @@ class LanguageModelBulk(TextBulk):
         decoding_strategy: str = "generate",
         **kwargs: Any,
     ) -> None:
+        """
+        Performs text completion on the loaded dataset using the specified model and tokenizer. The method handles the
+        entire process, including model loading, text generation, and saving the results.
+
+        Args:
+            model_name (str): The name of the language model to use for text completion.
+            model_class (str, optional): The class of the language model. Defaults to "AutoModelForCausalLM".
+            tokenizer_class (str, optional): The class of the tokenizer. Defaults to "AutoTokenizer".
+            use_cuda (bool, optional): Whether to use CUDA for model inference. Defaults to False.
+            precision (str, optional): Precision for model computation. Defaults to "float16".
+            quantization (int, optional): Level of quantization for optimizing model size and speed. Defaults to 0.
+            device_map (str | Dict | None, optional): Specific device to use for computation. Defaults to "auto".
+            max_memory (Dict, optional): Maximum memory configuration for devices. Defaults to {0: "24GB"}.
+            torchscript (bool, optional): Whether to use TorchScript for optimization. Defaults to True.
+            awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
+            flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
+            decoding_strategy (str, optional): Strategy for decoding the completion. Defaults to "generate".
+            **kwargs: Additional keyword arguments for text generation.
+        """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
@@ -268,7 +342,16 @@ class LanguageModelBulk(TextBulk):
         self._save_completions(completions, prompts, output_path)
 
     def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
-        # Prepare data for saving
+        """
+        Saves the generated completions to the specified output path.
+
+        Args:
+            completions (List[str]): The list of generated text completions.
+            prompts (List[str]): The list of prompts corresponding to the completions.
+            output_path (str): The path to save the completion results.
+
+        This method is called internally by the complete method to persist the completion results.
+        """
         data_to_save = [
             {"prompt": prompt, "completion": completion} for prompt, completion in zip(prompts, completions)
         ]
