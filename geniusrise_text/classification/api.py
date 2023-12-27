@@ -24,18 +24,49 @@ log = logging.getLogger(__file__)
 
 
 class TextClassificationAPI(TextAPI):
-    """
-    A class for serving a Hugging Face-based classification model.
-
-    Args:
-        input (BatchInput): The input data.
-        output (BatchOutput): The output data.
-        state (State): The state data.
-        **kwargs: Additional keyword arguments.
+    r"""
+    TextClassificationAPI is a text classification service leveraging Hugging Face's transformers to provide an API
+    for text classification tasks. It supports various models for sequence classification tasks, including sentiment
+    analysis, topic classification, intent recognition, etc.
 
     Attributes:
-        model (AutoModelForSequenceClassification): The loaded Hugging Face model.
-        tokenizer (AutoTokenizer): The loaded Hugging Face tokenizer.
+        model (AutoModelForSequenceClassification): A Hugging Face model for sequence classification tasks.
+        tokenizer (AutoTokenizer): A tokenizer that preprocesses text for the model.
+
+    Example CLI Usage:
+    ```bash
+    genius TextClassificationAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id cardiffnlp/twitter-roberta-base-hate-multiclass-latest-lol \
+        listen \
+            --args \
+                model_name="cardiffnlp/twitter-roberta-base-hate-multiclass-latest" \
+                model_class="AutoModelForSequenceClassification" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float" \
+                quantization=0 \
+                device_map="cuda:0" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     def __init__(
@@ -46,13 +77,13 @@ class TextClassificationAPI(TextAPI):
         **kwargs,
     ) -> None:
         """
-        Initializes the TextClassificationAPI class.
+        Initializes the TextClassificationAPI with the necessary configurations for input, output, and state management.
 
         Args:
-            input (BatchInput): The input data.
-            output (BatchOutput): The output data.
-            state (State): The state data.
-            **kwargs: Additional keyword arguments.
+            input (BatchInput): Configuration for the input data.
+            output (BatchOutput): Configuration for the output data.
+            state (State): State management for the API.
+            **kwargs: Additional keyword arguments for extended functionality.
         """
         super().__init__(input=input, output=output, state=state)
         log.info("Loading Hugging Face API server")
@@ -63,10 +94,20 @@ class TextClassificationAPI(TextAPI):
     @cherrypy.tools.allow(methods=["POST"])
     def classify(self) -> Dict[str, Any]:
         """
-        Classify the input text.
+        Accepts text input and returns classification results. The method uses the model and tokenizer to classify the text
+        and provide the likelihood of each class label.
 
         Returns:
-            Dict[str, str]: The classification result.
+            Dict[str, Any]: A dictionary containing the original input text and the classification scores for each label.
+
+        Example CURL Request for text classification:
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/classify \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "tata sons lost a major contract to its rival mahindra motors"
+            }' | jq
+        ```
         """
         data: Dict[str, str] = cherrypy.request.json
         text = data.get("text", "")

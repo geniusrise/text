@@ -32,30 +32,58 @@ from geniusrise_text.base import TextBulk
 
 
 class TextClassificationBulk(TextBulk):
-    """
-    A class for bulk classification using Hugging Face models.
+    r"""
+    TextClassificationBulk is designed to handle bulk text classification tasks using Hugging Face models efficiently and
+    effectively. It allows for processing large datasets, utilizing state-of-the-art machine learning models to provide
+    accurate classification of text data into predefined labels.
 
     Args:
-        input (BatchInput): The input data to classify.
-        output (BatchOutput): The output data to store the classification results.
-        state (State): The state object to store intermediate state.
-        **kwargs: Additional keyword arguments to pass to the base class.
+        input (BatchInput): Configuration and data inputs for the batch process.
+        output (BatchOutput): Configurations for output data handling.
+        state (State): State management for the classification task.
+        **kwargs: Arbitrary keyword arguments for extended configurations.
 
-    Attributes:
-        max_length (int): The maximum length for tokenization.
-        label_to_id (Dict[str, int]): A dictionary mapping label names to label IDs.
-
-    Methods:
-        load_dataset(dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
-            Load a classification dataset from a directory.
-
-        classify(model_name: str, tokenizer_name: str, model_args: Optional[Dict[str, Any]] = None,
-                 tokenizer_args: Optional[Dict[str, Any]] = None, batch_size: int = 32,
-                 num_processes: int = 1, **kwargs) -> None:
-            Classify the input data using the specified Hugging Face model and tokenizer.
+    Example CLI Usage:
+    ```bash
+    genius TextClassificationBulk rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder input/txtclass \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder output/txtclass \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id cardiffnlp/twitter-roberta-base-hate-multiclass-latest-lol \
+        classify \
+            --args \
+                model_name="cardiffnlp/twitter-roberta-base-hate-multiclass-latest" \
+                model_class="AutoModelForSequenceClassification" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="bfloat16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False
+    ```
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the TextClassificationBulk class with input, output, and state configurations.
+
+        Args:
+            input (BatchInput): Configuration for the input data.
+            output (BatchOutput): Configuration for the output data.
+            state (State): State management for the classification task.
+            **kwargs: Additional keyword arguments for extended functionality.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
@@ -65,7 +93,6 @@ class TextClassificationBulk(TextBulk):
         Args:
             dataset_path (str): The path to the dataset directory.
             max_length (int, optional): The maximum length for tokenization. Defaults to 512.
-            **kwargs: Additional keyword arguments to pass to the underlying dataset loading functions.
 
         Returns:
             Dataset: The loaded dataset.
@@ -73,40 +100,56 @@ class TextClassificationBulk(TextBulk):
         Raises:
             Exception: If there was an error loading the dataset.
 
-        Supported Data Formats and Structures:
-        ---------------------------------------
+        ## Supported Data Formats and Structures:
 
-        The following data formats and structures are supported:
+        ### JSONL
+        Each line is a JSON object representing an example.
+        ```json
+        {"text": "The text content"}
+        ```
 
-        - JSONL: Each line is a JSON object representing an example.
-            {"text": "The text content"}
+        ### CSV
+        Should contain 'text' columns.
+        ```csv
+        text
+        "The text content"
+        ```
 
-        - CSV: Should contain 'text' column.
-            text
-            "The text content"
+        ### Parquet
+        Should contain 'text' columns.
 
-        - Parquet: Should contain 'text' column.
+        ### JSON
+        An array of dictionaries with 'text' keys.
+        ```json
+        [{"text": "The text content"}]
+        ```
 
-        - JSON: An array of dictionaries with 'text' key.
-            [{"text": "The text content"}]
+        ### XML
+        Each 'record' element should contain 'text' child elements.
+        ```xml
+        <record>
+            <text>The text content</text>
+        </record>
+        ```
 
-        - XML: Each 'record' element should contain a 'text' child element.
-            <record>
-                <text>The text content</text>
-            </record>
+        ### YAML
+        Each document should be a dictionary with 'text' keys.
+        ```yaml
+        - text: "The text content"
+        ```
 
-        - YAML: Each document should be a dictionary with 'text' key.
-            - text: "The text content"
+        ### TSV
+        Should contain 'text' columns separated by tabs.
 
-        - TSV: Should contain 'text' column separated by tabs.
+        ### Excel (.xls, .xlsx)
+        Should contain 'text' columns.
 
-        - Excel (.xls, .xlsx): Should contain 'text' column.
+        ### SQLite (.db)
+        Should contain a table with 'text' columns.
 
-        - SQLite (.db): Should contain a table with 'text' column.
-
-        - Feather: Should contain 'text' column.
+        ### Feather
+        Should contain 'text' columns.
         """
-
         self.max_length = max_length
 
         self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else {}  # type: ignore
@@ -196,6 +239,25 @@ class TextClassificationBulk(TextBulk):
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
+        """
+        Perform bulk classification using the specified model and tokenizer. This method handles the entire classification
+        process including loading the model, processing input data, predicting classifications, and saving the results.
+
+        Args:
+            model_name (str): Name or path of the model.
+            model_class (str): Class name of the model (default "AutoModelForSequenceClassification").
+            tokenizer_class (str): Class name of the tokenizer (default "AutoTokenizer").
+            use_cuda (bool): Whether to use CUDA for model inference (default False).
+            precision (str): Precision for model computation (default "float").
+            quantization (int): Level of quantization for optimizing model size and speed (default 0).
+            device_map (str | Dict | None): Specific device to use for computation (default "auto").
+            max_memory (Dict): Maximum memory configuration for devices.
+            torchscript (bool): Whether to use TorchScript for optimization (default True).
+            awq_enabled (bool): Whether to enable AWQ optimization (default False).
+            flash_attention (bool): Whether to use flash attention optimization (default False).
+            batch_size (int): Number of classifications to process simultaneously (default 32).
+            **kwargs: Arbitrary keyword arguments for model and generation configurations.
+        """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
@@ -277,7 +339,16 @@ class TextClassificationBulk(TextBulk):
         output_path: str,
         batch_idx: int,
     ) -> None:
-        # Convert tensor of label ids to list of label strings
+        """
+        Saves the classification predictions to a specified output path. This method is called internally by the classify method
+        to persist the classification results.
+
+        Args:
+            predictions (torch.Tensor): Tensor of label indices predicted by the model.
+            input_batch (List[str]): List of original texts that were classified.
+            output_path (str): Path to save the classification results.
+            batch_idx (int): Index of the current batch (for naming files).
+        """
         id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
         label_predictions = [id_to_label[label_id] for label_id in predictions.tolist()]
 
