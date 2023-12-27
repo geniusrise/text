@@ -22,19 +22,52 @@ from geniusrise_text.base import TextAPI
 
 
 class LanguageModelAPI(TextAPI):
-    """
-    A class representing a Hugging Face API for generating text using a pre-trained language model.
+    r"""
+    LanguageModelAPI is a class for interacting with pre-trained language models to generate text. It allows for
+    customizable text generation via a CherryPy web server, handling requests and generating responses using
+    a specified language model. This class is part of the GeniusRise ecosystem for facilitating NLP tasks.
 
     Attributes:
-        model (Any): The pre-trained language model.
-        tokenizer (Any): The tokenizer used to preprocess input text.
+        model (Any): The loaded language model used for text generation.
+        tokenizer (Any): The tokenizer corresponding to the language model, used for processing input text.
 
     Methods:
-        text(**kwargs: Any) -> Dict[str, Any]:
-            Generates text based on the given prompt and decoding strategy.
+        complete(**kwargs: Any) -> Dict[str, Any]: Generates text based on provided prompts and model parameters.
 
-        listen(model_name: str, model_class: str = "AutoModelForCausalLM", tokenizer_class: str = "AutoTokenizer", use_cuda: bool = False, precision: str = "float16", quantization: int = 0, device_map: str | Dict | None = "auto", max_memory={0: "24GB"}, torchscript: bool = True, endpoint: str = "*", port: int = 3000, cors_domain: str = "http://localhost:3000", username: Optional[str] = None, password: Optional[str] = None, **model_args: Any) -> None:
-            Starts a CherryPy server to listen for requests to generate text.
+    CLI Usage Example:
+    ```bash
+    genius LanguageModelAPI rise \
+        batch \
+            --input_s3_bucket geniusrise-test \
+            --input_s3_folder none \
+        batch \
+            --output_s3_bucket geniusrise-test \
+            --output_s3_folder none \
+        postgres \
+            --postgres_host 127.0.0.1 \
+            --postgres_port 5432 \
+            --postgres_user postgres \
+            --postgres_password postgres \
+            --postgres_database geniusrise\
+            --postgres_table state \
+        --id mistralai/Mistral-7B-v0.1-lol \
+        listen \
+            --args \
+                model_name="mistralai/Mistral-7B-v0.1" \
+                model_class="AutoModelForCausalLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="float16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     model: Any
@@ -48,12 +81,14 @@ class LanguageModelAPI(TextAPI):
         **kwargs: Any,
     ):
         """
-        Initializes a new instance of the TextAPI class.
+        Initializes the LanguageModelAPI with configurations for the input, output, and state management,
+        along with any additional model-specific parameters.
 
         Args:
-            input (BatchInput): The input data to process.
-            output (BatchOutput): The output data to process.
-            state (State): The state of the API.
+            input (BatchInput): The configuration for input data handling.
+            output (BatchOutput): The configuration for output data handling.
+            state (State): The state management for the API.
+            **kwargs (Any): Additional keyword arguments for model configuration and API setup.
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
@@ -63,14 +98,29 @@ class LanguageModelAPI(TextAPI):
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
     def complete(self, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Completes text based on the given prompt and decoding strategy.
+        r"""
+        Handles POST requests to generate text based on a given prompt and model-specific parameters. This method
+        is exposed as a web endpoint through CherryPy and returns a JSON response containing the original prompt,
+        the generated text, and any additional returned information from the model.
 
         Args:
-            **kwargs (Any): Additional arguments to pass to the pre-trained language model.
+            **kwargs (Any): Arbitrary keyword arguments containing the prompt, and any additional parameters
+            for the text generation model.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the prompt, arguments, and generated text.
+            Dict[str, Any]: A dictionary with the original prompt, generated text, and other model-specific information.
+
+        Example CURL Request:
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/complete \
+            -H "Content-Type: application/json" \
+            -d '{
+                "prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nWrite a PRD for Oauth auth using keycloak\n\n### Response:",
+                "decoding_strategy": "generate",
+                "max_new_tokens": 1024,
+                "do_sample": true
+            }' | jq
+        ```
         """
         data = cherrypy.request.json
         prompt = data.get("prompt")
