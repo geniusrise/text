@@ -119,6 +119,7 @@ class NLIAPI(TextAPI):
                 "hypothesis": "the phone has an awesome battery life"
             }' | jq
         ```
+        ```
         """
         data = cherrypy.request.json
         premise = data.get("premise", "")
@@ -175,6 +176,7 @@ class NLIAPI(TextAPI):
                 "candidate_labels": ["entertainment", "politics", "business"]
             }'
         ```
+        ```
         """
         data = cherrypy.request.json
         text = data.get("text", "")
@@ -230,6 +232,7 @@ class NLIAPI(TextAPI):
                 "text1": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
                 "text2": "There is something magical about training neural networks. Their simplicity coupled with their power is astonishing."
             }' | jq
+        ```
         """
         data = cherrypy.request.json
         text1 = data.get("text1", "")
@@ -262,6 +265,7 @@ class NLIAPI(TextAPI):
                 "context": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
                 "statement": "The author is looking for a home loan"
             }' | jq
+        ```
         """
         data = cherrypy.request.json
         context = data.get("context", "")
@@ -297,6 +301,7 @@ class NLIAPI(TextAPI):
                 "question": "[ML-1T-2] is the dimensional formula of",
                 "choices": ["force", "coefficient of friction", "modulus of elasticity", "energy"]
             }' | jq
+        ```
         """
         data = cherrypy.request.json
         question = data.get("question", "")
@@ -328,6 +333,7 @@ class NLIAPI(TextAPI):
                 "text": "Theres something magical about Recurrent Neural Networks (RNNs). I still remember when I trained my first recurrent network for Image Captioning. Within a few dozen minutes of training my first baby model (with rather arbitrarily-chosen hyperparameters) started to generate very nice looking descriptions of images that were on the edge of making sense. Sometimes the ratio of how simple your model is to the quality of the results you get out of it blows past your expectations, and this was one of those times. What made this result so shocking at the time was that the common wisdom was that RNNs were supposed to be difficult to train (with more experience Ive in fact reached the opposite conclusion). Fast forward about a year: Im training RNNs all the time and Ive witnessed their power and robustness many times, and yet their magical outputs still find ways of amusing me.",
                 "intents": ["teach","sell","note","advertise","promote"]
             }' | jq
+        ```
         """
         data = cherrypy.request.json
         text = data.get("text", "")
