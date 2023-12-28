@@ -15,11 +15,25 @@
 
 from typing import Any, Dict, Optional
 import json
+import threading
 
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from .bulk import TextBulk
+
+# Define a global lock for sequential access control
+sequential_lock = threading.Lock()
+
+
+def sequential_tool():
+    with sequential_lock:
+        # Yield to signal that the request can proceed
+        yield
+
+
+# Register the custom tool
+cherrypy.tools.sequential = cherrypy.Tool("before_handler", sequential_tool)
 
 
 class TextAPI(TextBulk):
