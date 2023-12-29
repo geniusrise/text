@@ -235,6 +235,7 @@ class NLIBulk(TextBulk):
         awq_enabled: bool = False,
         flash_attention: bool = False,
         batch_size: int = 32,
+        notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -283,6 +284,7 @@ class NLIBulk(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
+        self.notification_email = notification_email
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -357,4 +359,5 @@ class NLIBulk(TextBulk):
                 }
                 f.write(json.dumps(result) + "\n")
 
+        self.done()
         self.log.info("Inference completed.")
