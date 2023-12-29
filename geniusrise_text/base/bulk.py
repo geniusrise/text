@@ -26,6 +26,7 @@ from transformers import (
     LogitsProcessorList,
     MinLengthLogitsProcessor,
 )
+from geniusrise_text.base.communication import send_email
 
 
 class TextBulk(Bolt):
@@ -440,3 +441,8 @@ class TextBulk(Bolt):
 
         self.log.debug("Hugging Face model and tokenizer loaded successfully.")
         return model, tokenizer
+
+    def done(self):
+        if self.notification_email:
+            self.output.flush()
+            send_email(recipient=self.notification_email, bucket_name=self.output.bucket, prefix=self.output.s3_folder)
