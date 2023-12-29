@@ -237,6 +237,7 @@ class TextClassificationBulk(TextBulk):
         awq_enabled: bool = False,
         flash_attention: bool = False,
         batch_size: int = 32,
+        notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -283,6 +284,7 @@ class TextClassificationBulk(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
+        self.notification_email = notification_email
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -331,6 +333,7 @@ class TextClassificationBulk(TextBulk):
             predictions = torch.argmax(predictions, dim=-1).cpu().numpy()
 
             self._save_predictions(predictions, batch, output_path, i)
+        self.done()
 
     def _save_predictions(
         self,

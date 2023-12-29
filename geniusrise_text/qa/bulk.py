@@ -288,6 +288,7 @@ class QABulk(TextBulk):
         awq_enabled: bool = False,
         flash_attention: bool = False,
         batch_size: int = 32,
+        notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         r"""
@@ -338,6 +339,7 @@ class QABulk(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
+        self.notification_email = notification_email
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -486,6 +488,7 @@ class QABulk(TextBulk):
         output_file = os.path.join(output_path, f"qa_results-{str(uuid.uuid4())}.json")
         with open(output_file, "w") as file:
             json.dump(output_data, file)
+        self.done()
         self.log.info(f"Results saved to {output_file}")
 
     def _convert_aggregation_to_answer(self, aggregation_index: int) -> str:

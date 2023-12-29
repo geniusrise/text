@@ -226,6 +226,7 @@ class SummarizationBulk(TextBulk):
         flash_attention: bool = False,
         batch_size: int = 32,
         max_length: int = 512,
+        notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         r"""
@@ -276,6 +277,7 @@ class SummarizationBulk(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
+        self.notification_email = notification_email
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -327,6 +329,7 @@ class SummarizationBulk(TextBulk):
             decoded_summaries = [self.tokenizer.decode(s, skip_special_tokens=True) for s in summaries]
 
             self._save_summaries(decoded_summaries, batch, output_path, i)
+        self.done()
 
     def _save_summaries(self, summaries: List[str], input_batch: List[str], output_path: str, batch_idx: int) -> None:
         """

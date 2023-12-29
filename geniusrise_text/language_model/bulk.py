@@ -248,6 +248,7 @@ class LanguageModelBulk(TextBulk):
         awq_enabled: bool = False,
         flash_attention: bool = False,
         decoding_strategy: str = "generate",
+        notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -293,6 +294,7 @@ class LanguageModelBulk(TextBulk):
         self.torchscript = torchscript
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
+        self.notification_email = notification_email
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -340,6 +342,7 @@ class LanguageModelBulk(TextBulk):
             prompts.append(prompt)
 
         self._save_completions(completions, prompts, output_path)
+        self.done()
 
     def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
         """
