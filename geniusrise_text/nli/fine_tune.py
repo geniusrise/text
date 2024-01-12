@@ -22,7 +22,7 @@ from typing import Any, Dict, Union
 import pandas as pd
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset, DatasetDict, load_from_disk
+from datasets import Dataset, DatasetDict, load_from_disk, load_dataset
 from pyarrow import feather
 from transformers import DataCollatorWithPadding
 
@@ -141,7 +141,14 @@ class NLIFineTuner(TextFineTuner):
         """
 
         try:
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            if self.use_huggingface_dataset:
+                dataset = load_dataset(self.huggingface_dataset)
+                return dataset.map(
+                    self.prepare_train_features,
+                    batched=True,
+                    remove_columns=dataset.column_names,
+                )
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)
                 return dataset.map(
                     self.prepare_train_features,
