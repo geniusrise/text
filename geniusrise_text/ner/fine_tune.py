@@ -26,7 +26,7 @@ import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import torch
 import yaml  # type: ignore
-from datasets import Dataset, DatasetDict, load_from_disk
+from datasets import Dataset, DatasetDict, load_from_disk, load_dataset
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import DataCollatorForTokenClassification, EvalPrediction
 
@@ -146,7 +146,9 @@ class NamedEntityRecognitionFineTuner(TextFineTuner):
 
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            if self.use_huggingface_dataset:
+                dataset = load_dataset(self.huggingface_dataset)
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []

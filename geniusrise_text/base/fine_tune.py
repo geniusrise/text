@@ -404,6 +404,7 @@ class TextFineTuner(Bolt):
         evaluate: bool = False,
         map_data: Optional[Callable] = None,
         use_huggingface_dataset: bool = False,
+        huggingface_dataset: str = "",
         hf_repo_id: Optional[str] = None,
         hf_commit_message: Optional[str] = None,
         hf_token: Optional[str] = None,
@@ -458,6 +459,7 @@ class TextFineTuner(Bolt):
             self.accelerate_no_split_module_classes = accelerate_no_split_module_classes
             self.evaluate = evaluate
             self.use_huggingface_dataset = use_huggingface_dataset
+            self.huggingface_dataset = huggingface_dataset
             self.hf_repo_id = hf_repo_id
             self.hf_commit_message = hf_commit_message
             self.hf_token = hf_token
