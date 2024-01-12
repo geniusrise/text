@@ -25,7 +25,7 @@ import torch
 import pandas as pd
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk
+from datasets import Dataset, load_from_disk, load_dataset
 from nltk.translate.bleu_score import corpus_bleu
 from pyarrow import feather
 from transformers import EvalPrediction
@@ -146,7 +146,9 @@ class InstructionFineTuner(TextFineTuner):
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            if self.use_huggingface_dataset:
+                return load_dataset(self.huggingface_dataset).map(self.prepare_train_features, batched=True)
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
                 return dataset.map(self.prepare_train_features, batched=True)

@@ -21,7 +21,7 @@ from typing import Optional, Dict, Union
 
 import pandas as pd
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk
+from datasets import Dataset, load_from_disk, load_dataset
 from pyarrow import feather
 from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -170,7 +170,9 @@ class TextClassificationFineTuner(TextFineTuner):
 
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            if self.use_huggingface_dataset:
+                return load_dataset(self.huggingface_dataset).map(tokenize_function, batched=True)
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 return load_from_disk(dataset_path).map(tokenize_function, batched=True)
             else:
