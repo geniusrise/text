@@ -28,6 +28,7 @@ from trl import SFTTrainer
 import torch
 from geniusrise.logging import setup_logger
 from geniusrise_text.base.util import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+from geniusrise_text.base.communication import send_fine_tuning_email
 
 
 class TextFineTuner(Bolt):
@@ -402,6 +403,11 @@ class TextFineTuner(Bolt):
         use_trl: bool = False,
         accelerate_no_split_module_classes: List[str] = [],
         evaluate: bool = False,
+        save_steps: int = 500,
+        save_total_limit: Optional[int] = None,
+        load_best_model_at_end: bool = False,
+        metric_for_best_model: Optional[str] = None,
+        greater_is_better: Optional[bool] = None,
         map_data: Optional[Callable] = None,
         use_huggingface_dataset: bool = False,
         huggingface_dataset: str = "",
@@ -410,6 +416,7 @@ class TextFineTuner(Bolt):
         hf_token: Optional[str] = None,
         hf_private: bool = True,
         hf_create_pr: bool = False,
+        notification_email: str = "",
         **kwargs,
     ):
         """
@@ -430,6 +437,11 @@ class TextFineTuner(Bolt):
             use_trl (bool, optional): Whether to use TRL for training. Defaults to False.
             accelerate_no_split_module_classes (List[str], optional): The module classes to not split during distributed training. Defaults to [].
             evaluate (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            save_steps (int, optional): Number of steps between checkpoints. Defaults to 500.
+            save_total_limit (Optional[int], optional): Maximum number of checkpoints to keep. Older checkpoints are deleted. Defaults to None.
+            load_best_model_at_end (bool, optional): Whether to load the best model (according to evaluation) at the end of training. Defaults to False.
+            metric_for_best_model (Optional[str], optional): The metric to use to compare models. Defaults to None.
+            greater_is_better (Optional[bool], optional): Whether a larger value of the metric indicates a better model. Defaults to None.
             use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
             map_data (Callable, optional): A function to map data before training. Defaults to None.
             hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
@@ -466,6 +478,7 @@ class TextFineTuner(Bolt):
             self.hf_private = hf_private
             self.hf_create_pr = hf_create_pr
             self.map_data = map_data
+            self.notification_email = notification_email
 
             model_kwargs = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
 
@@ -500,6 +513,11 @@ class TextFineTuner(Bolt):
                 num_train_epochs=num_train_epochs,
                 per_device_train_batch_size=per_device_batch_size,
                 per_device_eval_batch_size=per_device_batch_size,
+                save_steps=save_steps,
+                save_total_limit=save_total_limit,
+                load_best_model_at_end=load_best_model_at_end,
+                metric_for_best_model=metric_for_best_model,
+                greater_is_better=greater_is_better,
                 **training_kwargs,
             )
 
@@ -535,7 +553,7 @@ class TextFineTuner(Bolt):
 
             # Train the model
             trainer.train()
-            trainer.save_model()
+            trainer.save_model(self.output.output_folder)
 
             if self.evaluate:
                 eval_result = trainer.evaluate()
@@ -550,3 +568,12 @@ class TextFineTuner(Bolt):
             self.state.set_state(self.id, {"success": False, "exception": str(e)})
             raise
         self.state.set_state(self.id, {"success": True})
+
+        self.done()
+
+    def done(self):
+        if self.notification_email:
+            self.output.flush()
+            send_fine_tuning_email(
+                recipient=self.notification_email, bucket_name=self.output.bucket, prefix=self.output.s3_folder
+            )
