@@ -88,3 +88,52 @@ def send_email(
         print(f"Email sent! Message ID: {response['MessageId']}")
     except Exception as e:
         print(f"An error occurred: {e}")
+
+
+def send_fine_tuning_email(
+    recipient: str, bucket_name: str, prefix: str, from_email: str = "Geniusrise <mailer@geniusrise.ai>"
+) -> None:
+    """
+    Send a nicely formatted email with the list of downloadable links.
+
+    :param recipient: Email address to send the links to
+    :param links: List of presigned URLs
+    :param from_email: The email address sending this email
+    """
+    ses_client = boto3.client("ses")
+
+    links = create_presigned_urls(bucket_name=bucket_name, prefix=prefix)
+
+    # Email body
+    body_html = """
+    <html>
+        <head></head>
+        <body>
+            <h1>🧠 Your Fine-Tuned Model Download Links from Geniusrise</h1>
+            <p>We've prepared the models you requested. Below are the links to download them:</p>
+            <ul>
+    """
+    for link in links:
+        body_html += f"<li><a href='{link}'>⬇️ Download Link</a></li>"
+
+    body_html += """
+            </ul>
+            <p>Please note that these links are <strong>valid for 24 hours only</strong>.</p>
+            <p>Thank you for using <a href='https://geniusrise.com'>Geniusrise</a>!</p>
+        </body>
+    </html>
+    """
+
+    # Sending the email
+    try:
+        response = ses_client.send_email(
+            Source=from_email,
+            Destination={"ToAddresses": [recipient]},
+            Message={
+                "Subject": {"Data": "🧠 Your Fine-Tuned Model Download Links from Geniusrise"},
+                "Body": {"Html": {"Data": body_html}},
+            },
+        )
+        print(f"Email sent! Message ID: {response['MessageId']}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
