@@ -19,6 +19,7 @@ import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from base import TextAPI
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 
 class InstructionAPI(TextAPI):
@@ -98,6 +99,7 @@ class InstructionAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        self.hf_pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -144,3 +146,49 @@ class InstructionAPI(TextAPI):
             "args": data,
             "completion": self.generate(prompt=prompt, decoding_strategy=decoding_strategy, **generation_params),
         }
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the Hugging Face pipeline for chat interaction.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            if self.use_cuda:
+                model.cuda()
+            self.hf_pipeline = pipeline("conversational", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def chat(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Handles chat interaction using the Hugging Face pipeline. This method enables conversational text generation,
+        simulating a chat-like interaction based on user and system prompts.
+
+        Args:
+            **kwargs (Any): Arbitrary keyword arguments containing 'user_prompt' and 'system_prompt'.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the user prompt, system prompt, and chat interaction results.
+
+        Example CURL Request for chat interaction:
+        ```bash
+        /usr/bin/curl -X POST localhost:3001/api/v1/chat \
+            -H "Content-Type: application/json" \
+            -d '{
+                "user_prompt": "What is the capital of France?",
+                "system_prompt": "The capital of France is"
+            }' | jq
+        ```
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        user_prompt = data.get("user_prompt")
+        system_prompt = data.get("system_prompt")
+
+        result = self.hf_pipeline(user_prompt, system_prompt)  # type: ignore
+
+        return {"user_prompt": user_prompt, "system_prompt": system_prompt, "result": result}

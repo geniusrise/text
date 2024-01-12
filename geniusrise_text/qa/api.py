@@ -20,7 +20,7 @@ from geniusrise.logging import setup_logger
 from geniusrise_text.base import TextAPI
 import torch
 import pandas as pd
-from transformers import AutoModelForQuestionAnswering, AutoModelForTableQuestionAnswering, AutoTokenizer
+from transformers import AutoModelForQuestionAnswering, AutoModelForTableQuestionAnswering, AutoTokenizer, pipeline
 
 
 class QAAPI(TextAPI):
@@ -163,6 +163,7 @@ class QAAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        self.hf_pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -370,3 +371,62 @@ class QAAPI(TextAPI):
             "answers": [answer],
             "aggregation": "NONE",
         }
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the QA Hugging Face pipeline.
+        """
+        self.model_type = "traditional"  # Default model type
+
+        if "tapas" in self.model_name.lower():
+            self.model_type = "tapas"
+        elif "tapex" in self.model_name.lower():
+            self.model_type = "tapex"
+
+        if not self.hf_pipeline:
+            if self.model_type == "tapas" or self.model_type == "tapex":
+                model = AutoModelForTableQuestionAnswering.from_pretrained(self.model_name)
+            else:
+                model = AutoModelForQuestionAnswering.from_pretrained(self.model_name)
+
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+            if self.model_type == "tapas" or self.model_type == "tapex":
+                self.hf_pipeline = pipeline("table-question-answering", model=model, tokenizer=tokenizer)
+            else:
+                self.hf_pipeline = pipeline("question-answering", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def answer_pipeline(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Answers questions using the Hugging Face pipeline based on the provided context.
+
+        Args:
+            **kwargs (Any): Arbitrary keyword arguments, typically containing 'question' and 'data'.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the question, context, and the answer.
+
+        Example CURL Request for QA:
+        ```bash
+        curl -X POST localhost:3000/api/v1/answer_pipeline \
+            -H "Content-Type: application/json" \
+            -d '{"question": "Who is the CEO of Tesla?", "data": "Elon Musk is the CEO of Tesla."}'
+        ```
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        question = data.get("question")
+
+        if self.model_type in ["tapas", "tapex"]:
+            table = data.get("data")
+            result = self.hf_pipeline(table=table, query=question)  # type: ignore
+        else:
+            context = data.get("data")
+            result = self.hf_pipeline(question=question, context=context)  # type: ignore
+
+        return {"question": question, "data": data.get("data"), "answer": result}

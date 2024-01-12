@@ -403,6 +403,7 @@ class TextFineTuner(Bolt):
         accelerate_no_split_module_classes: List[str] = [],
         evaluate: bool = False,
         map_data: Optional[Callable] = None,
+        use_huggingface_dataset: bool = False,
         hf_repo_id: Optional[str] = None,
         hf_commit_message: Optional[str] = None,
         hf_token: Optional[str] = None,
@@ -428,6 +429,7 @@ class TextFineTuner(Bolt):
             use_trl (bool, optional): Whether to use TRL for training. Defaults to False.
             accelerate_no_split_module_classes (List[str], optional): The module classes to not split during distributed training. Defaults to [].
             evaluate (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
             map_data (Callable, optional): A function to map data before training. Defaults to None.
             hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
             hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
@@ -455,6 +457,7 @@ class TextFineTuner(Bolt):
             self.use_trl = use_trl
             self.accelerate_no_split_module_classes = accelerate_no_split_module_classes
             self.evaluate = evaluate
+            self.use_huggingface_dataset = use_huggingface_dataset
             self.hf_repo_id = hf_repo_id
             self.hf_commit_message = hf_commit_message
             self.hf_token = hf_token

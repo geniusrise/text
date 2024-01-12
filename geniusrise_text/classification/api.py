@@ -19,19 +19,25 @@ import torch
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextAPI
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 log = logging.getLogger(__file__)
 
 
 class TextClassificationAPI(TextAPI):
     r"""
-    TextClassificationAPI is a text classification service leveraging Hugging Face's transformers to provide an API
-    for text classification tasks. It supports various models for sequence classification tasks, including sentiment
-    analysis, topic classification, intent recognition, etc.
+    TextClassificationAPI leveraging Hugging Face's transformers for text classification tasks.
+    This API provides an interface to classify text into various categories like sentiment, topic, intent, etc.
 
     Attributes:
-        model (AutoModelForSequenceClassification): A Hugging Face model for sequence classification tasks.
-        tokenizer (AutoTokenizer): A tokenizer that preprocesses text for the model.
+        model (AutoModelForSequenceClassification): A Hugging Face model for sequence classification.
+        tokenizer (AutoTokenizer): A tokenizer for preprocessing text.
+        hf_pipeline (Pipeline): A Hugging Face pipeline for text classification.
+
+    Methods:
+        classify(self): Classifies text using the model and tokenizer.
+        classification_pipeline(self): Classifies text using the Hugging Face pipeline.
+        initialize_pipeline(self): Lazy initialization of the classification pipeline.
 
     Example CLI Usage:
     ```bash
@@ -87,6 +93,7 @@ class TextClassificationAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         log.info("Loading Hugging Face API server")
+        self.hf_pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -129,3 +136,46 @@ class TextClassificationAPI(TextAPI):
         label_scores = {id_to_label[label_id]: score for label_id, score in enumerate(scores[0])}
 
         return {"input": text, "label_scores": label_scores}
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the Hugging Face pipeline for classification.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            if self.use_cuda:
+                model.cuda()
+            self.hf_pipeline = pipeline("text-classification", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def classification_pipeline(self) -> Dict[str, Any]:
+        """
+        Accepts text input and returns classification results using the Hugging Face pipeline.
+
+        This method uses the Hugging Face pipeline for efficient and robust text classification. It's suitable for various
+        classification tasks such as sentiment analysis, topic classification, and intent recognition.
+
+        Args:
+            None - Expects input through the POST request's JSON body.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the original input text and the classification results.
+
+        Example CURL Request for text classification:
+        ```bash
+        /usr/bin/curl -X POST localhost:3000/api/v1/classification_pipeline \
+            -H "Content-Type: application/json" \
+            -d '{"text": "The movie was fantastic, with great acting and plot."}' | jq
+        ```
+        """
+        data: Dict[str, str] = cherrypy.request.json
+        text = data.get("text", "")
+
+        self.initialize_pipeline()
+        result = self.hf_pipeline(text)  # type: ignore
+
+        return {"input": text, "result": result}
