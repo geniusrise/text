@@ -19,6 +19,7 @@ from typing import Any, Dict
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextAPI
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
 log = logging.getLogger(__name__)
 
@@ -186,3 +187,57 @@ class TranslationAPI(TextAPI):
             "target_language": src_lang,
             "translated_text": translated_text,
         }
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the translation Hugging Face pipeline.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.hf_pipeline = pipeline("translation", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def translate_pipeline(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Endpoint for translating text using a pre-initialized Hugging Face translation pipeline.
+        This method is designed to handle translation requests more efficiently by utilizing
+        a preloaded model and tokenizer, reducing the overhead of loading these components for each request.
+
+        Args:
+            None - Expects input through the POST request's JSON body.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the original text, source language, target language,
+                            and the translated text.
+
+        Example CURL Request for translation:
+        ```bash
+        curl -X POST localhost:8080/translate_pipeline \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text": "Hello, world!",
+                "source_lang": "en",
+                "target_lang": "fr"
+            }'
+        ```
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        text = data.get("text")
+        src_lang = data.get("source_lang")
+        target_lang = data.get("target_lang", "en")
+        generation_params = {k: v for k, v in data.items() if k not in ["text", "source_lang", "target_lang"]}
+
+        # Set the source and target language for the tokenizer
+        self.tokenizer.src_lang = src_lang
+        if target_lang != "en":
+            generation_params["forced_bos_token_id"] = self.tokenizer.lang_code_to_id[target_lang]
+
+        result = self.hf_pipeline(text, **generation_params)  # type: ignore
+
+        return {"text": text, "source_language": src_lang, "target_language": target_lang, "translated_text": result}

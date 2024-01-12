@@ -20,6 +20,7 @@ import torch
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from geniusrise_text.base import TextAPI
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 
 class NLIAPI(TextAPI):
@@ -94,6 +95,7 @@ class NLIAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        self.hf_pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -370,3 +372,49 @@ class NLIAPI(TextAPI):
             label_scores[hypothesis] = scores[0][entailment_idx]
 
         return label_scores
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the NLI Hugging Face pipeline.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.hf_pipeline = pipeline("zero-shot-classification", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def zero_shot_classification(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Performs zero-shot classification using the Hugging Face pipeline.
+        It allows classification of text without explicitly provided labels.
+
+        Args:
+            **kwargs (Any): Arbitrary keyword arguments, typically containing 'premise' and 'hypothesis'.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the premise, hypothesis, and their classification scores.
+
+        Example CURL Request for zero-shot classification:
+        ```bash
+        curl -X POST localhost:3000/api/v1/zero_shot_classification \
+            -H "Content-Type: application/json" \
+            -d '{
+                "premise": "A new study shows that the Mediterranean diet is good for heart health.",
+                "hypothesis": "The study is related to diet and health."
+            }' | jq
+        ```
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        premise = data.get("premise", "")
+        hypothesis = data.get("hypothesis", "")
+
+        result = self.hf_pipeline(  # type: ignore
+            premise, candidate_labels=["entailment", "contradiction", "neutral"], hypothesis=hypothesis
+        )
+
+        return {"premise": premise, "hypothesis": hypothesis, "label_scores": result["scores"]}
