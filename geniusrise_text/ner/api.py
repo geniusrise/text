@@ -19,6 +19,7 @@ import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise_text.base import TextAPI
 from geniusrise.logging import setup_logger
+from transformers import AutoModelForTokenClassification, AutoTokenizer, pipeline
 
 
 class NamedEntityRecognitionAPI(TextAPI):
@@ -85,6 +86,7 @@ class NamedEntityRecognitionAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        self.hf_pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -136,3 +138,45 @@ class NamedEntityRecognitionAPI(TextAPI):
         ]
 
         return {"input": text, "entities": entities}
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the NER Hugging Face pipeline.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForTokenClassification.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.hf_pipeline = pipeline("ner", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def ner_pipeline(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Recognizes named entities in the input text using the Hugging Face pipeline.
+
+        This method leverages a pre-trained NER model to identify and classify entities in text into categories such as
+        names, organizations, locations, etc. It's suitable for processing various types of text content.
+
+        Args:
+            **kwargs (Any): Arbitrary keyword arguments, typically containing 'text' for the input text.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the original input text and a list of recognized entities.
+
+        Example CURL Request for NER:
+        ```bash
+        curl -X POST localhost:3000/api/v1/ner_pipeline \
+            -H "Content-Type: application/json" \
+            -d '{"text": "John Doe works at OpenAI in San Francisco."}' | jq
+        ```
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        text = data.get("text")
+
+        result = self.hf_pipeline(text)  # type: ignore
+
+        return {"input": text, "entities": result}

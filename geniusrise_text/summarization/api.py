@@ -19,6 +19,8 @@ import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from geniusrise_text.base import TextAPI
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +93,7 @@ class SummarizationAPI(TextAPI):
         """
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        self.pipeline = None
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -156,3 +159,39 @@ class SummarizationAPI(TextAPI):
         summary = self.generate(prompt=text, decoding_strategy=decoding_strategy, **generation_params)
 
         return {"input": text, "summary": summary}
+
+    def initialize_pipeline(self):
+        """
+        Lazy initialization of the summarization Hugging Face pipeline.
+        """
+        if not self.hf_pipeline:
+            model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.hf_pipeline = pipeline("summarization", model=model, tokenizer=tokenizer)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def summarize_pipeline(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Summarizes the input text using the Hugging Face pipeline based on given parameters.
+
+        Args:
+            **kwargs: Keyword arguments containing parameters for summarization.
+
+        Returns:
+            A dictionary containing the input text and its summary.
+
+        Example CURL Request for summarization:
+        `curl -X POST localhost:3000/api/v1/summarize_pipeline -H "Content-Type: application/json" -d '{"text": "Your long text here"}'`
+        """
+        self.initialize_pipeline()  # Initialize the pipeline on first API hit
+
+        data = cherrypy.request.json
+        text = data.get("text")
+        generation_params = {k: v for k, v in data.items() if k != "text"}
+
+        result = self.hf_pipeline(text, **generation_params)  # type: ignore
+
+        return {"input": text, "summary": result}
