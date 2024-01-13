@@ -429,7 +429,8 @@ class TextBulk(Bolt):
         quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
-        torchscript: bool = True,
+        torchscript: bool = False,
+        compile: bool = True,
         awq_enabled: bool = False,
         flash_attention: bool = False,
         **model_args: Any,
@@ -450,6 +451,7 @@ class TextBulk(Bolt):
             device_map (str | Dict | None): The specific device(s) to use for model operations.
             max_memory (Dict): A dictionary defining the maximum memory to allocate for the model.
             torchscript (bool): Flag to enable TorchScript for model optimization.
+            compile (bool): Flag to enable JIT compilation of the model.
             awq_enabled (bool): Flag to enable AWQ (Adaptive Weight Quantization).
             flash_attention (bool): Flag to enable Flash Attention optimization for faster processing.
             **model_args (Any): Additional arguments to pass to the model during its loading.
@@ -516,6 +518,9 @@ class TextBulk(Bolt):
                 device_map=device_map,
                 **model_args,
             )
+
+        if compile and not torchscript:
+            model = torch.compile(model)
 
         # Set to evaluation mode for inference
         model.eval()
