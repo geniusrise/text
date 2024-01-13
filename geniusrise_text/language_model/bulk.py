@@ -244,7 +244,8 @@ class LanguageModelBulk(TextBulk):
         quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
-        torchscript: bool = True,
+        torchscript: bool = False,
+        compile: bool = True,
         awq_enabled: bool = False,
         flash_attention: bool = False,
         decoding_strategy: str = "generate",
@@ -264,7 +265,8 @@ class LanguageModelBulk(TextBulk):
             quantization (int, optional): Level of quantization for optimizing model size and speed. Defaults to 0.
             device_map (str | Dict | None, optional): Specific device to use for computation. Defaults to "auto".
             max_memory (Dict, optional): Maximum memory configuration for devices. Defaults to {0: "24GB"}.
-            torchscript (bool, optional): Whether to use TorchScript for optimization. Defaults to True.
+            torchscript (bool, optional): Whether to use a TorchScript-optimized version of the pre-trained language model. Defaults to False.
+            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
             awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
             flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
             decoding_strategy (str, optional): Strategy for decoding the completion. Defaults to "generate".
@@ -295,6 +297,7 @@ class LanguageModelBulk(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.notification_email = notification_email
+        self.compile = compile
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -317,6 +320,7 @@ class LanguageModelBulk(TextBulk):
             torchscript=self.torchscript,
             awq_enabled=self.awq_enabled,
             flash_attention=self.flash_attention,
+            compile=self.compile,
             **self.model_args,
         )
 

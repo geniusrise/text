@@ -221,7 +221,8 @@ class SummarizationBulk(TextBulk):
         quantization: int = 0,
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
-        torchscript: bool = True,
+        torchscript: bool = False,
+        compile: bool = True,
         awq_enabled: bool = False,
         flash_attention: bool = False,
         batch_size: int = 32,
@@ -229,7 +230,7 @@ class SummarizationBulk(TextBulk):
         notification_email: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
-        r"""
+        """
         Perform bulk summarization using the specified model and tokenizer. This method handles the entire summarization
         process including loading the model, processing input data, generating summarization, and saving the results.
 
@@ -245,7 +246,8 @@ class SummarizationBulk(TextBulk):
             quantization (int): Level of quantization for optimizing model size and speed (default 0).
             device_map (str | Dict | None): Specific device to use for computation (default "auto").
             max_memory (Dict): Maximum memory configuration for devices.
-            torchscript (bool): Whether to use TorchScript for optimization (default True).
+            torchscript (bool, optional): Whether to use a TorchScript-optimized version of the pre-trained language model. Defaults to False.
+            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
             awq_enabled (bool): Whether to enable AWQ optimization (default False).
             flash_attention (bool): Whether to use flash attention optimization (default False).
             batch_size (int): Number of translations to process simultaneously (default 32).
@@ -278,6 +280,7 @@ class SummarizationBulk(TextBulk):
         self.flash_attention = flash_attention
         self.batch_size = batch_size
         self.notification_email = notification_email
+        self.compile = compile
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -300,6 +303,7 @@ class SummarizationBulk(TextBulk):
             torchscript=self.torchscript,
             awq_enabled=self.awq_enabled,
             flash_attention=self.flash_attention,
+            compile=self.compile,
             **self.model_args,
         )
 
