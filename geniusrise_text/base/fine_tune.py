@@ -402,6 +402,7 @@ class TextFineTuner(Bolt):
         use_accelerate: bool = False,
         use_trl: bool = False,
         accelerate_no_split_module_classes: List[str] = [],
+        compile: bool = False,
         evaluate: bool = False,
         save_steps: int = 500,
         save_total_limit: Optional[int] = None,
@@ -437,6 +438,7 @@ class TextFineTuner(Bolt):
             use_trl (bool, optional): Whether to use TRL for training. Defaults to False.
             accelerate_no_split_module_classes (List[str], optional): The module classes to not split during distributed training. Defaults to [].
             evaluate (bool, optional): Whether to evaluate the model after training. Defaults to False.
+            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
             save_steps (int, optional): Number of steps between checkpoints. Defaults to 500.
             save_total_limit (Optional[int], optional): Maximum number of checkpoints to keep. Older checkpoints are deleted. Defaults to None.
             load_best_model_at_end (bool, optional): Whether to load the best model (according to evaluation) at the end of training. Defaults to False.
@@ -525,6 +527,9 @@ class TextFineTuner(Bolt):
             if self.lora_config and not use_trl:
                 self.model.enable_input_require_grads()
                 self.model = get_peft_model(self.model, peft_config=self.lora_config)
+
+            if compile:
+                self.model = torch.compile(self.model)
 
             # Create trainer
             if use_trl:
