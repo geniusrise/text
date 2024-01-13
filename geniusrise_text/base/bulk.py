@@ -100,25 +100,22 @@ class TextBulk(Bolt):
         Raises:
             Exception: If an error occurs during generation.
 
-        Supported decoding strategies:
-            - "generate": Generate text using the model's default generation method.
-            - "greedy_search": Generate text using greedy search decoding strategy.
-            - "contrastive_search": Generate text using contrastive search decoding strategy.
-            - "sample": Generate text using sampling decoding strategy.
-            - "beam_search": Generate text using beam search decoding strategy.
-            - "beam_sample": Generate text using beam search with sampling decoding strategy.
-            - "group_beam_search": Generate text using group beam search decoding strategy.
-            - "constrained_beam_search": Generate text using constrained beam search decoding strategy.
-
-        Additional parameters for each decoding strategy:
-            - "generate": {"max_length": int}
-            - "greedy_search": {"max_length": int, "eos_token_id": int, "pad_token_id": int}
-            - "contrastive_search": {"max_length": int}
-            - "sample": {"do_sample": bool, "temperature": float, "top_p": float, "max_length": int}
-            - "beam_search": {"num_beams": int, "max_length": int}
-            - "beam_sample": {"num_beams": int, "temperature": float, "max_length": int}
-            - "group_beam_search": {"num_beams": int, "diversity_penalty": float, "max_length": int}
-            - "constrained_beam_search": {"num_beams": int, "max_length": int, "constraints": None}
+        Supported decoding strategies and their additional parameters:
+            - "generate": Uses the model's default generation method. (Parameters: max_length, num_beams, etc.)
+            - "greedy_search": Generates text using a greedy search decoding strategy.
+            Parameters: max_length, eos_token_id, pad_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
+            - "contrastive_search": Generates text using contrastive search decoding strategy.
+            Parameters: top_k, penalty_alpha, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus, sequential.
+            - "sample": Generates text using a sampling decoding strategy.
+            Parameters: do_sample, temperature, top_k, top_p, max_length, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
+            - "beam_search": Generates text using beam search decoding strategy.
+            Parameters: num_beams, max_length, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
+            - "beam_sample": Generates text using beam search with sampling decoding strategy.
+            Parameters: num_beams, temperature, max_length, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
+            - "group_beam_search": Generates text using group beam search decoding strategy.
+            Parameters: num_beams, diversity_penalty, max_length, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
+            - "constrained_beam_search": Generates text using constrained beam search decoding strategy.
+            Parameters: num_beams, max_length, constraints, pad_token_id, eos_token_id, output_attentions, output_hidden_states, output_scores, return_dict_in_generate, synced_gpus.
 
         All generation parameters:
             - max_length: Maximum length the generated tokens can have
@@ -165,6 +162,24 @@ class TextBulk(Bolt):
             - pad_token_id: The id of the padding token
             - bos_token_id: The id of the beginning-of-sequence token
             - eos_token_id: The id of the end-of-sequence token
+            - max_length: The maximum length of the sequence to be generated
+            - eos_token_id: End-of-sequence token ID
+            - pad_token_id: Padding token ID
+            - output_attentions: Return attention tensors of all attention layers if True
+            - output_hidden_states: Return hidden states of all layers if True
+            - output_scores: Return prediction scores if True
+            - return_dict_in_generate: Return a ModelOutput instead of a plain tuple if True
+            - synced_gpus: Continue running the while loop until max_length for ZeRO stage 3 if True
+            - top_k: Size of the candidate set for re-ranking in contrastive search
+            - penalty_alpha: Degeneration penalty; active when larger than 0
+            - eos_token_id: End-of-sequence token ID(s)
+            - sequential: Switch to sequential topk hidden state computation to reduce memory if True
+            - do_sample: Use sampling for generation if True
+            - temperature: Temperature for sampling
+            - top_p: Cumulative probability for top-p-filtering
+            - diversity_penalty: Penalty for reducing similarity across different beam groups
+            - constraints: List of constraints to apply during beam search
+            - synced_gpus: Whether to continue running the while loop until max_length (needed for ZeRO stage 3)
         """
         results: Dict[int, Dict[str, Union[str, List[str]]]] = {}
         eos_token_id = self.model.config.eos_token_id
@@ -221,13 +236,89 @@ class TextBulk(Bolt):
                 "bos_token_id": None,  # The id of the beginning-of-sequence token
                 "eos_token_id": None,  # The id of the end-of-sequence token
             },
-            "greedy_search": {"max_length": 4096, "eos_token_id": eos_token_id, "pad_token_id": pad_token_id},
-            "contrastive_search": {"max_length": 4096},
-            "sample": {"do_sample": True, "temperature": 0.6, "top_k": 50, "top_p": 0.9, "max_length": 4096},
-            "beam_search": {"num_beams": 4, "max_length": 4096},
-            "beam_sample": {"num_beams": 4, "temperature": 0.6, "max_length": 4096},
-            "group_beam_search": {"num_beams": 4, "diversity_penalty": 0.5, "max_length": 4096},
-            "constrained_beam_search": {"num_beams": 4, "max_length": 4096, "constraints": None},
+            "greedy_search": {
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+            },
+            "contrastive_search": {
+                "top_k": 1,  # Size of the candidate set for re-ranking in contrastive search
+                "penalty_alpha": 0,  # Degeneration penalty; active when larger than 0
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+                "sequential": False,  # Switch to sequential topk hidden state computation to reduce memory if True
+            },
+            "sample": {
+                "do_sample": True,  # Use sampling for generation if True
+                "temperature": 0.6,  # Temperature for sampling
+                "top_k": 50,  # Number of highest probability tokens to keep for top-k-filtering
+                "top_p": 0.9,  # Cumulative probability for top-p-filtering
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+            },
+            "beam_search": {
+                "num_beams": 4,  # Number of beams for beam search
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+            },
+            "beam_sample": {
+                "num_beams": 4,  # Number of beams for beam search
+                "temperature": 0.6,  # Temperature for sampling
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+            },
+            "group_beam_search": {
+                "num_beams": 4,  # Number of beams for beam search
+                "diversity_penalty": 0.5,  # Penalty for reducing similarity across different beam groups
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Continue running the while loop until max_length for ZeRO stage 3 if True
+            },
+            "constrained_beam_search": {
+                "num_beams": 4,  # Number of beams for beam search
+                "max_length": 4096,  # The maximum length of the sequence to be generated
+                "constraints": None,  # List of constraints to apply during beam search
+                "pad_token_id": pad_token_id,  # Padding token ID
+                "eos_token_id": eos_token_id,  # End-of-sequence token ID(s)
+                "output_attentions": False,  # Return attention tensors of all attention layers if True
+                "output_hidden_states": False,  # Return hidden states of all layers if True
+                "output_scores": False,  # Return prediction scores if True
+                "return_dict_in_generate": False,  # Return a ModelOutput instead of a plain tuple if True
+                "synced_gpus": False,  # Whether to continue running the while loop until max_length (needed for ZeRO stage 3)
+            },
         }
 
         # Merge default params with user-provided params
@@ -439,7 +530,7 @@ class TextBulk(Bolt):
         if not pad_token_id:
             model.config.pad_token_id = eos_token_id
 
-        self.log.debug("Hugging Face model and tokenizer loaded successfully.")
+        self.log.debug("Text model and tokenizer loaded successfully.")
         return model, tokenizer
 
     def done(self):
