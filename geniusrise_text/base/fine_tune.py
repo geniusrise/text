@@ -449,6 +449,7 @@ class TextFineTuner(Bolt):
             hf_token (str, optional): The Hugging Face token. Defaults to None.
             hf_private (bool, optional): Whether to make the repo private. Defaults to True.
             hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
+            notification_email (str, optional): Whether to notify after job is complete. Defaults to None.
             **kwargs: Additional keyword arguments to pass to the model.
 
         Returns:
