@@ -84,12 +84,17 @@ class TextFineTuner(Bolt):
     def preprocess_data(self, **kwargs):
         """Load and preprocess the dataset"""
         try:
-            self.input.copy_from_remote()
-            train_dataset_path = os.path.join(self.input.get(), "train")
-            eval_dataset_path = os.path.join(self.input.get(), "test")
-            self.train_dataset = self.load_dataset(train_dataset_path, **kwargs)
-            if self.evaluate:
+            if self.use_huggingface_dataset:
+                self.train_dataset = self.load_dataset(self.huggingface_dataset, **kwargs)
+                self.eval_dataset = None
+            elif self.evaluate:
+                train_dataset_path = os.path.join(self.input.get(), "train")
+                eval_dataset_path = os.path.join(self.input.get(), "test")
+                self.train_dataset = self.load_dataset(train_dataset_path, **kwargs)
                 self.eval_dataset = self.load_dataset(eval_dataset_path, **kwargs)
+            else:
+                self.train_dataset = self.load_dataset(self.input.get(), **kwargs)
+                self.eval_dataset = None
         except Exception as e:
             self.log.exception(f"Failed to preprocess data: {e}")
             raise e
@@ -445,6 +450,7 @@ class TextFineTuner(Bolt):
             metric_for_best_model (Optional[str], optional): The metric to use to compare models. Defaults to None.
             greater_is_better (Optional[bool], optional): Whether a larger value of the metric indicates a better model. Defaults to None.
             use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
+            huggingface_dataset (str, optional): The huggingface dataset to use.
             map_data (Callable, optional): A function to map data before training. Defaults to None.
             hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
             hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
@@ -537,8 +543,12 @@ class TextFineTuner(Bolt):
                 trainer = SFTTrainer(
                     model=self.model,
                     args=training_args,
-                    train_dataset=self.train_dataset,
-                    eval_dataset=self.eval_dataset if self.evaluate else None,
+                    train_dataset=self.train_dataset["train"] if self.use_huggingface_dataset else self.train_dataset,
+                    eval_dataset=self.train_dataset["train"]
+                    if self.use_huggingface_dataset
+                    else self.eval_dataset
+                    if self.evaluate
+                    else None,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
@@ -549,8 +559,12 @@ class TextFineTuner(Bolt):
                 trainer = Trainer(
                     model=self.model,
                     args=training_args,
-                    train_dataset=self.train_dataset,
-                    eval_dataset=self.eval_dataset if self.evaluate else None,
+                    train_dataset=self.train_dataset["train"] if self.use_huggingface_dataset else self.train_dataset,
+                    eval_dataset=self.train_dataset["train"]
+                    if self.use_huggingface_dataset
+                    else self.eval_dataset
+                    if self.evaluate
+                    else None,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,

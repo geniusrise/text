@@ -25,7 +25,7 @@ from datasets import Dataset, load_from_disk, load_dataset
 from pyarrow import feather
 from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import DataCollatorWithPadding, EvalPrediction
+from transformers import DataCollatorWithPadding, EvalPrediction, AutoModelForSequenceClassification
 import numpy as np
 
 from geniusrise_text.base import TextFineTuner
@@ -141,7 +141,8 @@ class TextClassificationFineTuner(TextFineTuner):
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer, max_length=max_length)
         self.max_length = max_length
 
-        self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else {}  # type: ignore
+        # self.label_to_id = self.model.config.label2id if self.model and self.model.config.label2id else {}  # type: ignore
+        self.label_to_id = {}
 
         def tokenize_function(examples):
             tokenized_data = self.tokenizer(
@@ -151,30 +152,33 @@ class TextClassificationFineTuner(TextFineTuner):
                 max_length=self.max_length,
             )
 
-            labels = list(set(examples["label"]))
+            labels = [str(x) for x in list(set(examples["label"]))]
+            all_labels = [str(l) for l in examples["label"]]
+
             unknown_labels = [
                 label for label in labels if label not in self.label_to_id and label.upper() not in self.label_to_id
             ]
-            if unknown_labels:
-                self.log.warning(f"Unknown labels detected: {unknown_labels}")
-                self.label_to_id = {
-                    **self.label_to_id,
-                    **{f"{x}": len(labels) + i for i, x in enumerate(unknown_labels)},
-                }
+
+            self.label_to_id = {
+                **self.label_to_id,
+                **{f"{x}": i for i, x in enumerate(unknown_labels)},
+            }
 
             tokenized_data["label"] = [
                 self.label_to_id[label] if label in self.label_to_id else self.label_to_id[label.upper()]
-                for label in examples["label"]
+                for label in all_labels
             ]
             return tokenized_data
 
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if self.use_huggingface_dataset:
-                return load_dataset(self.huggingface_dataset).map(tokenize_function, batched=True)
+                data = load_dataset(self.huggingface_dataset)
+                unique_labels = {str(x) for x in list(set(data["train"]["label"]))}
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
-                return load_from_disk(dataset_path).map(tokenize_function, batched=True)
+                data = load_from_disk(dataset_path)
+                unique_labels = {str(x) for x in list(set(data["train"]["label"]))}
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -234,17 +238,22 @@ class TextClassificationFineTuner(TextFineTuner):
                     data = [fn(d) for d in data]
                 else:
                     data = data
+                unique_labels = {str(example["label"]) for example in data}
 
-                # Create label_to_id mapping and save it in model config
-                unique_labels = {example["label"] for example in data}
-                self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
-                if self.model:
-                    if self.model.config.label2id != self.label_to_id:
-                        self.log.warning("New labels detected, ignore if fine-tuning")
-                    self.model.config.label2id = self.label_to_id
-                    self.model.config.id2label = {i: label for label, i in self.label_to_id.items()}
+            # Create label_to_id mapping and save it in model config
+            self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
+            if self.model:
+                config = self.model.config
+                config.label2id = self.label_to_id
+                config.id2label = {i: label for label, i in self.label_to_id.items()}
+                config.num_labels = len(self.label_to_id.keys())
+                self.model = AutoModelForSequenceClassification.from_config(config=config)
 
-                return Dataset.from_pandas(pd.DataFrame(data)).map(tokenize_function, batched=True)
+            self.log.info(self.model.config)
+
+            return (Dataset.from_pandas(pd.DataFrame(data)) if type(data) is list else data).map(
+                tokenize_function, batched=True
+            )
         except Exception as e:
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
