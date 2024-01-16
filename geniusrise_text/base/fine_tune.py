@@ -85,8 +85,14 @@ class TextFineTuner(Bolt):
         """Load and preprocess the dataset"""
         try:
             if self.use_huggingface_dataset:
-                self.train_dataset = self.load_dataset(self.huggingface_dataset, **kwargs)
-                self.eval_dataset = None
+                _dataset = self.load_dataset(self.huggingface_dataset, **kwargs)
+                if self.evaluate:
+                    _dataset = _dataset.train_test_split(test_size=0.2)
+                    self.train_dataset = _dataset["train"]
+                    self.eval_dataset = _dataset["test"]
+                else:
+                    self.train_dataset = _dataset["train"]
+                    self.eval_dataset = None
             elif self.evaluate:
                 train_dataset_path = os.path.join(self.input.get(), "train")
                 eval_dataset_path = os.path.join(self.input.get(), "test")
@@ -423,6 +429,7 @@ class TextFineTuner(Bolt):
         hf_private: bool = True,
         hf_create_pr: bool = False,
         notification_email: str = "",
+        learning_rate: float = 1e-5,
         **kwargs,
     ):
         """
@@ -458,6 +465,7 @@ class TextFineTuner(Bolt):
             hf_private (bool, optional): Whether to make the repo private. Defaults to True.
             hf_create_pr (bool, optional): Whether to create a pull request. Defaults to False.
             notification_email (str, optional): Whether to notify after job is complete. Defaults to None.
+            learning_rate (float, optional): Learning rate for backpropagation.
             **kwargs: Additional keyword arguments to pass to the model.
 
         Returns:
@@ -488,6 +496,7 @@ class TextFineTuner(Bolt):
             self.hf_create_pr = hf_create_pr
             self.map_data = map_data
             self.notification_email = notification_email
+            self.learning_rate = learning_rate
 
             model_kwargs = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
 
@@ -528,6 +537,7 @@ class TextFineTuner(Bolt):
                 metric_for_best_model=metric_for_best_model,
                 greater_is_better=greater_is_better,
                 dataloader_num_workers=4,
+                learning_rate=self.learning_rate,
                 **training_kwargs,
             )
 
@@ -544,12 +554,8 @@ class TextFineTuner(Bolt):
                 trainer = SFTTrainer(
                     model=self.model,
                     args=training_args,
-                    train_dataset=self.train_dataset["train"] if self.use_huggingface_dataset else self.train_dataset,
-                    eval_dataset=self.train_dataset["train"]
-                    if self.use_huggingface_dataset
-                    else self.eval_dataset
-                    if self.evaluate
-                    else None,
+                    train_dataset=self.train_dataset,
+                    eval_dataset=self.eval_dataset,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
@@ -560,12 +566,8 @@ class TextFineTuner(Bolt):
                 trainer = Trainer(
                     model=self.model,
                     args=training_args,
-                    train_dataset=self.train_dataset["train"] if self.use_huggingface_dataset else self.train_dataset,
-                    eval_dataset=self.train_dataset["train"]
-                    if self.use_huggingface_dataset
-                    else self.eval_dataset
-                    if self.evaluate
-                    else None,
+                    train_dataset=self.train_dataset,
+                    eval_dataset=self.eval_dataset,
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
