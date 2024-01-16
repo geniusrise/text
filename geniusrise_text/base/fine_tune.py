@@ -527,6 +527,7 @@ class TextFineTuner(Bolt):
                 load_best_model_at_end=load_best_model_at_end,
                 metric_for_best_model=metric_for_best_model,
                 greater_is_better=greater_is_better,
+                dataloader_num_workers=4,
                 **training_kwargs,
             )
 
