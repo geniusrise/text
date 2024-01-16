@@ -14,12 +14,14 @@
 # limitations under the License.
 
 import logging
-from typing import Dict, Any
-import torch
+from typing import Any, Dict
+
 import cherrypy
+import torch
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_text.base import TextAPI
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+
+from geniusrise_text.base import TextAPI
 
 log = logging.getLogger(__file__)
 

@@ -19,8 +19,9 @@ import cherrypy
 import torch
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from geniusrise_text.base import TextAPI
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+
+from geniusrise_text.base import TextAPI
 
 
 class NLIAPI(TextAPI):

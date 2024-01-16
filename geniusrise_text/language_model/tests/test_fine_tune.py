@@ -25,7 +25,7 @@ import pytest
 import torch
 import yaml  # type: ignore
 from datasets import Dataset
-from geniusrise.core import BatchInput, BatchOutput, InMemoryState, EvalPrediction
+from geniusrise.core import BatchInput, BatchOutput, EvalPrediction, InMemoryState
 from pyarrow import feather
 from pyarrow import parquet as pq
 

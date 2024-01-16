@@ -26,7 +26,7 @@ import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import torch
 import yaml  # type: ignore
-from datasets import Dataset, DatasetDict, load_from_disk, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from transformers import DataCollatorForTokenClassification, EvalPrediction
 

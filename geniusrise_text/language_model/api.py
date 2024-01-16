@@ -18,6 +18,7 @@ from typing import Any, Dict
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
+
 from geniusrise_text.base import TextAPI
 
 
