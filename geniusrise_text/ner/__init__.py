@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .api import NamedEntityRecognitionAPI
 from .bulk import NamedEntityRecognitionBulk
 from .fine_tune import NamedEntityRecognitionFineTuner
-from .api import NamedEntityRecognitionAPI

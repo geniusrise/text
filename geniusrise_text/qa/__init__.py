@@ -14,6 +14,6 @@
 # limitations under the License.
 
 
+from .api import QAAPI
 from .bulk import QABulk
 from .fine_tune import QAFineTuner
-from .api import QAAPI

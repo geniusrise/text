@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import boto3
 from typing import List
+
+import boto3
 
 
 def create_presigned_urls(bucket_name: str, prefix: str) -> List[str]:

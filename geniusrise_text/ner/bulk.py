@@ -13,19 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Optional, Dict
+import glob
 import json
 import os
 import sqlite3
-import xml.etree.ElementTree as ET
-import pandas as pd
 import uuid
+import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
 import yaml  # type: ignore
-from pyarrow import feather
-from pyarrow import parquet as pq
-import glob
 from datasets import Dataset, load_from_disk
 from geniusrise import BatchInput, BatchOutput, State
+from pyarrow import feather
+from pyarrow import parquet as pq
+
 from geniusrise_text.base import TextBulk
 
 

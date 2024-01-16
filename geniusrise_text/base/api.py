@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
 import json
 import threading
+from typing import Any, Dict, Optional
 
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
+
 from .bulk import TextBulk
 
 # Define a global lock for sequential access control

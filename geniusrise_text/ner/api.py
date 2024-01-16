@@ -14,12 +14,14 @@
 # limitations under the License.
 
 from typing import Any, Dict
-import torch
+
 import cherrypy
+import torch
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_text.base import TextAPI
 from geniusrise.logging import setup_logger
 from transformers import AutoModelForTokenClassification, AutoTokenizer, pipeline
+
+from geniusrise_text.base import TextAPI
 
 
 class NamedEntityRecognitionAPI(TextAPI):

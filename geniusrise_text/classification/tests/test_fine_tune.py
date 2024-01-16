@@ -29,7 +29,6 @@ from pyarrow import parquet as pq
 
 from geniusrise_text import TextClassificationFineTuner
 
-
 # Models to test
 MODELS_TO_TEST = {
     # fmt: off

@@ -16,9 +16,9 @@
 from typing import Any, Dict
 
 import cherrypy
+from base import TextAPI
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from base import TextAPI
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 
