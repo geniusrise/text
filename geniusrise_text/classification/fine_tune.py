@@ -152,33 +152,28 @@ class TextClassificationFineTuner(TextFineTuner):
                 max_length=self.max_length,
             )
 
-            labels = [str(x) for x in list(set(examples["label"]))]
-            all_labels = [str(l) for l in examples["label"]]
+            labels = [x for x in list(set(examples["label"]))]
+            all_labels = [l for l in examples["label"]]
 
-            unknown_labels = [
-                label for label in labels if label not in self.label_to_id and label.upper() not in self.label_to_id
-            ]
+            unknown_labels = [label for label in labels if label not in self.label_to_id]
 
             self.label_to_id = {
                 **self.label_to_id,
-                **{f"{x}": i for i, x in enumerate(unknown_labels)},
+                **{x: i for i, x in enumerate(unknown_labels)},
             }
 
-            tokenized_data["label"] = [
-                self.label_to_id[label] if label in self.label_to_id else self.label_to_id[label.upper()]
-                for label in all_labels
-            ]
+            tokenized_data["label"] = [self.label_to_id[label] for label in all_labels]
             return tokenized_data
 
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if self.use_huggingface_dataset:
                 data = load_dataset(self.huggingface_dataset)
-                unique_labels = {str(x) for x in list(set(data["train"]["label"]))}
+                unique_labels = {x for x in list(set(data["train"]["label"]))}
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 data = load_from_disk(dataset_path)
-                unique_labels = {str(x) for x in list(set(data["train"]["label"]))}
+                unique_labels = {x for x in list(set(data["train"]["label"]))}
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -238,7 +233,7 @@ class TextClassificationFineTuner(TextFineTuner):
                     data = [fn(d) for d in data]
                 else:
                     data = data
-                unique_labels = {str(example["label"]) for example in data}
+                unique_labels = {example["label"] for example in data}
 
             # Create label_to_id mapping and save it in model config
             self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
