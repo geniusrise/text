@@ -17,16 +17,16 @@ import json
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
-from typing import Optional, Dict, Union
+from typing import Dict, Optional, Union
 
+import numpy as np
 import pandas as pd
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_dataset
+from datasets import Dataset, load_dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import DataCollatorWithPadding, EvalPrediction, AutoModelForSequenceClassification
-import numpy as np
+from transformers import AutoModelForSequenceClassification, DataCollatorWithPadding, EvalPrediction
 
 from geniusrise_text.base import TextFineTuner
 

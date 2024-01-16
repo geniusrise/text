@@ -13,21 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, Dict
+import glob
 import json
 import os
 import sqlite3
+import uuid
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, Optional
 
 import pandas as pd
 import pyarrow.parquet as pq
+import torch
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
-from pyarrow import feather
-import torch
-import glob
-import uuid
 from geniusrise import BatchInput, BatchOutput, State
+from pyarrow import feather
+
 from geniusrise_text.base import TextBulk
 
 

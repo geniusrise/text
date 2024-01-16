@@ -20,12 +20,13 @@ import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
 from transformers import (
-    AutoTokenizer,
     AutoModelForCausalLM,
+    AutoTokenizer,
     BeamSearchScorer,
     LogitsProcessorList,
     MinLengthLogitsProcessor,
 )
+
 from geniusrise_text.base.communication import send_email
 
 

@@ -18,8 +18,9 @@ from typing import Any, Dict
 
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
-from geniusrise_text.base import TextAPI
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+
+from geniusrise_text.base import TextAPI
 
 log = logging.getLogger(__name__)
 

@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .api import SummarizationAPI
 from .bulk import SummarizationBulk
 from .fine_tune import SummarizationFineTuner
-from .api import SummarizationAPI
