@@ -21,10 +21,9 @@ import pytest
 import torch
 from datasets import load_dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
-from transformers import EvalPrediction, DataCollatorForLanguageModeling
+from transformers import DataCollatorForLanguageModeling, EvalPrediction
 
 from geniusrise_text.base import TextFineTuner
-
 
 # SEQ_CLS = "SEQ_CLS"
 # SEQ_2_SEQ_LM = "SEQ_2_SEQ_LM"

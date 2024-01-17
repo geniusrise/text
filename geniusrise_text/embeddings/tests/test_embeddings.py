@@ -14,16 +14,16 @@
 # limitations under the License.
 
 import pytest
-from transformers import AutoModel, AutoTokenizer
-from geniusrise_text.embeddings.embeddings import (
-    generate_sentence_transformer_embeddings,
-    generate_embeddings,
-    generate_contiguous_embeddings,
-    generate_combination_embeddings,
-    generate_permutation_embeddings,
-)
 from sentence_transformers import SentenceTransformer
+from transformers import AutoModel, AutoTokenizer
 
+from geniusrise_text.embeddings.embeddings import (
+    generate_combination_embeddings,
+    generate_contiguous_embeddings,
+    generate_embeddings,
+    generate_permutation_embeddings,
+    generate_sentence_transformer_embeddings,
+)
 
 # List of models to test
 MODEL_NAMES = [
