@@ -26,7 +26,7 @@ from datasets import Dataset, load_dataset, load_from_disk
 from pyarrow import feather
 from pyarrow import parquet as pq
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import AutoModelForSequenceClassification, DataCollatorWithPadding, EvalPrediction
+from transformers import DataCollatorWithPadding, EvalPrediction
 
 from geniusrise_text.base import TextFineTuner
 
@@ -236,13 +236,28 @@ class TextClassificationFineTuner(TextFineTuner):
                 unique_labels = {example["label"] for example in data}
 
             # Create label_to_id mapping and save it in model config
+            # TODO: ugly shit cause we dont know num labels before we process the data but need tokenizer to process data
             self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
             if self.model:
                 config = self.model.config
                 config.label2id = self.label_to_id
                 config.id2label = {i: label for label, i in self.label_to_id.items()}
                 config.num_labels = len(self.label_to_id.keys())
-                self.model = AutoModelForSequenceClassification.from_config(config=config)
+                self.config = config
+
+                self.load_models(
+                    model_name=self.model_name,
+                    tokenizer_name=self.tokenizer_name,
+                    model_class=self.model_class,
+                    tokenizer_class=self.tokenizer_class,
+                    device_map=self.device_map,
+                    precision=self.precision,
+                    quantization=self.quantization,
+                    lora_config=self.lora_config,
+                    use_accelerate=self.use_accelerate,
+                    accelerate_no_split_module_classes=self.accelerate_no_split_module_classes,
+                    **self.model_kwargs,
+                )
 
             self.log.info(self.model.config)
 

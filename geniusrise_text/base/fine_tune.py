@@ -233,6 +233,7 @@ class TextFineTuner(Bolt):
                         )
                     self.log.info(f"Inferred device map {device_map}")
 
+            # Create the LoRA config for PEFT
             if lora_config:
                 if len(peft_target_modules) > 0:
                     lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
@@ -248,15 +249,16 @@ class TextFineTuner(Bolt):
                     "bias": "none",
                     "task_type": "CAUSAL_LM",
                 }
-                lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
-            self.log.info(f"LoRA config: {lora_config}")
+                self.lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
+            self.log.info(f"LoRA config: {self.lora_config}")
 
             # Load model and tokenizer
             if quantization == 8:
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
-                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
+                    if not self.config:  # type: ignore
+                        self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
@@ -267,7 +269,8 @@ class TextFineTuner(Bolt):
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
-                    self.config = AutoConfig.from_pretrained(self.model_name)
+                    if not self.config:
+                        self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
                         revision=model_revision,
@@ -281,7 +284,8 @@ class TextFineTuner(Bolt):
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
-                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
+                    if not self.config:
+                        self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
@@ -292,7 +296,8 @@ class TextFineTuner(Bolt):
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
-                    self.config = AutoConfig.from_pretrained(self.model_name)
+                    if not self.config:
+                        self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         self.model_name,
                         revision=model_revision,
@@ -306,7 +311,8 @@ class TextFineTuner(Bolt):
                 # Use AutoConfig to automatically load the configuration
                 if self.model_name.lower() == "local":  # type: ignore
                     self.log.info(f"Loading local model {model_class} : {self.input.get()}")
-                    self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
+                    if not self.config:
+                        self.config = AutoConfig.from_pretrained(os.path.join(self.input.get(), "/model"))
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         os.path.join(self.input.get(), "/model"),
                         device_map=device_map,
@@ -316,7 +322,8 @@ class TextFineTuner(Bolt):
                     )
                 else:
                     self.log.info(f"Loading from huggingface hub: {model_class} : {model_name}")
-                    self.config = AutoConfig.from_pretrained(self.model_name)
+                    if not self.config:
+                        self.config = AutoConfig.from_pretrained(self.model_name)
                     self.model = getattr(__import__("transformers"), str(model_class)).from_pretrained(
                         model_name,
                         revision=model_revision,
@@ -359,19 +366,19 @@ class TextFineTuner(Bolt):
         try:
             if self.model:
                 self.model.to("cpu").push_to_hub(
-                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,
-                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,
-                    token=hf_token if hf_token else self.hf_token,
-                    private=hf_private if hf_private else self.hf_private,
-                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,
+                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,  # type: ignore
+                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,  # type: ignore
+                    token=hf_token if hf_token else self.hf_token,  # type: ignore
+                    private=hf_private if hf_private else self.hf_private,  # type: ignore
+                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,  # type: ignore
                 )
             if self.tokenizer:
                 self.tokenizer.push_to_hub(
-                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,
-                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,
-                    token=hf_token if hf_token else self.hf_token,
-                    private=hf_private if hf_private else self.hf_private,
-                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,
+                    repo_id=hf_repo_id if hf_repo_id else self.hf_repo_id,  # type: ignore
+                    commit_message=hf_commit_message if hf_commit_message else self.hf_commit_message,  # type: ignore
+                    token=hf_token if hf_token else self.hf_token,  # type: ignore
+                    private=hf_private if hf_private else self.hf_private,  # type: ignore
+                    create_pr=hf_create_pr if hf_create_pr else self.hf_create_pr,  # type: ignore
                 )
         except Exception as e:
             self.log.exception(f"Failed to upload model to huggingface hub: {e}")
@@ -498,8 +505,10 @@ class TextFineTuner(Bolt):
             self.map_data = map_data
             self.notification_email = notification_email
             self.learning_rate = learning_rate
+            self.config = None
 
             model_kwargs = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
+            self.model_kwargs = model_kwargs
 
             self.load_models(
                 model_name=self.model_name,
@@ -521,11 +530,14 @@ class TextFineTuner(Bolt):
 
             # Load dataset
             dataset_kwargs = {k.replace("data_", ""): v for k, v in kwargs.items() if "data_" in k}
+            self.dataset_kwargs = dataset_kwargs
             self.preprocess_data(**dataset_kwargs)
 
             # Separate training and evaluation arguments
             trainer_kwargs = {k.replace("trainer_", ""): v for k, v in kwargs.items() if "trainer_" in k}
+            self.trainer_kwargs = trainer_kwargs
             training_kwargs = {k.replace("training_", ""): v for k, v in kwargs.items() if "training_" in k}
+            self.training_kwargs = training_kwargs
 
             # Create training arguments
             training_args = TrainingArguments(
@@ -543,6 +555,7 @@ class TextFineTuner(Bolt):
                 **training_kwargs,
             )
 
+            # Add adapters to the model for fine-tuning
             if self.lora_config and not use_trl:
                 self.model.enable_input_require_grads()
                 self.model = get_peft_model(self.model, peft_config=self.lora_config)
@@ -585,7 +598,7 @@ class TextFineTuner(Bolt):
                 self.log.info(f"Evaluation results: {eval_result}")
 
             # Save the model configuration to Hugging Face Hub if hf_repo_id is not None
-            if self.hf_repo_id:
+            if self.hf_repo_id and self.config:
                 self.config.save_pretrained(os.path.join(self.output.output_folder, "model"))
                 self.upload_to_hf_hub()
         except Exception as e:
