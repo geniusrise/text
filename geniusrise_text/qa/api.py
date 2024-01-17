@@ -14,13 +14,15 @@
 # limitations under the License.
 
 from typing import Any, Dict, List
+
 import cherrypy
+import pandas as pd
+import torch
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
-from geniusrise_text.base import TextAPI
-import torch
-import pandas as pd
 from transformers import AutoModelForQuestionAnswering, AutoModelForTableQuestionAnswering, AutoTokenizer, pipeline
+
+from geniusrise_text.base import TextAPI
 
 
 class QAAPI(TextAPI):

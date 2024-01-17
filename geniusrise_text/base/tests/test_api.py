@@ -13,13 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import pytest
 import itertools
+import os
+
+import pytest
 import torch
 
 # import transformers
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
+
 from geniusrise_text.base.api import TextAPI
 
 

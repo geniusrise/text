@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .api import NLIAPI
 from .bulk import NLIBulk
 from .fine_tune import NLIFineTuner
-from .api import NLIAPI
