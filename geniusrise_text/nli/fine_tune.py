@@ -24,7 +24,7 @@ import pyarrow.parquet as pq
 import yaml  # type: ignore
 from datasets import Dataset, DatasetDict, load_from_disk, load_dataset
 from pyarrow import feather
-from transformers import DataCollatorWithPadding
+from transformers import DataCollatorWithPadding, AutoModelForSequenceClassification
 
 from geniusrise_text.base import TextFineTuner
 
@@ -143,18 +143,8 @@ class NLIFineTuner(TextFineTuner):
         try:
             if self.use_huggingface_dataset:
                 dataset = load_dataset(self.huggingface_dataset)
-                return dataset.map(
-                    self.prepare_train_features,
-                    batched=True,
-                    remove_columns=dataset.column_names,
-                )
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 dataset = load_from_disk(dataset_path)
-                return dataset.map(
-                    self.prepare_train_features,
-                    batched=True,
-                    remove_columns=dataset.column_names,
-                )
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -208,11 +198,20 @@ class NLIFineTuner(TextFineTuner):
                     data = data
 
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
-                return dataset.map(
-                    self.prepare_train_features,
-                    batched=True,
-                    remove_columns=dataset.column_names,
-                )
+
+            # Create label_to_id mapping and save it in model config
+            self.label_to_id = {label: i for i, label in enumerate(dataset["train"]["label"])}
+            if self.model:
+                config = self.model.config
+                config.label2id = self.label_to_id
+                config.id2label = {i: label for label, i in self.label_to_id.items()}
+                config.num_labels = len(self.label_to_id.keys())
+                self.model = AutoModelForSequenceClassification.from_config(config=config)
+
+            return dataset.map(
+                self.prepare_train_features,
+                batched=True,
+            )
 
         except Exception as e:
             self.log.exception(f"Error loading dataset: {e}")
@@ -237,7 +236,7 @@ class NLIFineTuner(TextFineTuner):
                 examples["premise"],
                 examples["hypothesis"],
                 truncation=True,
-                padding=False,
+                padding=True,
             )
 
             # Prepare the labels

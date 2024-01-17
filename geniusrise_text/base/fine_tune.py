@@ -516,6 +516,7 @@ class TextFineTuner(Bolt):
 
             if self.tokenizer and not self.tokenizer.pad_token:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.model.config.pad_token_id = self.tokenizer.eos_token_id
 
             # Load dataset
             dataset_kwargs = {k.replace("data_", ""): v for k, v in kwargs.items() if "data_" in k}
