@@ -200,7 +200,7 @@ class NLIFineTuner(TextFineTuner):
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             # Create label_to_id mapping and save it in model config
-            self.label_to_id = {label: i for i, label in enumerate(dataset["train"]["label"])}
+            self.label_to_id = {label: i for i, label in enumerate(set(dataset["train"]["label"]))}
             if self.model:
                 config = self.model.config
                 config.label2id = self.label_to_id
