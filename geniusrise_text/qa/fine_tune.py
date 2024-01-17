@@ -24,7 +24,7 @@ import evaluate
 import numpy as np
 import pandas as pd
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_dataset
+from datasets import Dataset, load_dataset, load_from_disk
 from geniusrise.core import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq

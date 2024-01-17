@@ -20,9 +20,9 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import numpy as np
-import torch
 import pandas as pd
 import pytest
+import torch
 import yaml  # type: ignore
 from datasets import Dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
@@ -31,7 +31,6 @@ from pyarrow import parquet as pq
 from transformers import EvalPrediction
 
 from geniusrise_text.nli.fine_tune import NLIFineTuner
-
 
 lora_config = {
     "r": 16,

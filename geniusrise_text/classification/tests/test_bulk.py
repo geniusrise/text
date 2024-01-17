@@ -13,21 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import pytest
+import glob
 import json
+import os
 import sqlite3
+import tempfile
 import xml.etree.ElementTree as ET
 
 import pandas as pd
+import pytest
 import yaml  # type: ignore
 from datasets import Dataset
 from geniusrise.core import BatchInput, BatchOutput, InMemoryState
 from pyarrow import feather
 from pyarrow import parquet as pq
+
 from geniusrise_text.classification.bulk import TextClassificationBulk
-import glob
-import tempfile
 
 MODELS_TO_TEST = {
     # fmt: off

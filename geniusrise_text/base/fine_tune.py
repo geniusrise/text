@@ -15,20 +15,21 @@
 
 import os
 from abc import abstractmethod
-from typing import Dict, Optional, List, Callable
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
+import torch
+from accelerate import infer_auto_device_map, init_empty_weights
 from datasets import Dataset, DatasetDict
 from geniusrise import BatchInput, BatchOutput, Bolt, State
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import EvalPrediction, Trainer, TrainingArguments, AutoConfig
-from accelerate import infer_auto_device_map, init_empty_weights
-from peft import LoraConfig, get_peft_model
-from trl import SFTTrainer
-import torch
 from geniusrise.logging import setup_logger
-from geniusrise_text.base.util import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+from peft import LoraConfig, get_peft_model
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from transformers import AutoConfig, EvalPrediction, Trainer, TrainingArguments
+from trl import SFTTrainer
+
 from geniusrise_text.base.communication import send_fine_tuning_email
+from geniusrise_text.base.util import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 
 
 class TextFineTuner(Bolt):
