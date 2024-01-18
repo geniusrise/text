@@ -39,12 +39,6 @@ class SummarizationBulk(TextBulk):
 
     The class provides methods to load datasets, configure summarization models, and execute bulk summarization tasks.
 
-    Args:
-        input (BatchInput): Configuration and data inputs for the batch process.
-        output (BatchOutput): Configurations for output data handling.
-        state (State): State management for the summarization task.
-        **kwargs: Arbitrary keyword arguments for extended configurations.
-
     Example CLI Usage:
     ```bash
     genius SummarizationBulk rise \
@@ -90,6 +84,15 @@ class SummarizationBulk(TextBulk):
     """
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
+        """
+        Initializes the SummarizationBulk class.
+
+        Args:
+            input (BatchInput): The input data configuration.
+            output (BatchOutput): The output data configuration.
+            state (State): The state configuration.
+            **kwargs: Additional keyword arguments.
+        """
         super().__init__(input, output, state, **kwargs)
 
     def load_dataset(self, dataset_path: str, max_length: int = 512, **kwargs) -> Optional[Dataset]:
