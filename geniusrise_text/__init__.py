@@ -22,3 +22,4 @@ from .nli import NLIAPI, NLIBulk, NLIFineTuner
 from .qa import QAAPI, QABulk, QAFineTuner
 from .summarization import SummarizationAPI, SummarizationBulk, SummarizationFineTuner
 from .translation import TranslationAPI, TranslationBulk, TranslationFineTuner
+from .notebook import TextJupyterNotebook
