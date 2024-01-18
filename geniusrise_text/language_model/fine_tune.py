@@ -24,7 +24,7 @@ import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_metric
+from datasets import Dataset, load_from_disk, load_metric, load_dataset
 from nltk.translate.bleu_score import corpus_bleu
 from transformers import DataCollatorForLanguageModeling, EvalPrediction
 
@@ -141,7 +141,9 @@ class LanguageModelFineTuner(TextFineTuner):
         self.max_length = max_length
 
         try:
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+            if self.use_huggingface_dataset:
+                dataset = load_dataset(self.huggingface_dataset)
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
@@ -197,13 +199,13 @@ class LanguageModelFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
 
             # Preprocess the dataset
             if self.tokenizer and self.tokenizer.pad_token_id is None:

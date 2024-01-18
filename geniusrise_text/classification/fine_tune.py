@@ -168,12 +168,10 @@ class TextClassificationFineTuner(TextFineTuner):
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if self.use_huggingface_dataset:
-                data = load_dataset(self.huggingface_dataset)
-                unique_labels = {x for x in list(set(data["train"]["label"]))}
+                dataset = load_dataset(self.huggingface_dataset)
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
-                data = load_from_disk(dataset_path)
-                unique_labels = {x for x in list(set(data["train"]["label"]))}
+                dataset = load_from_disk(dataset_path)
             else:
                 data = []
                 for filename in os.listdir(dataset_path):
@@ -228,16 +226,17 @@ class TextClassificationFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-                unique_labels = {example["label"] for example in data}
+                dataset = Dataset.from_pandas(pd.DataFrame(data))
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
 
             # Create label_to_id mapping and save it in model config
             # TODO: ugly shit cause we dont know num labels before we process the data but need tokenizer to process data
-            self.label_to_id = {label: i for i, label in enumerate(unique_labels)}
+            self.label_to_id = {label: i for i, label in enumerate(set(dataset["train"]["label"]))}
             if self.model:
                 config = self.model.config
                 config.label2id = self.label_to_id
@@ -258,12 +257,14 @@ class TextClassificationFineTuner(TextFineTuner):
                     accelerate_no_split_module_classes=self.accelerate_no_split_module_classes,
                     **self.model_kwargs,
                 )
+            if self.tokenizer and not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.model.config.pad_token_id = self.tokenizer.eos_token_id
 
             self.log.info(self.model.config)
 
-            return (Dataset.from_pandas(pd.DataFrame(data)) if type(data) is list else data).map(
-                tokenize_function, batched=True
-            )
+            return dataset.map(tokenize_function, batched=True)
+
         except Exception as e:
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
