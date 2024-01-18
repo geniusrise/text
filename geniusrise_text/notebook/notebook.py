@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import subprocess
 import sys
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from nbformat import v4 as nbf
+import nbformat
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
 from typing import Any, Dict, List, Optional
@@ -32,13 +34,15 @@ class TextJupyterNotebook(Bolt):
     ):
         super().__init__(input=input, output=output, state=state)
         self.log = setup_logger(self)
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        templates_dir = os.path.join(script_dir, "templates")
+
+        # Initialize Jinja2 Environment with the correct templates directory
+        self.env = Environment(loader=FileSystemLoader(templates_dir))
 
     def create(
         self,
         model_name: str,
-        tokenizer_name: str,
-        model_revision: Optional[str] = None,
-        tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForCausalLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
@@ -53,10 +57,6 @@ class TextJupyterNotebook(Bolt):
         password: Optional[str] = None,
         **model_args: Any,
     ):
-        self.model_name = model_name
-        self.tokenizer_name = tokenizer_name
-        self.model_revision = model_revision
-        self.tokenizer_revision = tokenizer_revision
         self.model_class = model_class
         self.tokenizer_class = tokenizer_class
         self.use_cuda = use_cuda
@@ -68,6 +68,21 @@ class TextJupyterNotebook(Bolt):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.model_args = model_args
+
+        if ":" in model_name:
+            model_revision = model_name.split(":")[1]
+            tokenizer_revision = model_name.split(":")[1]
+            model_name = model_name.split(":")[0]
+            tokenizer_name = model_name
+        else:
+            model_revision = None
+            tokenizer_revision = None
+            tokenizer_name = model_name
+
+        self.model_name = model_name
+        self.model_revision = model_revision
+        self.tokenizer_name = tokenizer_name
+        self.tokenizer_revision = tokenizer_revision
 
         self.env = Environment(loader=FileSystemLoader("./templates"))
 
@@ -89,15 +104,25 @@ class TextJupyterNotebook(Bolt):
             "flash_attention": flash_attention,
             "model_args": model_args,
         }
+
+        import os
+
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+
         output_path = self.output.output_folder
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        templates_dir = os.path.join(script_dir, "templates")
+        # fmt: off
         class_to_template_map = {
-            "AutoModelForCausalLM": "./templates/AutoModelForCausalLM.jinja",
-            "AutoModelForTokenClassification": "./templates/AutoModelForTokenClassification.jinja",
-            "AutoModelForSequenceClassification": "./templates/AutoModelForSequenceClassification.jinja",
-            "AutoModelForTableQuestionAnswering": "./templates/AutoModelForTableQuestionAnswering.jinja",
-            "AutoModelForQuestionAnswering": "./templates/AutoModelForQuestionAnswering.jinja",
-            "AutoModelForSeq2SeqLM": "./templates/AutoModelForSeq2SeqLM.jinja",
+            "AutoModelForCausalLM": os.path.join(templates_dir, "AutoModelForCausalLM.jinja"),
+            "AutoModelForTokenClassification": os.path.join(templates_dir, "AutoModelForTokenClassification.jinja"),
+            "AutoModelForSequenceClassification": os.path.join(templates_dir, "AutoModelForSequenceClassification.jinja"),
+            "AutoModelForTableQuestionAnswering": os.path.join(templates_dir, "AutoModelForTableQuestionAnswering.jinja"),
+            "AutoModelForQuestionAnswering": os.path.join(templates_dir, "AutoModelForQuestionAnswering.jinja"),
+            "AutoModelForSeq2SeqLM": os.path.join(templates_dir, "AutoModelForSeq2SeqLM.jinja"),
         }
+        # fmt: on
 
         template_name = class_to_template_map[model_class]
 
@@ -121,15 +146,15 @@ class TextJupyterNotebook(Bolt):
                 "jupyter==1.0.0",
             ]
         )
-        self.install_jupyter_extensions(
-            [
-                "jupyter_contrib_nbextensions",
-                "jupyter_nbextensions_configurator",
-                "jupyter_tensorboard",
-                "rise",
-                "nbdime",
-            ]
-        )
+        # self.install_jupyter_extensions(
+        #     [
+        #         "jupyter_contrib_nbextensions",
+        #         "jupyter_nbextensions_configurator",
+        #         "jupyter_tensorboard",
+        #         "rise",
+        #         "nbdime",
+        #     ]
+        # )
         self.enable_jupyter_dark_theme()
 
         self.start_jupyter_server(notebook_dir=output_path, port=port, password=password)
@@ -142,12 +167,17 @@ class TextJupyterNotebook(Bolt):
         context (dict): Context variables to render the template.
         output_path (str): Path to save the generated notebook.
         """
-        template = self.env.get_template(name)
+        # template = self.env.get_template(name)
+        with open(name, "r") as file:
+            template_content = file.read()
+
+        template = Template(template_content)
+
         notebook_json = template.render(context)
-        notebook = nbf.reads(notebook_json, as_version=4)
+        notebook = nbf.reads(notebook_json)
 
         with open(output_path, "w") as f:
-            nbf.write(notebook, f)
+            nbformat.write(notebook, f)
         self.log.info(f"Notebook created at {output_path}")
 
     def start_jupyter_server(self, notebook_dir: str, port: int = 8888, password: Optional[str] = None):
@@ -159,15 +189,20 @@ class TextJupyterNotebook(Bolt):
         port (int): Port number for the notebook server. Default is 8888.
         password (Optional[str]): Password for accessing the notebook server. If None, no password is set.
         """
-        command = ["jupyter", "notebook", "--notebook-dir", notebook_dir, "--port", str(port)]
 
-        if password:
-            from notebook.auth import passwd
+        command = [
+            "jupyter",
+            "notebook",
+            "--password",
+            password,
+            "--no-browser",
+            "--port",
+            str(port),
+            "--notebook-dir",
+            notebook_dir,
+        ]
 
-            hashed_password = passwd(password)
-            command.extend(["--NotebookApp.password", f"'{hashed_password}'"])
-
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True)  # type: ignore
 
     def install_packages(self, packages: List[str]):
         """
