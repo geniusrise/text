@@ -244,16 +244,16 @@ class QAFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
         except Exception as e:
             self.log.exception(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             return None
+
+        if hasattr(self, "map_data") and self.map_data:
+            fn = eval(self.map_data)  # type: ignore
+            dataset = dataset.map(fn)
+        else:
+            dataset = dataset
 
         # Preprocess the dataset
         try:

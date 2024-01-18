@@ -208,13 +208,13 @@ class TranslationFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
 
             tokenized_dataset = dataset.map(
                 self.prepare_train_features,

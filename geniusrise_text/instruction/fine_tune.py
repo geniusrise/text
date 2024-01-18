@@ -147,11 +147,10 @@ class InstructionFineTuner(TextFineTuner):
             self.log.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
             if self.use_huggingface_dataset:
-                return load_dataset(self.huggingface_dataset).map(self.prepare_train_features, batched=True)
+                dataset = load_dataset(self.huggingface_dataset)
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
                 # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
-                return dataset.map(self.prepare_train_features, batched=True)
             else:
                 data = []
                 for filename in glob.glob(f"{dataset_path}/*"):
@@ -206,14 +205,15 @@ class InstructionFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
-                return dataset.map(self.prepare_train_features, batched=True)
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
+
+            return dataset.map(self.prepare_train_features, batched=True)
         except Exception as e:
             self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise

@@ -239,7 +239,7 @@ class TextFineTuner(Bolt):
                     lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
                 else:
                     lora_config = LoraConfig(**lora_config)
-                self.lora_config = lora_config
+                self.peft_config = lora_config
             # you cannot fine-tune quantized models without LoRA
             if quantization and not lora_config:
                 lora_config = {
@@ -249,8 +249,9 @@ class TextFineTuner(Bolt):
                     "bias": "none",
                     "task_type": "CAUSAL_LM",
                 }
-                self.lora_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
-            self.log.info(f"LoRA config: {self.lora_config}")
+                self.peft_config = LoraConfig(target_modules=peft_target_modules, **lora_config)
+            if lora_config:
+                self.log.info(f"LoRA config: {self.peft_config}")
 
             # Load model and tokenizer
             if quantization == 8:
@@ -558,14 +559,14 @@ class TextFineTuner(Bolt):
             # Add adapters to the model for fine-tuning
             if self.lora_config and not use_trl:
                 self.model.enable_input_require_grads()
-                self.model = get_peft_model(self.model, peft_config=self.lora_config)
+                self.model = get_peft_model(self.model, peft_config=self.peft_config)
 
             if compile:
                 self.model = torch.compile(self.model)
 
             # Create trainer
             if use_trl:
-                self.model = get_peft_model(self.model, peft_config=self.lora_config)
+                self.model = get_peft_model(self.model, peft_config=self.peft_config)
                 trainer = SFTTrainer(
                     model=self.model,
                     args=training_args,
@@ -574,7 +575,7 @@ class TextFineTuner(Bolt):
                     tokenizer=self.tokenizer,
                     compute_metrics=self.compute_metrics,
                     data_collator=self.data_collator if hasattr(self, "data_collator") else None,
-                    peft_config=self.lora_config,
+                    peft_config=self.peft_config,
                     **trainer_kwargs,
                 )
             else:
