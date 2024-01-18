@@ -26,6 +26,9 @@ from transformers import (
     LogitsProcessorList,
     MinLengthLogitsProcessor,
 )
+from nemo.collections import nlp as nemo_nlp
+from nemo.core.config import modelPT as nemo_modelPT
+from nemo.collections.nlp.data.tokenizers import get_tokenizer as nemo_get_tokenizer
 
 from geniusrise_text.base.communication import send_email
 
@@ -420,7 +423,8 @@ class TextBulk(Bolt):
     def load_models(
         self,
         model_name: str,
-        tokenizer_name: str,
+        model_type: str = "huggingface",
+        tokenizer_name: Optional[str] = None,
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         model_class: str = "AutoModelForCausalLM",
@@ -428,18 +432,20 @@ class TextBulk(Bolt):
         use_cuda: bool = False,
         precision: str = "float16",
         quantization: int = 0,
-        device_map: str | Dict | None = "auto",
-        max_memory={0: "24GB"},
+        device_map: Union[str, Dict, None] = "auto",
         torchscript: bool = False,
         compile: bool = True,
         awq_enabled: bool = False,
         flash_attention: bool = False,
+        nemo_model_cfg: Optional[Dict[str, Any]] = None,
+        nemo_tokenizer_cfg: Optional[Dict[str, Any]] = None,
         **model_args: Any,
-    ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
+    ) -> Union[Tuple[AutoModelForCausalLM, AutoTokenizer], nemo_modelPT.ModelPT]:
         """
         Loads and configures the specified model and tokenizer for text generation. It ensures the models are optimized for inference.
 
         Args:
+            model_type (str): Type of the model: huggingface or nemo.
             model_name (str): The name or path of the model to load.
             tokenizer_name (str): The name or path of the tokenizer to load.
             model_revision (Optional[str]): The specific model revision to load (e.g., a commit hash).
@@ -450,7 +456,6 @@ class TextBulk(Bolt):
             precision (str): The desired precision for computations ("float32", "float16", etc.).
             quantization (int): The bit level for model quantization (0 for none, 8 for 8-bit quantization).
             device_map (str | Dict | None): The specific device(s) to use for model operations.
-            max_memory (Dict): A dictionary defining the maximum memory to allocate for the model.
             torchscript (bool): Flag to enable TorchScript for model optimization.
             compile (bool): Flag to enable JIT compilation of the model.
             awq_enabled (bool): Flag to enable AWQ (Adaptive Weight Quantization).
@@ -460,81 +465,110 @@ class TextBulk(Bolt):
         Returns:
             Tuple[AutoModelForCausalLM, AutoTokenizer]: The loaded model and tokenizer ready for text generation.
         """
-        self.log.info(f"Loading Hugging Face model: {model_name}")
+        if model_type == "huggingface":
+            self.log.info(f"Loading Hugging Face model: {model_name}")
 
-        # Determine the torch dtype based on precision
-        torch_dtype = self._get_torch_dtype(precision)
+            # Determine the torch dtype based on precision
+            torch_dtype = self._get_torch_dtype(precision)
 
-        if use_cuda and not device_map:
-            device_map = "auto"
+            if use_cuda and not device_map:
+                device_map = "auto"
 
-        if awq_enabled:
-            ModelClass = AutoModelForCausalLM
-            self.log.info("AWQ Enabled: Loading AWQ Model")
+            if awq_enabled:
+                ModelClass = AutoModelForCausalLM
+                self.log.info("AWQ Enabled: Loading AWQ Model")
+            else:
+                ModelClass = getattr(transformers, model_class)
+            TokenizerClass = getattr(transformers, tokenizer_class)
+
+            # Load the model and tokenizer
+            tokenizer = TokenizerClass.from_pretrained(
+                tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype
+            )
+
+            if flash_attention:
+                model_args = {**model_args, **{"attn_implementation": "flash_attention_2"}}
+
+            self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
+            if awq_enabled and quantization > 0:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torch_dtype=torch_dtype,
+                    **model_args,
+                )
+            elif quantization == 8:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torchscript=torchscript,
+                    device_map=device_map,
+                    load_in_8bit=True,
+                    **model_args,
+                )
+            elif quantization == 4:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torchscript=torchscript,
+                    device_map=device_map,
+                    load_in_4bit=True,
+                    **model_args,
+                )
+            else:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torch_dtype=torch_dtype,
+                    torchscript=torchscript,
+                    device_map=device_map,
+                    **model_args,
+                )
+
+            if compile and not torchscript:
+                model = torch.compile(model)
+
+            # Set to evaluation mode for inference
+            model.eval()
+
+            if tokenizer and tokenizer.eos_token and (not tokenizer.pad_token):
+                tokenizer.pad_token = tokenizer.eos_token
+
+            eos_token_id = model.config.eos_token_id
+            pad_token_id = model.config.pad_token_id
+            if not pad_token_id:
+                model.config.pad_token_id = eos_token_id
+
+            self.log.debug("Text model and tokenizer loaded successfully.")
+
+        elif model_type == "nemo":
+            self.log.info(f"Loading NeMo model: {model_name}")
+
+            # Load NeMo model
+            if nemo_model_cfg is None:
+                nemo_model_cfg = {}
+            model = nemo_nlp.models.get_model(model_name, **nemo_model_cfg, **model_args)
+
+            # Load NeMo tokenizer
+            if tokenizer_name:
+                if nemo_tokenizer_cfg is None:
+                    nemo_tokenizer_cfg = {}
+                tokenizer = nemo_get_tokenizer(tokenizer_name=tokenizer_name, **nemo_tokenizer_cfg)
+            else:
+                tokenizer = None  # Handle cases where a tokenizer might not be required
+
+            # Model and tokenizer to CUDA and precision handling
+            if use_cuda:
+                model = model.to("cuda")
+            if precision == "float16":
+                model = model.half()
+
+            self.log.debug("NeMo model and tokenizer loaded successfully.")
+            return model, tokenizer
+
         else:
-            ModelClass = getattr(transformers, model_class)
-        TokenizerClass = getattr(transformers, tokenizer_class)
+            raise ValueError(f"Unsupported model type: {model_type}")
 
-        # Load the model and tokenizer
-        tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
-
-        if flash_attention:
-            model_args = {**model_args, **{"attn_implementation": "flash_attention_2"}}
-
-        self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
-        if awq_enabled and quantization > 0:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torch_dtype=torch_dtype,
-                **model_args,
-            )
-        elif quantization == 8:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                load_in_8bit=True,
-                **model_args,
-            )
-        elif quantization == 4:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                load_in_4bit=True,
-                **model_args,
-            )
-        else:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torch_dtype=torch_dtype,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                **model_args,
-            )
-
-        if compile and not torchscript:
-            model = torch.compile(model)
-
-        # Set to evaluation mode for inference
-        model.eval()
-
-        if tokenizer and tokenizer.eos_token and (not tokenizer.pad_token):
-            tokenizer.pad_token = tokenizer.eos_token
-
-        eos_token_id = model.config.eos_token_id
-        pad_token_id = model.config.pad_token_id
-        if not pad_token_id:
-            model.config.pad_token_id = eos_token_id
-
-        self.log.debug("Text model and tokenizer loaded successfully.")
         return model, tokenizer
 
     def done(self):
