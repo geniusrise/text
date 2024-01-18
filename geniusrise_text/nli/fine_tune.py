@@ -191,13 +191,13 @@ class NLIFineTuner(TextFineTuner):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
 
             # Create label_to_id mapping and save it in model config
             # TODO: ugly shit cause we dont know num labels before we process the data but need tokenizer to process data
@@ -222,11 +222,11 @@ class NLIFineTuner(TextFineTuner):
                     accelerate_no_split_module_classes=self.accelerate_no_split_module_classes,
                     **self.model_kwargs,
                 )
+            if self.tokenizer and not self.tokenizer.pad_token:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.model.config.pad_token_id = self.tokenizer.eos_token_id
 
-            return dataset.map(
-                self.prepare_train_features,
-                batched=True,
-            )
+            return dataset.map(self.prepare_train_features, batched=True)
 
         except Exception as e:
             self.log.exception(f"Error loading dataset: {e}")
