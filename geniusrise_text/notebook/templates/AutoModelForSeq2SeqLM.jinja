@@ -1,0 +1,101 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# {{ model_class }} Demonstration\n",
+    "\n",
+    "This notebook demonstrates the use of `{{ model_class }}` from the Hugging Face Transformers library for sequence-to-sequence tasks."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Import necessary libraries\n",
+    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
+    "import torch\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Loading the Model and Tokenizer\n",
+    "\n",
+    "Load the model `{{ model_name }}` and its corresponding tokenizer for sequence-to-sequence tasks."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load the model and tokenizer\n",
+    "model = {{ model_class }}.from_pretrained('{{ model_name }}', revision='{{ model_revision }}')\n",
+    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}', revision='{{ tokenizer_revision }}')\n",
+    "\n",
+    "# Configurations\n",
+    "model.to('cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu')\n",
+    "if '{{ precision }}' == 'float16':\n",
+    "    model = model.half()\n",
+    "\n",
+    "# Describe each configuration and its impact here..."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Sequence-to-Sequence Task\n",
+    "\n",
+    "Now, let's demonstrate how to use the model for a sequence-to-sequence task. We'll provide a source sequence, and the model will generate the target sequence."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Example source sequence for sequence-to-sequence task\n",
+    "source_sequence = '...'  # Define your source sequence here\n",
+    "inputs = tokenizer(source_sequence, return_tensors='pt')\n",
+    "inputs.to(model.device)\n",
+    "\n",
+    "# Generate the target sequence\n",
+    "with torch.no_grad():\n",
+    "    outputs = model.generate(**inputs)\n",
+    "    target_sequence = tokenizer.decode(outputs[0], skip_special_tokens=True)\n",
+    "\n",
+    "# Display the target sequence\n",
+    "print(target_sequence)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}

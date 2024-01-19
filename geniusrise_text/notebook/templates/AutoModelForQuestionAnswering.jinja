@@ -1,0 +1,107 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# {{ model_class }} Demonstration\n",
+    "\n",
+    "This notebook demonstrates the use of `{{ model_class }}` from the Hugging Face Transformers library for question answering tasks."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Import necessary libraries\n",
+    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
+    "import torch\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Loading the Model and Tokenizer\n",
+    "\n",
+    "Load the model `{{ model_name }}` and its corresponding tokenizer for question answering."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load the model and tokenizer\n",
+    "model = {{ model_class }}.from_pretrained('{{ model_name }}', revision='{{ model_revision }}')\n",
+    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}', revision='{{ tokenizer_revision }}')\n",
+    "\n",
+    "# Configurations\n",
+    "model.to('cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu')\n",
+    "if '{{ precision }}' == 'float16':\n",
+    "    model = model.half()\n",
+    "\n",
+    "# Describe each configuration and its impact here..."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Question Answering\n",
+    "\n",
+    "Let's demonstrate how to use the model for question answering. We'll provide a context and a question, and the model will find the answer within the context."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Example context and question for demonstration\n",
+    "context = '...'  # Define your context here\n",
+    "question = '...'  # Define your question here\n",
+    "\n",
+    "# Tokenize and encode the context and question for the model\n",
+    "inputs = tokenizer.encode_plus(question, context, return_tensors='pt')\n",
+    "inputs.to(model.device)\n",
+    "\n",
+    "# Perform question answering\n",
+    "with torch.no_grad():\n",
+    "    outputs = model(**inputs)\n",
+    "    answer_start_scores, answer_end_scores = outputs.start_logits, outputs.end_logits\n",
+    "    answer_start = torch.argmax(answer_start_scores)\n",
+    "    answer_end = torch.argmax(answer_end_scores) + 1\n",
+    "    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(inputs['input_ids'][0][answer_start:answer_end]))\n",
+    "\n",
+    "# Display the answer\n",
+    "print(answer)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
