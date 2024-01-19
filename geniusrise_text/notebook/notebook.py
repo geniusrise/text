@@ -22,6 +22,7 @@ import nbformat
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
 from typing import Any, Dict, List, Optional
+from geniusrise_text.base.communication import send_email
 
 
 class TextJupyterNotebook(Bolt):
@@ -55,6 +56,7 @@ class TextJupyterNotebook(Bolt):
         flash_attention: bool = False,
         port: int = 8888,
         password: Optional[str] = None,
+        notification_email: Optional[str] = None,
         **model_args: Any,
     ):
         self.model_class = model_class
@@ -67,6 +69,9 @@ class TextJupyterNotebook(Bolt):
         self.compile = compile
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
+        self.port = port
+        self.password = password
+        self.notification_email = notification_email
         self.model_args = model_args
 
         if ":" in model_name:
@@ -135,6 +140,7 @@ class TextJupyterNotebook(Bolt):
                 "jupyterlab_legos_ui",
                 "jupyterlab_darkside_ui",
                 "theme-darcula",
+                "jupyterlab",
                 # "notebook==6.4.12",
                 # "jupyter_contrib_nbextensions",
             ]
@@ -153,6 +159,7 @@ class TextJupyterNotebook(Bolt):
         # )
 
         self.start_jupyter_server(notebook_dir=output_path, port=port, password=password)
+        self.done()
 
     def create_notebook(self, name: str, context: dict, output_path: str):
         """
@@ -223,3 +230,8 @@ class TextJupyterNotebook(Bolt):
             subprocess.run(["jupyter", "nbextension", "install", extension, "--user"], check=True)
             subprocess.run(["jupyter", "nbextension", "enable", extension, "--user"], check=True)
         self.log.info("Jupyter extensions installed and enabled.")
+
+    def done(self):
+        if self.notification_email:
+            self.output.flush()
+            send_email(recipient=self.notification_email, bucket_name=self.output.bucket, prefix=self.output.s3_folder)

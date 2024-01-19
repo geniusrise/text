@@ -17,6 +17,11 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
 RUN apt-get update && apt-get install -y git && apt-get clean
 
 RUN pip install torch
+RUN pip install jupyterlab
+RUN pip install transformers
+RUN pip install torch
+RUN pip install datasets
+RUN pip install diffusers
 RUN pip install --upgrade geniusrise
 
 ENV AWS_DEFAULT_REGION=ap-south-1
