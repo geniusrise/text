@@ -130,32 +130,24 @@ class TextJupyterNotebook(Bolt):
 
         self.install_packages(
             [
-                "numpy==1.21.6",
-                "scikit-learn==1.3.0",
-                "pandas==1.3.5",
-                "matplotlib-inline==0.1.6",
-                "seaborn==0.13.1",
-                "torch==2.1.2",
-                "tensorflow==2.15.0",
-                "transformers",
-                "datasets",
-                "evaluate",
-                "diffusers",
-                "nemo_toolkit[all]",
                 "jupyterthemes",
                 "jupyter==1.0.0",
+                "jupyterlab_legos_ui",
+                "jupyterlab_darkside_ui",
+                "theme-darcula",
+                "jupyter_contrib_nbextensions",
             ]
         )
         # self.install_jupyter_extensions(
         #     [
-        #         "jupyter_contrib_nbextensions",
-        #         "jupyter_nbextensions_configurator",
-        #         "jupyter_tensorboard",
+        #         # "jupyter_contrib_nbextensions",
+        #         # "jupyter_nbextensions_configurator",
+        #         "@yeebc/jupyterlab_neon_theme",
+        #         "@yudai-nkt/jupyterlab_city-lights-theme",
         #         "rise",
         #         "nbdime",
         #     ]
         # )
-        self.enable_jupyter_dark_theme()
 
         self.start_jupyter_server(notebook_dir=output_path, port=port, password=password)
 
@@ -192,15 +184,17 @@ class TextJupyterNotebook(Bolt):
 
         command = [
             "jupyter",
-            "notebook",
-            "--password",
-            password,
+            "lab",
+            # f"--ServerApp.password=''",
+            "--ip=0.0.0.0",
+            f"--ServerApp.token={password}",
             "--no-browser",
             "--port",
             str(port),
-            "--notebook-dir",
+            "--ServerApp.root_dir",
             notebook_dir,
         ]
+        self.log.info(f"Running command {' '.join(command)}")
 
         subprocess.run(command, check=True)  # type: ignore
 
@@ -226,10 +220,3 @@ class TextJupyterNotebook(Bolt):
             subprocess.run(["jupyter", "nbextension", "install", extension, "--user"], check=True)
             subprocess.run(["jupyter", "nbextension", "enable", extension, "--user"], check=True)
         self.log.info("Jupyter extensions installed and enabled.")
-
-    def enable_jupyter_dark_theme(self):
-        """
-        Enable dark theme for Jupyter Notebook.
-        """
-        subprocess.run(["jt", "-t", "onedork"], check=True)  # Example: using 'onedork' theme from jt (jupyterthemes)
-        self.log.info("Jupyter dark theme enabled.")
