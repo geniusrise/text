@@ -135,12 +135,15 @@ class TextJupyterNotebook(Bolt):
                 "jupyterlab_legos_ui",
                 "jupyterlab_darkside_ui",
                 "theme-darcula",
-                "jupyter_contrib_nbextensions",
+                # "notebook==6.4.12",
+                # "jupyter_contrib_nbextensions",
             ]
         )
+
+        # subprocess.run("jupyter contrib nbextension install --user".split(" "), check=True)
+
         # self.install_jupyter_extensions(
         #     [
-        #         # "jupyter_contrib_nbextensions",
         #         # "jupyter_nbextensions_configurator",
         #         "@yeebc/jupyterlab_neon_theme",
         #         "@yudai-nkt/jupyterlab_city-lights-theme",
