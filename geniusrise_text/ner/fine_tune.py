@@ -141,9 +141,6 @@ class NamedEntityRecognitionFineTuner(TextFineTuner):
         Should contain 'tokens' and 'ner_tags' columns.
         """
 
-        self.label_list = label_list
-        self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
-
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if self.use_huggingface_dataset:
@@ -205,11 +202,50 @@ class NamedEntityRecognitionFineTuner(TextFineTuner):
                 dataset = dataset
 
             # Preprocess the dataset
-            tokenized_dataset = dataset.map(
-                self.prepare_train_features,
-                batched=True,
-                remove_columns=dataset.column_names,
-            )
+            self.label_list = label_list if label_list else list((y for x in dataset["train"]["ner_tags"] for y in x))
+            self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
+            if self.model:
+                config = self.model.config
+                config.label2id = self.label_to_id
+                config.id2label = {i: label for label, i in self.label_to_id.items()}
+                config.num_labels = len(self.label_to_id.keys())
+                self.config = config
+
+                self.load_models(
+                    model_name=self.model_name,
+                    tokenizer_name=self.tokenizer_name,
+                    model_class=self.model_class,
+                    tokenizer_class=self.tokenizer_class,
+                    device_map=self.device_map,
+                    precision=self.precision,
+                    quantization=self.quantization,
+                    lora_config=self.lora_config,
+                    use_accelerate=self.use_accelerate,
+                    accelerate_no_split_module_classes=self.accelerate_no_split_module_classes,
+                    **self.model_kwargs,
+                )
+
+                if self.tokenizer_name.lower() == "local":  # type: ignore
+                    self.log.info(f"Loading local tokenizer : {self.tokenizer_class} : {self.input.get()}")
+                    self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                        os.path.join(self.input.get(), "/model"),
+                        add_prefix_space=True,
+                    )
+                else:
+                    self.log.info(
+                        f"Loading tokenizer from huggingface hub: {self.tokenizer_class} : {self.tokenizer_name}"
+                    )
+                    self.tokenizer = getattr(__import__("transformers"), str(self.tokenizer_class)).from_pretrained(
+                        self.tokenizer_name,
+                        revision=self.tokenizer_revision,
+                        add_prefix_space=True,
+                    )
+
+                if self.tokenizer and not self.tokenizer.pad_token:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                    self.model.config.pad_token_id = self.tokenizer.eos_token_id
+
+            tokenized_dataset = dataset.map(self.prepare_train_features, batched=True)
 
             return tokenized_dataset
         except Exception as e:
@@ -249,7 +285,7 @@ class NamedEntityRecognitionFineTuner(TextFineTuner):
             label_ids = []
             for word_idx in word_ids:
                 if word_idx is not None:
-                    self.log.debug(f"label[word_idx]: {labels[word_idx]}")  # type: ignore
+                    self.log.debug(f"labels[word_idx]: {labels[word_idx]}")  # type: ignore
                     label_ids.append(self.label_to_id[labels[word_idx]])  # type: ignore
                 else:
                     label_ids.append(-100)

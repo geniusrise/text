@@ -340,6 +340,7 @@ class TextFineTuner(Bolt):
             else:
                 tokenizer_revision = None
             self.tokenizer_name = tokenizer_name
+            self.tokenizer_revision = tokenizer_revision
 
             if tokenizer_name.lower() == "local":  # type: ignore
                 self.log.info(f"Loading local tokenizer : {tokenizer_class} : {self.input.get()}")
