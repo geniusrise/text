@@ -4,29 +4,18 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "# {{ model_class }} Demonstration\n",
+    "# {{ model_class }} Table-based Question Answering Tutorial\n",
     "\n",
-    "This notebook demonstrates the use of `{{ model_class }}` from Hugging Face Transformers library for table-based question answering tasks."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Import necessary libraries\n",
-    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
-    "import torch\n"
+    "Welcome to this detailed tutorial on using `{{ model_class }}` for table-based question answering tasks, utilizing the Hugging Face Transformers library. This notebook will guide you through setting up the model, preparing tabular data, and using the model to extract answers from tables."
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## Loading the Model and Tokenizer\n",
+    "## Environment Setup\n",
     "\n",
-    "Load the model `{{ model_name }}` and its corresponding tokenizer for table question answering."
+    "First, let's set up our environment by importing the necessary libraries and configuring our computation device."
    ]
   },
   {
@@ -35,25 +24,51 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Load the model and tokenizer\n",
-    "model = {{ model_class }}.from_pretrained('{{ model_name }}', revision='{{ model_revision }}')\n",
-    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}', revision='{{ tokenizer_revision }}')\n",
+    "# Importing Transformers and torch libraries\n",
+    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
+    "import torch\n",
     "\n",
-    "# Configurations\n",
-    "model.to('cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu')\n",
+    "# Checking for GPU availability\n",
+    "device = 'cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu'\n",
+    "print(f'Using device: {device}')\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Model and Tokenizer Loading\n",
+    "\n",
+    "Let's load the `{{ model_class }}` and its corresponding tokenizer, specifically for table-based question answering using the `{{ model_name }}` model."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Loading the model and tokenizer\n",
+    "model = {{ model_class }}.from_pretrained('{{ model_name }}')\n",
+    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}')\n",
+    "\n",
+    "# Configuring the model for the current device\n",
+    "model = model.to(device)\n",
+    "\n",
+    "# Model precision configuration\n",
     "if '{{ precision }}' == 'float16':\n",
     "    model = model.half()\n",
     "\n",
-    "# Describe each configuration and its impact here..."
+    "# Explanation of the configurations and their impact..."
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## Table-based Question Answering\n",
+    "## Table-based Question Answering Demonstration\n",
     "\n",
-    "Now, let's demonstrate how to use the model for answering questions based on tabular data. We will provide a table and a question, and the model will find the answer from the table."
+    "In this section, we will demonstrate how to use the `{{ model_class }}` for answering questions based on tabular data. We will provide a sample table and a question, and the model will generate the answer."
    ]
   },
   {
@@ -62,21 +77,160 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Example table and question for demonstration\n",
-    "table_data = '...'  # Define or load your table data here\n",
-    "question = 'What is the ...?'  # Define your question here\n",
+    "# Example table and question\n",
+    "table_data = '...'  # Add or load your table data here\n",
+    "question = 'What is the ...?'  # Add your question here\n",
     "\n",
-    "# Tokenize and encode the table and question for the model\n",
+    "# Tokenizing and encoding the table and question\n",
     "inputs = tokenizer(table=table_data, queries=question, return_tensors='pt')\n",
-    "inputs.to(model.device)\n",
+    "inputs = inputs.to(device)\n",
     "\n",
-    "# Perform question answering\n",
+    "# Performing table-based question answering\n",
     "with torch.no_grad():\n",
     "    outputs = model(**inputs)\n",
     "    answer = tokenizer.decode(outputs[0])\n",
     "\n",
-    "# Display the answer\n",
-    "print(answer)"
+    "# Displaying the answer\n",
+    "print('Answer:\\n', answer)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Tips for Effective Table-based Question Answering\n",
+    "\n",
+    "This section includes tips for optimizing model performance, handling different types of tabular data, and troubleshooting common challenges in table-based question answering."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Conclusion\n",
+    "\n",
+    "You have now learned the basics of using `{{ model_class }}` for table-based question answering. Continue to explore the Transformers library for more advanced features and functionalities."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Fine-Tuning the Model for Table-based Question Answering\n",
+    "\n",
+    "In this section, we'll fine-tune `{{ model_class }}` on a table-based question answering task. Fine-tuning is a process of training the pre-trained model on a specific dataset to adapt it for a particular task. We'll use a dataset suitable for table-based question answering."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Preparing the Dataset\n",
+    "\n",
+    "First, let's load and preprocess a dataset that contains tables and associated questions. For this example, we can use a dataset like the SQuAD with table-based questions."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load and preprocess a dataset\n",
+    "from datasets import load_dataset\n",
+    "dataset = load_dataset('squad_table')\n",
+    "\n",
+    "# Preprocessing function for the dataset\n",
+    "def preprocess_function(examples):\n",
+    "    # Tokenize the table data and questions\n",
+    "    return tokenizer(table=examples['table_data'], queries=examples['question'], truncation=True, padding='max_length')\n",
+    "\n",
+    "# Apply preprocessing\n",
+    "dataset = dataset.map(preprocess_function, batched=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Configuring Training Parameters\n",
+    "\n",
+    "Next, we'll set up our optimizer and training parameters."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from transformers import AdamW\n",
+    "\n",
+    "# Optimizer\n",
+    "optimizer = AdamW(model.parameters(), lr=5e-5)\n",
+    "\n",
+    "# Training parameters\n",
+    "num_epochs = 3\n",
+    "batch_size = 8  # Adjust based on the GPU's capacity"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Training Loop\n",
+    "\n",
+    "We will now define the training loop for fine-tuning the model."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from tqdm.auto import tqdm\n",
+    "\n",
+    "model.train()\n",
+    "for epoch in range(num_epochs):\n",
+    "    progress_bar = tqdm(dataset['train'], desc=f'Epoch {epoch + 1}', leave=False)\n",
+    "    for batch in progress_bar:\n",
+    "        # Forward pass and loss calculation\n",
+    "        outputs = model(**batch)\n",
+    "        loss = outputs.loss\n",
+    "        # Backward pass\n",
+    "        loss.backward()\n",
+    "        optimizer.step()\n",
+    "        optimizer.zero_grad()\n",
+    "        progress_bar.set_postfix({'loss': loss.item()})"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Evaluating the Fine-Tuned Model\n",
+    "\n",
+    "It's essential to evaluate the model on a validation set to ensure it has effectively learned to answer questions based on table data."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model.eval()\n",
+    "# Add code to evaluate the model's performance on the validation set"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Conclusion\n",
+    "\n",
+    "This tutorial covered how to fine-tune `{{ model_class }}` for table-based question answering tasks. Experiment with different datasets and hyperparameters to optimize the model for your specific needs."
    ]
   }
  ],
