@@ -4,29 +4,18 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "# {{ model_class }} Demonstration\n",
+    "# {{ model_class }} Question Answering Tutorial\n",
     "\n",
-    "This notebook demonstrates the use of `{{ model_class }}` from the Hugging Face Transformers library for question answering tasks."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# Import necessary libraries\n",
-    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
-    "import torch\n"
+    "Welcome to this detailed tutorial on using the `{{ model_class }}` for question answering tasks, utilizing the Hugging Face Transformers library. We'll guide you through the process of setting up the model, preparing your data, and using the model to extract answers from text."
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## Loading the Model and Tokenizer\n",
+    "## Environment Setup\n",
     "\n",
-    "Load the model `{{ model_name }}` and its corresponding tokenizer for question answering."
+    "First, let's import the necessary libraries and set up our environment."
    ]
   },
   {
@@ -35,25 +24,51 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Load the model and tokenizer\n",
-    "model = {{ model_class }}.from_pretrained('{{ model_name }}', revision='{{ model_revision }}')\n",
-    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}', revision='{{ tokenizer_revision }}')\n",
+    "# Importing the Transformers library and torch\n",
+    "from transformers import {{ model_class }}, {{ tokenizer_class }}\n",
+    "import torch\n",
     "\n",
-    "# Configurations\n",
-    "model.to('cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu')\n",
+    "# Checking for GPU availability\n",
+    "device = 'cuda' if torch.cuda.is_available() and {{ use_cuda }} else 'cpu'\n",
+    "print(f'Using device: {device}')\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Model and Tokenizer Loading\n",
+    "\n",
+    "Now, let's load the `{{ model_class }}` and its corresponding tokenizer. We are using the `{{ model_name }}` model for our question answering task."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Loading the model and tokenizer\n",
+    "model = {{ model_class }}.from_pretrained('{{ model_name }}')\n",
+    "tokenizer = {{ tokenizer_class }}.from_pretrained('{{ tokenizer_name }}')\n",
+    "\n",
+    "# Setting up the device\n",
+    "model = model.to(device)\n",
+    "\n",
+    "# Configuring precision if necessary\n",
     "if '{{ precision }}' == 'float16':\n",
     "    model = model.half()\n",
     "\n",
-    "# Describe each configuration and its impact here..."
+    "# Explanation of each configuration and its impact..."
    ]
   },
   {
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## Question Answering\n",
+    "## Performing Question Answering\n",
     "\n",
-    "Let's demonstrate how to use the model for question answering. We'll provide a context and a question, and the model will find the answer within the context."
+    "In this section, we'll demonstrate how to perform question answering with our model. We'll provide a context paragraph and a question, and the model will identify the answer within the context."
    ]
   },
   {
@@ -62,15 +77,15 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Example context and question for demonstration\n",
-    "context = '...'  # Define your context here\n",
-    "question = '...'  # Define your question here\n",
+    "# Define context and question\n",
+    "context = '...'  # Provide the context text here\n",
+    "question = '...'  # Provide the question here\n",
     "\n",
-    "# Tokenize and encode the context and question for the model\n",
-    "inputs = tokenizer.encode_plus(question, context, return_tensors='pt')\n",
-    "inputs.to(model.device)\n",
+    "# Tokenizing and encoding the context and question\n",
+    "inputs = tokenizer.encode_plus(question, context, add_special_tokens=True, return_tensors='pt')\n",
+    "inputs = inputs.to(device)\n",
     "\n",
-    "# Perform question answering\n",
+    "# Performing question answering\n",
     "with torch.no_grad():\n",
     "    outputs = model(**inputs)\n",
     "    answer_start_scores, answer_end_scores = outputs.start_logits, outputs.end_logits\n",
@@ -78,8 +93,149 @@
     "    answer_end = torch.argmax(answer_end_scores) + 1\n",
     "    answer = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(inputs['input_ids'][0][answer_start:answer_end]))\n",
     "\n",
-    "# Display the answer\n",
-    "print(answer)"
+    "# Displaying the answer\n",
+    "print('Extracted Answer:\\n', answer)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Tips and Best Practices\n",
+    "\n",
+    "This section includes additional tips for optimizing the model's performance, handling various types of data, and troubleshooting common issues."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Conclusion\n",
+    "\n",
+    "You have now learned how to use `{{ model_class }}` for question answering tasks. Explore the Transformers library for more advanced functionalities and applications."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Fine-Tuning the Model for Question Answering\n",
+    "\n",
+    "In this section, we'll fine-tune `{{ model_class }}` on a question answering task. Fine-tuning involves adapting the pre-trained model to a specific task with additional training. We'll use a question answering dataset for this purpose."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Preparing the Question Answering Dataset\n",
+    "\n",
+    "First, we need to load and prepare a question answering dataset. We'll use the SQuAD dataset for this example."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load the SQuAD dataset\n",
+    "from datasets import load_dataset\n",
+    "dataset = load_dataset('squad')\n",
+    "\n",
+    "# Preprocessing function\n",
+    "def preprocess_data(examples):\n",
+    "    # Tokenize the questions and contexts\n",
+    "    # Note: Truncate/pad based on the model's max input length\n",
+    "    # and the specific requirements of the task\n",
+    "    return tokenizer(examples['question'], examples['context'], truncation=True, padding='max_length')\n",
+    "\n",
+    "# Preprocess the dataset\n",
+    "dataset = dataset.map(preprocess_data, batched=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Configuring the Training Parameters\n",
+    "\n",
+    "Now, let's set up the training parameters and the optimizer."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from transformers import AdamW\n",
+    "\n",
+    "# Optimizer\n",
+    "optimizer = AdamW(model.parameters(), lr=5e-5)\n",
+    "\n",
+    "# Training parameters\n",
+    "num_epochs = 3\n",
+    "batch_size = 8  # Adjust based on the available GPU memory"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### The Training Loop\n",
+    "\n",
+    "Let's define the training loop. During training, the model will learn to predict the start and end positions of the answer in the context."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from tqdm.auto import tqdm\n",
+    "\n",
+    "model.train()\n",
+    "for epoch in range(num_epochs):\n",
+    "    progress_bar = tqdm(dataset['train'], desc=f'Epoch {epoch + 1}', leave=False)\n",
+    "    for batch in progress_bar:\n",
+    "        # Forward pass\n",
+    "        outputs = model(**batch)\n",
+    "        loss = outputs.loss\n",
+    "        # Backward pass\n",
+    "        loss.backward()\n",
+    "        optimizer.step()\n",
+    "        optimizer.zero_grad()\n",
+    "        progress_bar.set_postfix({'loss': loss.item()})"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Evaluating the Fine-Tuned Model\n",
+    "\n",
+    "After fine-tuning, it's important to evaluate the model's performance on the validation dataset."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model.eval()\n",
+    "# Add evaluation code to assess model performance on validation data"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Conclusion\n",
+    "\n",
+    "You have now learned how to fine-tune `{{ model_class }}` for a question answering task. Experiment with different datasets, hyperparameters, and training techniques to optimize performance for your specific use case."
    ]
   }
  ],

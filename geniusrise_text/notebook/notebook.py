@@ -148,15 +148,17 @@ class TextJupyterNotebook(Bolt):
 
         # subprocess.run("jupyter contrib nbextension install --user".split(" "), check=True)
 
-        # self.install_jupyter_extensions(
-        #     [
-        #         # "jupyter_nbextensions_configurator",
-        #         "@yeebc/jupyterlab_neon_theme",
-        #         "@yudai-nkt/jupyterlab_city-lights-theme",
-        #         "rise",
-        #         "nbdime",
-        #     ]
-        # )
+        self.install_jupyter_extensions(
+            [
+                "@yudai-nkt/jupyterlab_city-lights-theme",
+                "@yeebc/jupyterlab_neon_theme",
+                "@jupyterlab/apputils",
+                "@jupyterlab/git",
+                "@jupyterlab/github",
+                "@jupyterlab/google-drive",
+                "@jupyter-ai/core",
+            ]
+        )
 
         self.start_jupyter_server(notebook_dir=output_path, port=port, password=password)
         self.done()
@@ -227,8 +229,8 @@ class TextJupyterNotebook(Bolt):
         extensions (List[str]): List of Jupyter extension names to install.
         """
         for extension in extensions:
-            subprocess.run(["jupyter", "nbextension", "install", extension, "--user"], check=True)
-            subprocess.run(["jupyter", "nbextension", "enable", extension, "--user"], check=True)
+            subprocess.run(["jupyter", "labextension", "install", extension], check=True)
+            subprocess.run(["jupyter", "labextension", "enable", extension], check=True)
         self.log.info("Jupyter extensions installed and enabled.")
 
     def done(self):
