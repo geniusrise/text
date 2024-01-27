@@ -202,7 +202,7 @@ class NamedEntityRecognitionFineTuner(TextFineTuner):
                 dataset = dataset
 
             # Preprocess the dataset
-            self.label_list = label_list if label_list else list((y for x in dataset["train"]["ner_tags"] for y in x))
+            self.label_list = label_list if label_list else list({y for x in dataset["train"]["ner_tags"] for y in x})
             self.label_to_id = {label: i for i, label in enumerate(self.label_list)}
             if self.model:
                 config = self.model.config
