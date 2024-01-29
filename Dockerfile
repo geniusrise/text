@@ -33,7 +33,7 @@ ENV GENIUS=/home/genius/.local/bin/genius
 COPY --chown=genius:genius . /app/
 
 RUN pip3.10 install --use-deprecated=legacy-resolver -r requirements.txt
-RUN pip install multiprocess==0.70.15
+RUN pip install numpy==1.26.3
 USER genius
 
 CMD ["genius", "--help"]
