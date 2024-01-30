@@ -148,17 +148,17 @@ class TextJupyterNotebook(Bolt):
 
         # subprocess.run("jupyter contrib nbextension install --user".split(" "), check=True)
 
-        self.install_jupyter_extensions(
-            [
-                "@yudai-nkt/jupyterlab_city-lights-theme",
-                "@yeebc/jupyterlab_neon_theme",
-                "@jupyterlab/apputils",
-                "@jupyterlab/git",
-                "@jupyterlab/github",
-                "@jupyterlab/google-drive",
-                "@jupyter-ai/core",
-            ]
-        )
+        # self.install_jupyter_extensions(
+        #     [
+        #         "@yudai-nkt/jupyterlab_city-lights-theme",
+        #         "@yeebc/jupyterlab_neon_theme",
+        #         "@jupyterlab/apputils",
+        #         "@jupyterlab/git",
+        #         "@jupyterlab/github",
+        #         "@jupyterlab/google-drive",
+        #         "@jupyter-ai/core",
+        #     ]
+        # )
 
         self.start_jupyter_server(notebook_dir=output_path, port=port, password=password)
         self.done()
