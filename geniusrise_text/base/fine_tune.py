@@ -106,6 +106,40 @@ class TextFineTuner(Bolt):
             self.log.exception(f"Failed to preprocess data: {e}")
             raise e
 
+    def _get_torch_dtype(self, precision: str) -> torch.dtype:
+        """
+        Determines the torch dtype based on the specified precision.
+
+        Args:
+            precision (str): The desired precision for computations.
+
+        Returns:
+            torch.dtype: The corresponding torch dtype.
+
+        Raises:
+            ValueError: If an unsupported precision is specified.
+        """
+        dtype_map = {
+            "float32": torch.float32,
+            "float": torch.float,
+            "float64": torch.float64,
+            "double": torch.double,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "half": torch.half,
+            "uint8": torch.uint8,
+            "int8": torch.int8,
+            "int16": torch.int16,
+            "short": torch.short,
+            "int32": torch.int32,
+            "int": torch.int,
+            "int64": torch.int64,
+            "quint8": torch.quint8,
+            "qint8": torch.qint8,
+            "qint32": torch.qint32,
+        }
+        return dtype_map.get(precision, torch.float)
+
     def load_models(
         self,
         model_name: str,
@@ -144,42 +178,7 @@ class TextFineTuner(Bolt):
         """
         try:
             # Determine the torch dtype based on precision
-            if precision == "float32":
-                torch_dtype = torch.float32
-            elif precision == "float":
-                torch_dtype = torch.float
-            elif precision == "float64":
-                torch_dtype = torch.float64
-            elif precision == "double":
-                torch_dtype = torch.double
-            elif precision == "float16":
-                torch_dtype = torch.float16
-            elif precision == "bfloat16":
-                torch_dtype = torch.bfloat16
-            elif precision == "half":
-                torch_dtype = torch.half
-            elif precision == "uint8":
-                torch_dtype = torch.uint8
-            elif precision == "int8":
-                torch_dtype = torch.int8
-            elif precision == "int16":
-                torch_dtype = torch.int16
-            elif precision == "short":
-                torch_dtype = torch.short
-            elif precision == "int32":
-                torch_dtype = torch.int32
-            elif precision == "int":
-                torch_dtype = torch.int
-            elif precision == "int64":
-                torch_dtype = torch.int64
-            elif precision == "quint8":
-                torch_dtype = torch.quint8
-            elif precision == "qint8":
-                torch_dtype = torch.qint8
-            elif precision == "qint32":
-                torch_dtype = torch.qint32
-            else:
-                torch_dtype = None
+            torch_dtype = self._get_torch_dtype(precision)
 
             peft_target_modules = []
             if ":" in model_name:
@@ -466,9 +465,9 @@ class TextFineTuner(Bolt):
             load_best_model_at_end (bool, optional): Whether to load the best model (according to evaluation) at the end of training. Defaults to False.
             metric_for_best_model (Optional[str], optional): The metric to use to compare models. Defaults to None.
             greater_is_better (Optional[bool], optional): Whether a larger value of the metric indicates a better model. Defaults to None.
+            map_data (Callable, optional): A function to map data before training. Defaults to None.
             use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
             huggingface_dataset (str, optional): The huggingface dataset to use.
-            map_data (Callable, optional): A function to map data before training. Defaults to None.
             hf_repo_id (str, optional): The Hugging Face repo ID. Defaults to None.
             hf_commit_message (str, optional): The Hugging Face commit message. Defaults to None.
             hf_token (str, optional): The Hugging Face token. Defaults to None.
@@ -492,11 +491,16 @@ class TextFineTuner(Bolt):
             self.device_map = device_map
             self.precision = precision
             self.quantization = quantization
-            self.lora_config = lora_config  # type: ignore
+            self.lora_config = lora_config
             self.use_accelerate = use_accelerate
             self.use_trl = use_trl
             self.accelerate_no_split_module_classes = accelerate_no_split_module_classes
             self.evaluate = evaluate
+            self.save_steps = save_steps
+            self.save_total_limit = save_total_limit
+            self.load_best_model_at_end = load_best_model_at_end
+            self.metric_for_best_model = metric_for_best_model
+            self.greater_is_better = greater_is_better
             self.use_huggingface_dataset = use_huggingface_dataset
             self.huggingface_dataset = huggingface_dataset
             self.hf_repo_id = hf_repo_id
@@ -544,14 +548,14 @@ class TextFineTuner(Bolt):
             # Create training arguments
             training_args = TrainingArguments(
                 output_dir=os.path.join(self.output.output_folder, "model"),
-                num_train_epochs=num_train_epochs,
-                per_device_train_batch_size=per_device_batch_size,
-                per_device_eval_batch_size=per_device_batch_size,
-                save_steps=save_steps,
-                save_total_limit=save_total_limit,
-                load_best_model_at_end=load_best_model_at_end,
-                metric_for_best_model=metric_for_best_model,
-                greater_is_better=greater_is_better,
+                num_train_epochs=self.num_train_epochs,
+                per_device_train_batch_size=self.per_device_batch_size,
+                per_device_eval_batch_size=self.per_device_batch_size,
+                save_steps=self.save_steps,
+                save_total_limit=self.save_total_limit,
+                load_best_model_at_end=self.load_best_model_at_end,
+                metric_for_best_model=self.metric_for_best_model,
+                greater_is_better=self.greater_is_better,
                 dataloader_num_workers=4,
                 learning_rate=self.learning_rate,
                 **training_kwargs,

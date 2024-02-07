@@ -434,6 +434,7 @@ class TextBulk(Bolt):
         compile: bool = True,
         awq_enabled: bool = False,
         flash_attention: bool = False,
+        better_transformers: bool = False,
         **model_args: Any,
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
@@ -455,6 +456,7 @@ class TextBulk(Bolt):
             compile (bool): Flag to enable JIT compilation of the model.
             awq_enabled (bool): Flag to enable AWQ (Adaptive Weight Quantization).
             flash_attention (bool): Flag to enable Flash Attention optimization for faster processing.
+            better_transformers (bool): Flag to enable Better Transformers optimization for faster processing.
             **model_args (Any): Additional arguments to pass to the model during its loading.
 
         Returns:

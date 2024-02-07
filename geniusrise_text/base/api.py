@@ -156,9 +156,10 @@ class TextAPI(TextBulk):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = False,
-        compile: bool = True,
+        compile: bool = False,
         awq_enabled: bool = False,
         flash_attention: bool = False,
+        better_transformers: bool = False,
         endpoint: str = "*",
         port: int = 3000,
         cors_domain: str = "http://localhost:3000",
@@ -179,9 +180,10 @@ class TextAPI(TextBulk):
             device_map (str | Dict | None, optional): The mapping of devices to use for inference. Defaults to "auto".
             max_memory (Dict[int, str], optional): The maximum memory to use for inference. Defaults to {0: "24GB"}.
             torchscript (bool, optional): Whether to use a TorchScript-optimized version of the pre-trained language model. Defaults to False.
-            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
+            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to False.
             awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
             flash_attention (bool): Whether to use flash attention 2. Default is False.
+            better_transformers (bool): Flag to enable Better Transformers optimization for faster processing.
             endpoint (str, optional): The endpoint to listen on. Defaults to "*".
             port (int, optional): The port to listen on. Defaults to 3000.
             cors_domain (str, optional): The domain to allow CORS requests from. Defaults to "http://localhost:3000".
@@ -198,7 +200,9 @@ class TextAPI(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.compile = compile
         self.flash_attention = flash_attention
+        self.better_transformers = better_transformers
         self.awq_enabled = awq_enabled
         self.model_args = model_args
         self.username = username
@@ -234,6 +238,7 @@ class TextAPI(TextBulk):
             torchscript=self.torchscript,
             awq_enabled=self.awq_enabled,
             flash_attention=self.flash_attention,
+            better_transformers=self.better_transformers,
             compile=compile,
             **self.model_args,
         )
