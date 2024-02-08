@@ -1,0 +1,113 @@
+openapi: 3.0.0
+info:
+  title: GeniusRise Instruction-Based Text Processing API
+  description: API for generating text based on instructions using Hugging Face models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Development server for Instruction-based APIs
+paths:
+  /complete:
+    post:
+      summary: Generate text based on a given prompt and optional parameters
+      operationId: generateTextComplete
+      tags:
+        - Text Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  description: The prompt to generate text for.
+                decoding_strategy:
+                  type: string
+                  description: The decoding strategy to use, e.g., "generate".
+                  default: "generate"
+                max_new_tokens:
+                  type: integer
+                  description: Maximum number of new tokens to generate.
+                do_sample:
+                  type: boolean
+                  description: Whether to use sampling for generation.
+                temperature:
+                  type: number
+                  description: Temperature for sampling.
+                top_k:
+                  type: integer
+                  description: Number of highest probability tokens to keep for top-k-filtering.
+                top_p:
+                  type: number
+                  description: Cumulative probability for top-p-filtering.
+              required:
+                - prompt
+      responses:
+        200:
+          description: Successfully generated text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    type: string
+                  args:
+                    type: object
+                    additionalProperties: true
+                  completion:
+                    type: string
+        400:
+          description: Invalid request
+        500:
+          description: Error during text generation
+
+  /chat:
+    post:
+      summary: Handles chat interaction using conversational text generation
+      operationId: chatInteraction
+      tags:
+        - Chat Interaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_prompt:
+                  type: string
+                  description: The user's part of the conversation.
+                system_prompt:
+                  type: string
+                  description: The system's part of the conversation to respond to user's prompt.
+              required:
+                - user_prompt
+                - system_prompt
+      responses:
+        200:
+          description: Successfully handled chat interaction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_prompt:
+                    type: string
+                  system_prompt:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        text:
+                          type: string
+                        score:
+                          type: number
+        400:
+          description: Invalid request
+        500:
+          description: Error during chat interaction

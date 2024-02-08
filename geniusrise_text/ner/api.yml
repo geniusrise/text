@@ -1,0 +1,110 @@
+openapi: 3.0.0
+info:
+  title: Named Entity Recognition API
+  description: API for Named Entity Recognition using pre-trained Hugging Face transformers models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: API server for NER model text processing
+paths:
+  /recognize_entities:
+    post:
+      summary: Recognize named entities in the provided text
+      operationId: recognizeEntities
+      tags:
+        - Named Entity Recognition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Input text for entity recognition.
+              required:
+                - text
+      responses:
+        200:
+          description: Successful response with recognized entities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                    description: The original text that was provided for entity recognition.
+                  entities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        token:
+                          type: string
+                          description: Tokenized part of the text.
+                        class:
+                          type: string
+                          description: Entity class identified for the token.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure
+  /ner_pipeline:
+    post:
+      summary: Recognize named entities using Hugging Face NER pipeline
+      operationId: nerPipeline
+      tags:
+        - Named Entity Recognition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Input text for entity recognition using the Hugging Face pipeline.
+              required:
+                - text
+      responses:
+        200:
+          description: Successful response with recognized entities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                    description: The original text that was provided for entity recognition.
+                  entities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entity:
+                          type: string
+                          description: Entity class identified.
+                        score:
+                          type: number
+                          format: float
+                          description: Confidence score for the entity classification.
+                        index:
+                          type: integer
+                          description: Token index in the input sequence.
+                        word:
+                          type: string
+                          description: The word classified as an entity.
+                        start:
+                          type: integer
+                          description: Start position of the entity in the input text.
+                        end:
+                          type: integer
+                          description: End position of the entity in the input text.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure

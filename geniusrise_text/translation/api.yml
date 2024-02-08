@@ -1,0 +1,122 @@
+openapi: 3.0.0
+info:
+  title: Translation API
+  description: Provides APIs for translating text using Hugging Face models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Translation API server
+paths:
+  /translate:
+    post:
+      summary: Translates text to the specified target language
+      operationId: translateText
+      tags:
+        - Translation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to be translated.
+                source_lang:
+                  type: string
+                  description: Source language code.
+                target_lang:
+                  type: string
+                  description: Target language code.
+                decoding_strategy:
+                  type: string
+                  description: Strategy to use for decoding. Defaults to 'generate'.
+                  default: "generate"
+                num_beams:
+                  type: integer
+                  description: Number of beams for beam search. Applicable if decoding_strategy is 'beam_search'.
+                additional_params:
+                  type: object
+                  additionalProperties: true
+                  description: Other model-specific parameters for translation.
+              required:
+                - text
+                - source_lang
+                - target_lang
+      responses:
+        200:
+          description: Text successfully translated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: The original text.
+                  target_language:
+                    type: string
+                    description: The target language code.
+                  translated_text:
+                    type: string
+                    description: The translated text.
+        400:
+          description: Invalid input provided
+        500:
+          description: Error in processing the request
+
+  /translate_pipeline:
+    post:
+      summary: Translates text using a pre-initialized translation pipeline
+      operationId: translateTextPipeline
+      tags:
+        - Translation Pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to be translated.
+                source_lang:
+                  type: string
+                  description: Source language code.
+                target_lang:
+                  type: string
+                  description: Target language code.
+                additional_params:
+                  type: object
+                  additionalProperties: true
+                  description: Other parameters for translation, specified as key-value pairs.
+              required:
+                - text
+                - source_lang
+                - target_lang
+      responses:
+        200:
+          description: Text successfully translated using the pipeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: The original text.
+                  source_language:
+                    type: string
+                    description: The source language code.
+                  target_language:
+                    type: string
+                    description: The target language code.
+                  translated_text:
+                    type: string
+                    description: The translated text.
+        400:
+          description: Invalid input provided
+        500:
+          description: Error in processing the request
