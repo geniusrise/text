@@ -160,7 +160,6 @@ class TextClassificationBulk(TextBulk):
             if self.use_huggingface_dataset:
                 dataset = load_dataset(self.huggingface_dataset)
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []
@@ -215,12 +214,6 @@ class TextClassificationBulk(TextBulk):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
 
             if hasattr(self, "map_data") and self.map_data:
@@ -251,6 +244,9 @@ class TextClassificationBulk(TextBulk):
         flash_attention: bool = False,
         batch_size: int = 32,
         notification_email: Optional[str] = None,
+        use_huggingface_dataset: bool = False,
+        huggingface_dataset: str = "",
+        max_length: int = 512,
         **kwargs: Any,
     ) -> None:
         """
@@ -271,6 +267,9 @@ class TextClassificationBulk(TextBulk):
             awq_enabled (bool): Whether to enable AWQ optimization (default False).
             flash_attention (bool): Whether to use flash attention optimization (default False).
             batch_size (int): Number of classifications to process simultaneously (default 32).
+            use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
+            huggingface_dataset (str, optional): The huggingface dataset to use.
+            max_length (int, optional): The maximum input lenght supported by the model.
             **kwargs: Arbitrary keyword arguments for model and generation configurations.
         """
         if ":" in model_name:
@@ -295,11 +294,13 @@ class TextClassificationBulk(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.compile = compile
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
         self.notification_email = notification_email
-        self.compile = compile
+        self.use_huggingface_dataset = use_huggingface_dataset
+        self.huggingface_dataset = huggingface_dataset
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -330,7 +331,7 @@ class TextClassificationBulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
+        _dataset = self.load_dataset(dataset_path, max_length=max_length)
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return

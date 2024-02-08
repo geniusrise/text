@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk
+from datasets import Dataset, load_from_disk, load_dataset
 from geniusrise import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq
@@ -163,9 +163,12 @@ class InstructionBulk(TextBulk):
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             self.max_length = max_length
-            if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
-                return load_from_disk(dataset_path)
+
+            if self.use_huggingface_dataset:
+                dataset = load_dataset(self.huggingface_dataset)
+            elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
+
+                dataset = load_from_disk(dataset_path)
             else:
                 data = []
                 for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
@@ -219,14 +222,15 @@ class InstructionBulk(TextBulk):
                         df = feather.read_feather(filepath)
                         data.extend(df.to_dict("records"))
 
-                if hasattr(self, "map_data") and self.map_data:
-                    fn = eval(self.map_data)  # type: ignore
-                    data = [fn(d) for d in data]
-                else:
-                    data = data
-
                 dataset = Dataset.from_pandas(pd.DataFrame(data))
-                return dataset
+
+            if hasattr(self, "map_data") and self.map_data:
+                fn = eval(self.map_data)  # type: ignore
+                dataset = dataset.map(fn)
+            else:
+                dataset = dataset
+
+            return dataset
         except Exception as e:
             self.log.error(f"Error occurred when loading dataset from {dataset_path}. Error: {e}")
             raise
@@ -247,6 +251,9 @@ class InstructionBulk(TextBulk):
         flash_attention: bool = False,
         decoding_strategy: str = "generate",
         notification_email: Optional[str] = None,
+        use_huggingface_dataset: bool = False,
+        huggingface_dataset: str = "",
+        max_length: int = 512,
         **kwargs: Any,
     ) -> None:
         """
@@ -267,6 +274,9 @@ class InstructionBulk(TextBulk):
             awq_enabled (bool, optional): Whether to enable AWQ optimization. Defaults to False.
             flash_attention (bool, optional): Whether to use flash attention optimization. Defaults to False.
             decoding_strategy (str, optional): Strategy for decoding the completion. Defaults to "generate".
+            use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
+            huggingface_dataset (str, optional): The huggingface dataset to use.
+            max_length (int, optional): The maximum input lenght supported by the model.
             **kwargs: Configuration and additional arguments for text generation such as model class, tokenizer class,
                       precision, device map, and other generation-related parameters.
 
@@ -295,10 +305,13 @@ class InstructionBulk(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.compile = compile
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.notification_email = notification_email
-        self.compile = compile
+        self.use_huggingface_dataset = use_huggingface_dataset
+        self.huggingface_dataset = huggingface_dataset
+        self.max_length = max_length
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -329,7 +342,7 @@ class InstructionBulk(TextBulk):
         output_path = self.output.output_folder
 
         # Load dataset
-        _dataset = self.load_dataset(dataset_path)
+        _dataset = self.load_dataset(dataset_path, max_length=max_length)
         if _dataset is None:
             self.log.error("Failed to load dataset.")
             return

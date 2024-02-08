@@ -169,7 +169,7 @@ class LanguageModelBulk(TextBulk):
         try:
             self.log.info(f"Loading dataset from {dataset_path}")
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
+
                 return load_from_disk(dataset_path)
             else:
                 data = []

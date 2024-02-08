@@ -144,7 +144,7 @@ class LanguageModelFineTuner(TextFineTuner):
             if self.use_huggingface_dataset:
                 dataset = load_dataset(self.huggingface_dataset)
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
+
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []

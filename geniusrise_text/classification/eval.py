@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import torch
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_dataset
+from datasets import Dataset, load_from_disk, load_dataset, load_metric
 from geniusrise import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq
@@ -32,11 +32,10 @@ from pyarrow import parquet as pq
 from geniusrise_text.base import TextBulk
 
 
-class TextClassificationBulk(TextBulk):
+class TextClassificationEval(TextBulk):
     r"""
-    TextClassificationBulk is designed to handle bulk text classification tasks using Hugging Face models efficiently and
-    effectively. It allows for processing large datasets, utilizing state-of-the-art machine learning models to provide
-    accurate classification of text data into predefined labels.
+    TextClassificationEval extends TextBulk to support evaluation of text classification models on large datasets. It facilitates
+    processing of datasets, model inference, and computation of evaluation metrics such as accuracy, precision, recall, and F1 score.
 
     Args:
         input (BatchInput): Configuration and data inputs for the batch process.
@@ -46,7 +45,7 @@ class TextClassificationBulk(TextBulk):
 
     Example CLI Usage:
     ```bash
-    genius TextClassificationBulk rise \
+    genius TextClassificationEval rise \
         batch \
             --input_s3_bucket geniusrise-test \
             --input_s3_folder input/txtclass \
@@ -77,7 +76,7 @@ class TextClassificationBulk(TextBulk):
 
     def __init__(self, input: BatchInput, output: BatchOutput, state: State, **kwargs) -> None:
         """
-        Initializes the TextClassificationBulk class with input, output, and state configurations.
+        Initializes the TextClassificationEval class with configurations for input, output, state, and evaluation settings.
 
         Args:
             input (BatchInput): Configuration for the input data.
@@ -106,50 +105,52 @@ class TextClassificationBulk(TextBulk):
         ### JSONL
         Each line is a JSON object representing an example.
         ```json
-        {"text": "The text content"}
+        {"text": "The text content", "label": "The label"}
         ```
 
         ### CSV
-        Should contain 'text' columns.
+        Should contain 'text' and 'label' columns.
         ```csv
-        text
-        "The text content"
+        text,label
+        "The text content","The label"
         ```
 
         ### Parquet
-        Should contain 'text' columns.
+        Should contain 'text' and 'label' columns.
 
         ### JSON
-        An array of dictionaries with 'text' keys.
+        An array of dictionaries with 'text' and 'label' keys.
         ```json
-        [{"text": "The text content"}]
+        [{"text": "The text content", "label": "The label"}]
         ```
 
         ### XML
-        Each 'record' element should contain 'text' child elements.
+        Each 'record' element should contain 'text' and 'label' child elements.
         ```xml
         <record>
             <text>The text content</text>
+            <label>The label</label>
         </record>
         ```
 
         ### YAML
-        Each document should be a dictionary with 'text' keys.
+        Each document should be a dictionary with 'text' and 'label' keys.
         ```yaml
         - text: "The text content"
+        label: "The label"
         ```
 
         ### TSV
-        Should contain 'text' columns separated by tabs.
+        Should contain 'text' and 'label' columns separated by tabs.
 
         ### Excel (.xls, .xlsx)
-        Should contain 'text' columns.
+        Should contain 'text' and 'label' columns.
 
         ### SQLite (.db)
-        Should contain a table with 'text' columns.
+        Should contain a table with 'text' and 'label' columns.
 
         ### Feather
-        Should contain 'text' columns.
+        Should contain 'text' and 'label' columns.
         """
         self.max_length = max_length
 
@@ -160,11 +161,11 @@ class TextClassificationBulk(TextBulk):
             if self.use_huggingface_dataset:
                 dataset = load_dataset(self.huggingface_dataset)
             elif os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):
-                # Load dataset saved by Hugging Face datasets library
+
                 dataset = load_from_disk(dataset_path)
             else:
                 data = []
-                for filename in glob.glob(f"{dataset_path}/**/*", recursive=True):
+                for filename in os.listdir(dataset_path):
                     filepath = os.path.join(dataset_path, filename)
                     if filename.endswith(".jsonl"):
                         with open(filepath, "r") as f:
@@ -190,7 +191,8 @@ class TextClassificationBulk(TextBulk):
                         root = tree.getroot()
                         for record in root.findall("record"):
                             text = record.find("text").text  # type: ignore
-                            data.append({"text": text})
+                            label = record.find("label").text  # type: ignore
+                            data.append({"text": text, "label": label})
 
                     elif filename.endswith(".yaml") or filename.endswith(".yml"):
                         with open(filepath, "r") as f:
@@ -207,7 +209,7 @@ class TextClassificationBulk(TextBulk):
 
                     elif filename.endswith(".db"):
                         conn = sqlite3.connect(filepath)
-                        query = "SELECT text FROM dataset_table;"
+                        query = "SELECT text, label FROM dataset_table;"
                         df = pd.read_sql_query(query, conn)
                         data.extend(df.to_dict("records"))
 
@@ -244,11 +246,12 @@ class TextClassificationBulk(TextBulk):
         flash_attention: bool = False,
         batch_size: int = 32,
         notification_email: Optional[str] = None,
+        use_huggingface_dataset: bool = False,
+        huggingface_dataset: str = "",
         **kwargs: Any,
     ) -> None:
         """
-        Perform bulk classification using the specified model and tokenizer. This method handles the entire classification
-        process including loading the model, processing input data, predicting classifications, and saving the results.
+        Evaluates the model on the loaded dataset, calculates evaluation metrics, and saves both predictions and metrics.
 
         Args:
             model_name (str): Name or path of the model.
@@ -264,6 +267,8 @@ class TextClassificationBulk(TextBulk):
             awq_enabled (bool): Whether to enable AWQ optimization (default False).
             flash_attention (bool): Whether to use flash attention optimization (default False).
             batch_size (int): Number of classifications to process simultaneously (default 32).
+            use_huggingface_dataset (bool, optional): Whether to load a dataset from huggingface hub.
+            huggingface_dataset (str, optional): The huggingface dataset to use.
             **kwargs: Arbitrary keyword arguments for model and generation configurations.
         """
         if ":" in model_name:
@@ -288,11 +293,13 @@ class TextClassificationBulk(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
+        self.compile = compile
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.batch_size = batch_size
         self.notification_email = notification_email
-        self.compile = compile
+        self.use_huggingface_dataset = use_huggingface_dataset
+        self.huggingface_dataset = huggingface_dataset
 
         model_args = {k.replace("model_", ""): v for k, v in kwargs.items() if "model_" in k}
         self.model_args = model_args
@@ -329,47 +336,86 @@ class TextClassificationBulk(TextBulk):
             return
         dataset = _dataset["text"]
 
-        # Process data in batches
+        # Ensure metrics are available
+        accuracy_metric = load_metric("accuracy")
+        precision_metric = load_metric("precision")
+        recall_metric = load_metric("recall")
+        f1_metric = load_metric("f1")
+
+        all_predictions = []
+        all_true_labels = []
+
+        # Loop through the dataset in batches
         for i in range(0, len(dataset), batch_size):
-            batch = dataset[i : i + batch_size]
-            inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
+            batch_texts = dataset[i : i + batch_size]["text"]
+            batch_labels = dataset[i : i + batch_size]["labels"]
+            inputs = self.tokenizer(
+                batch_texts, padding=True, truncation=True, max_length=self.max_length, return_tensors="pt"
+            )
 
-            if next(self.model.parameters()).is_cuda:
+            if self.use_cuda:
                 inputs = {k: v.cuda() for k, v in inputs.items()}
+                batch_labels = torch.tensor(batch_labels).cuda()
 
-            predictions = self.model(**inputs)
-            predictions = predictions[0] if isinstance(predictions, tuple) else predictions.logits
-            predictions = torch.argmax(predictions, dim=-1).cpu().numpy()
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                predictions = torch.argmax(outputs.logits, dim=-1)
 
-            self._save_predictions(predictions, batch, output_path, i)
+            all_predictions.extend(predictions.cpu().numpy())
+            all_true_labels.extend(batch_labels.cpu().numpy())
+
+        # Compute overall metrics
+        # fmt: off
+        overall_accuracy = accuracy_metric.compute(predictions=all_predictions, references=all_true_labels)["accuracy"]
+        overall_precision = precision_metric.compute(predictions=all_predictions, references=all_true_labels, average="macro")["precision"]
+        overall_recall = recall_metric.compute(predictions=all_predictions, references=all_true_labels, average="macro")["recall"]
+        overall_f1 = f1_metric.compute(predictions=all_predictions, references=all_true_labels, average="macro")["f1"]
+        # fmt: on
+
+        overall_evaluation_metrics = {
+            "accuracy": overall_accuracy,
+            "precision": overall_precision,
+            "recall": overall_recall,
+            "f1": overall_f1,
+        }
+
+        # Save predictions and evaluation metrics
+        self._save_predictions(
+            all_predictions, dataset["text"], all_true_labels, self.output.output_folder, overall_evaluation_metrics
+        )
+
         self.done()
 
     def _save_predictions(
         self,
-        predictions: torch.Tensor,
-        input_batch: List[str],
+        predictions: List[int],
+        input_texts: List[str],
+        true_labels: List[int],
         output_path: str,
-        batch_idx: int,
+        evaluation_metrics: Dict[str, float],
     ) -> None:
         """
-        Saves the classification predictions to a specified output path. This method is called internally by the classify method
-        to persist the classification results.
+        Saves the classification predictions and evaluation metrics to a specified output path.
 
         Args:
-            predictions (torch.Tensor): Tensor of label indices predicted by the model.
-            input_batch (List[str]): List of original texts that were classified.
-            output_path (str): Path to save the classification results.
-            batch_idx (int): Index of the current batch (for naming files).
+            predictions (List[int]): List of label indices predicted by the model.
+            input_texts (List[str]): List of original texts that were classified.
+            true_labels (List[int]): List of true label indices.
+            output_path (str): Path to save the classification results and metrics.
+            evaluation_metrics (Dict[str, float]): Dictionary of evaluation metrics.
         """
-        id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
-        label_predictions = [id_to_label[label_id] for label_id in predictions.tolist()]
-
         # Prepare data for saving
         data_to_save = [
-            {"input": input_text, "prediction": label} for input_text, label in zip(input_batch, label_predictions)
+            {"input": input_text, "prediction": prediction, "true_label": true_label}
+            for input_text, prediction, true_label in zip(input_texts, predictions, true_labels)
         ]
-        with open(
-            os.path.join(output_path, f"predictions-{batch_idx}-{str(uuid.uuid4())}.json"),
-            "w",
-        ) as f:
-            json.dump(data_to_save, f)
+
+        # Save predictions to a JSON file
+        predictions_file_path = os.path.join(output_path, f"predictions-{str(uuid.uuid4())}.json")
+        with open(predictions_file_path, "w") as f:
+            json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+
+        # Save evaluation metrics to a JSON file
+        metrics_file_path = os.path.join(output_path, "evaluation_metrics.json")
+        with open(metrics_file_path, "w") as f:
+            json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
