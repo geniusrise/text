@@ -1,0 +1,88 @@
+openapi: 3.0.0
+info:
+  title: GeniusRise Text Processing API
+  description: API for text generation and classification using Hugging Face models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+paths:
+
+  /classify:
+    post:
+      summary: Classifies text into categories
+      operationId: classifyText
+      tags:
+        - Text Classification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to classify
+              required:
+                - text
+      responses:
+        200:
+          description: Successfully classified text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  label_scores:
+                    type: object
+                    additionalProperties:
+                      type: number
+        400:
+          description: Invalid request
+        500:
+          description: Error during text classification
+
+  /classification_pipeline:
+    post:
+      summary: Classifies text using the Hugging Face pipeline
+      operationId: classifyTextPipeline
+      tags:
+        - Text Classification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to classify
+              required:
+                - text
+      responses:
+        200:
+          description: Successfully classified text using pipeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        score:
+                          type: number
+        400:
+          description: Invalid request
+        500:
+          description: Error during text classification

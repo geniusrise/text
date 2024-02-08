@@ -1,0 +1,122 @@
+openapi: 3.0.0
+info:
+  title: Question Answering API
+  description: API for performing various question answering tasks using pre-trained models, including text-based and table-based QA.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: API server for question answering model processing
+paths:
+  /answer:
+    post:
+      summary: Answers questions based on provided context or table
+      operationId: answerQuestion
+      tags:
+        - Question Answering
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - title: Text-based QA
+                  type: object
+                  properties:
+                    question:
+                      type: string
+                      description: The question to be answered based on the context.
+                    data:
+                      type: string
+                      description: The textual context to answer the question from.
+                  required:
+                    - question
+                    - data
+                - title: Table-based QA
+                  type: object
+                  properties:
+                    question:
+                      type: string
+                      description: The question to be answered based on the table.
+                    data:
+                      type: array
+                      items:
+                        type: object
+                      description: The tabular data to answer the question from, each object represents a row.
+                  required:
+                    - question
+                    - data
+      responses:
+        200:
+          description: Successful response with the answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  question:
+                    type: string
+                    description: The question that was asked.
+                  data:
+                    type: object
+                    description: The context or table provided for the question.
+                  answer:
+                    type: object
+                    properties:
+                      answers:
+                        type: array
+                        items:
+                          type: string
+                        description: The answers derived from the context or table.
+                      aggregation:
+                        type: string
+                        description: The aggregation operation applied for table-based QA, if any.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure
+  /answer_pipeline:
+    post:
+      summary: Answers questions using the Hugging Face pipeline
+      operationId: answerQuestionPipeline
+      tags:
+        - Question Answering
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  description: The question to be answered.
+                data:
+                  type: string
+                  description: The textual context to answer the question from.
+              required:
+                - question
+                - data
+      responses:
+        200:
+          description: Successful response with the answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  question:
+                    type: string
+                    description: The question that was asked.
+                  data:
+                    type: string
+                    description: The context provided for the question.
+                  answer:
+                    type: object
+                    properties:
+                      answer:
+                        type: string
+                        description: The answer derived from the context.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure

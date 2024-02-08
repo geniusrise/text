@@ -1,0 +1,188 @@
+openapi: 3.0.0
+info:
+  title: Natural Language Inference API
+  description: API for performing various Natural Language Inference tasks using pre-trained Hugging Face models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: API server for NLI model text processing
+paths:
+  /entailment:
+    post:
+      summary: Evaluate entailment relationship between a premise and a hypothesis
+      operationId: entailment
+      tags:
+        - Natural Language Inference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                premise:
+                  type: string
+                  description: Input premise text.
+                hypothesis:
+                  type: string
+                  description: Input hypothesis text to evaluate against the premise.
+              required:
+                - premise
+                - hypothesis
+      responses:
+        200:
+          description: Successful response with entailment scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  premise:
+                    type: string
+                    description: The original premise text.
+                  hypothesis:
+                    type: string
+                    description: The original hypothesis text.
+                  label_scores:
+                    type: object
+                    additionalProperties:
+                      type: number
+                      format: float
+                    description: Scores for entailment, contradiction, and neutral.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure
+  /classify:
+    post:
+      summary: Classify the input text into one of the candidate labels
+      operationId: classify
+      tags:
+        - Natural Language Inference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Input text for classification.
+                candidate_labels:
+                  type: array
+                  items:
+                    type: string
+                  description: A list of candidate labels for classification.
+              required:
+                - text
+                - candidate_labels
+      responses:
+        200:
+          description: Successful response with classification scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    description: The original text that was provided for classification.
+                  label_scores:
+                    type: object
+                    additionalProperties:
+                      type: number
+                      format: float
+                    description: Scores for each candidate label.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure
+  /textual_similarity:
+    post:
+      summary: Evaluate textual similarity between two texts
+      operationId: textualSimilarity
+      tags:
+        - Natural Language Inference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text1:
+                  type: string
+                  description: The first text for similarity comparison.
+                text2:
+                  type: string
+                  description: The second text for similarity comparison.
+              required:
+                - text1
+                - text2
+      responses:
+        200:
+          description: Successful response with similarity score
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text1:
+                    type: string
+                    description: The first text provided for comparison.
+                  text2:
+                    type: string
+                    description: The second text provided for comparison.
+                  similarity_score:
+                    type: number
+                    format: float
+                    description: Similarity score between the two texts.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure
+  /fact_checking:
+    post:
+      summary: Perform fact checking on a statement given a context
+      operationId: factChecking
+      tags:
+        - Natural Language Inference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                context:
+                  type: string
+                  description: The context or background information.
+                statement:
+                  type: string
+                  description: The statement to fact check.
+              required:
+                - context
+                - statement
+      responses:
+        200:
+          description: Successful response with fact checking scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  context:
+                    type: string
+                    description: The context provided for fact checking.
+                  statement:
+                    type: string
+                    description: The statement that was fact checked.
+                  fact_checking_score:
+                    type: number
+                    format: float
+                    description: Fact checking score for the statement.
+        400:
+          description: Bad request, e.g., missing required fields
+        500:
+          description: Internal server error, e.g., model failure

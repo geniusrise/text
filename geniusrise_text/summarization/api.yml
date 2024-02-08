@@ -1,0 +1,98 @@
+openapi: 3.0.0
+info:
+  title: Text Processing API
+  description: Provides APIs for text summarization and general text processing using Hugging Face models.
+  version: "1.0"
+servers:
+  - url: http://localhost:3000/api/v1
+    description: API server for text processing
+paths:
+  /summarize:
+    post:
+      summary: Summarizes the provided text
+      operationId: summarizeText
+      tags:
+        - Summarization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to be summarized.
+                decoding_strategy:
+                  type: string
+                  description: The strategy to use for decoding, defaults to 'generate'.
+                  default: "generate"
+                max_length:
+                  type: integer
+                  description: The maximum length of the summary.
+                min_length:
+                  type: integer
+                  description: The minimum length of the summary.
+                num_beams:
+                  type: integer
+                  description: Number of beams for beam search.
+              required:
+                - text
+      responses:
+        200:
+          description: Text successfully summarized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                    description: The original input text.
+                  summary:
+                    type: string
+                    description: The summarized text.
+        400:
+          description: Invalid input provided
+        500:
+          description: Error in processing the request
+
+  /summarize_pipeline:
+    post:
+      summary: Summarizes provided text using the Hugging Face summarization pipeline
+      operationId: summarizeTextPipeline
+      tags:
+        - Summarization Pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The text to be summarized.
+                otherParams:
+                  type: object
+                  description: Additional parameters for the pipeline, specified as key-value pairs.
+              required:
+                - text
+      responses:
+        200:
+          description: Text successfully summarized using the pipeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  input:
+                    type: string
+                    description: The original input text.
+                  summary:
+                    type: string
+                    description: The summarized text.
+        400:
+          description: Invalid input provided
+        500:
+          description: Error in processing the request
