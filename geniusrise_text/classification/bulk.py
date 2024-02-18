@@ -45,6 +45,7 @@ class TextClassificationBulk(TextBulk):
         **kwargs: Arbitrary keyword arguments for extended configurations.
 
     Example CLI Usage:
+
     ```bash
     genius TextClassificationBulk rise \
         batch \

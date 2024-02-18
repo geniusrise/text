@@ -45,6 +45,7 @@ class NamedEntityRecognitionBulk(TextBulk):
         tokenizer (Any): The tokenizer used for text pre-processing in alignment with the model.
 
     Example CLI Usage:
+
     ```bash
     genius NamedEntityRecognitionBulk rise \
         batch \

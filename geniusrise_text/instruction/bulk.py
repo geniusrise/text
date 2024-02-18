@@ -49,6 +49,7 @@ class InstructionBulk(TextBulk):
             Performs bulk text generation using the specified model and tokenizer.
 
     Example CLI Usage:
+
     ```bash
     genius InstructionBulk rise \
         batch \

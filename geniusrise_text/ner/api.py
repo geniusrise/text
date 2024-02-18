@@ -35,6 +35,7 @@ class NamedEntityRecognitionAPI(TextAPI):
         tokenizer (Any): The tokenizer for preprocessing text compatible with the loaded model.
 
     Example CLI Usage:
+
     ```bash
     genius NamedEntityRecognitionAPI rise \
         batch \

@@ -43,6 +43,7 @@ class NLIBulk(TextBulk):
         state (State): State management for the inference task.
 
     Example CLI Usage:
+
     ```bash
     genius NLIBulk rise \
         batch \

@@ -45,6 +45,7 @@ class QABulk(TextBulk):
         **kwargs: Arbitrary keyword arguments for extended functionality.
 
     Example CLI Usage:
+
     ```bash
     # For traditional text-based QA:
     genius QABulk rise \

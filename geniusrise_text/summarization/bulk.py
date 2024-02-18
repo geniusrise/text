@@ -40,6 +40,7 @@ class SummarizationBulk(TextBulk):
     The class provides methods to load datasets, configure summarization models, and execute bulk summarization tasks.
 
     Example CLI Usage:
+
     ```bash
     genius SummarizationBulk rise \
         batch \

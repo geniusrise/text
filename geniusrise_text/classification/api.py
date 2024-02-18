@@ -42,6 +42,7 @@ class TextClassificationAPI(TextAPI):
         initialize_pipeline(self): Lazy initialization of the classification pipeline.
 
     Example CLI Usage:
+
     ```bash
     genius TextClassificationAPI rise \
         batch \

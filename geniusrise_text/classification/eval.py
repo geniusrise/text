@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
 import json
 import os
 import sqlite3
@@ -44,6 +43,7 @@ class TextClassificationEval(TextBulk):
         **kwargs: Arbitrary keyword arguments for extended configurations.
 
     Example CLI Usage:
+
     ```bash
     genius TextClassificationEval rise \
         batch \
