@@ -51,7 +51,7 @@ class TextJupyterNotebook(Bolt):
         quantization: int = 0,
         device_map: str | Dict | None = "auto",
         torchscript: bool = False,
-        compile: bool = True,
+        compile: bool = False,
         awq_enabled: bool = False,
         flash_attention: bool = False,
         port: int = 8888,

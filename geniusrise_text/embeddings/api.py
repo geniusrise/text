@@ -242,7 +242,7 @@ class EmbeddingsAPI(TextAPI):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = False,
-        compile: bool = True,
+        compile: bool = False,
         endpoint: str = "*",
         port: int = 3000,
         cors_domain: str = "http://localhost:3000",
