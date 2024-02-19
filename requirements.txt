@@ -31,3 +31,4 @@ absl-py==2.1.0
 pandas==1.3.5
 torchtext==0.17.0
 multiprocess==0.70.15
+optimum==1.16.2
