@@ -110,7 +110,7 @@ class EmbeddingsBulk(Bolt):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = False,
-        compile: bool = True,
+        compile: bool = False,
         **model_args: Any,
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
@@ -209,7 +209,7 @@ class EmbeddingsBulk(Bolt):
         device_map: str | Dict | None = "auto",
         max_memory={0: "24GB"},
         torchscript: bool = False,
-        compile: bool = True,
+        compile: bool = False,
         batch_size: int = 32,
         **model_args: Any,
     ) -> None:
