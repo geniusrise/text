@@ -47,18 +47,10 @@ class QAAPI(TextAPI):
     ```bash
     genius QAAPI rise \
         batch \
-            --input_s3_bucket geniusrise-test \
-            --input_s3_folder none \
+            --input_folder ./input \
         batch \
-            --output_s3_bucket geniusrise-test \
-            --output_s3_folder none \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise\
-            --postgres_table state \
+            --output_folder ./output \
+        none \
         --id distilbert-base-uncased-distilled-squad-lol \
         listen \
             --args \
@@ -81,18 +73,10 @@ class QAAPI(TextAPI):
     ```bash
     genius QAAPI rise \
         batch \
-            --input_s3_bucket geniusrise-test \
-            --input_s3_folder none \
+            --input_folder ./input \
         batch \
-            --output_s3_bucket geniusrise-test \
-            --output_s3_folder none \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise\
-            --postgres_table state \
+            --output_folder ./output \
+        none \
         --id google/tapas-base-finetuned-wtq-lol \
         listen \
             --args \
@@ -115,18 +99,10 @@ class QAAPI(TextAPI):
     ```bash
     genius QAAPI rise \
         batch \
-            --input_s3_bucket geniusrise-test \
-            --input_s3_folder none \
+            --input_folder ./input \
         batch \
-            --output_s3_bucket geniusrise-test \
-            --output_s3_folder none \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise\
-            --postgres_table state \
+            --output_folder ./output \
+        none \
         --id microsoft/tapex-large-finetuned-wtq-lol \
         listen \
             --args \

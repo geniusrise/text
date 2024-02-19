@@ -44,18 +44,10 @@ class InstructionAPI(TextAPI):
     ```bash
     genius InstructionAPI rise \
         batch \
-            --input_s3_bucket geniusrise-test \
-            --input_s3_folder none \
+            --input_folder ./input \
         batch \
-            --output_s3_bucket geniusrise-test \
-            --output_s3_folder none \
-        postgres \
-            --postgres_host 127.0.0.1 \
-            --postgres_port 5432 \
-            --postgres_user postgres \
-            --postgres_password postgres \
-            --postgres_database geniusrise\
-            --postgres_table state \
+            --output_folder ./output \
+        none \
         listen \
             --args \
                 model_name="TheBloke/Mistral-7B-OpenOrca-AWQ" \
