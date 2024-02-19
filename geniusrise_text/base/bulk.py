@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import os
 import torch
 import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
@@ -476,49 +476,93 @@ class TextBulk(Bolt):
         TokenizerClass = getattr(transformers, tokenizer_class)
 
         # Load the model and tokenizer
-        tokenizer = TokenizerClass.from_pretrained(tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype)
+        if model_name == "local":
+            tokenizer = TokenizerClass.from_pretrained(
+                os.path.join(self.input.get(), "/model"), torch_dtype=torch_dtype
+            )
+        else:
+            tokenizer = TokenizerClass.from_pretrained(
+                tokenizer_name, revision=tokenizer_revision, torch_dtype=torch_dtype
+            )
 
         if flash_attention:
             model_args = {**model_args, **{"attn_implementation": "flash_attention_2"}}
 
         self.log.info(f"Loading model from {model_name} {model_revision} with {model_args}")
         if awq_enabled and quantization > 0:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torch_dtype=torch_dtype,
-                **model_args,
-            )
+            if model_name == "local":
+                model = ModelClass.from_pretrained(
+                    os.path.join(self.input.get(), "/model"),
+                    torch_dtype=torch_dtype,
+                    **model_args,
+                )
+            else:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torch_dtype=torch_dtype,
+                    **model_args,
+                )
         elif quantization == 8:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                load_in_8bit=True,
-                **model_args,
-            )
+            if model_name == "local":
+                model = ModelClass.from_pretrained(
+                    os.path.join(self.input.get(), "/model"),
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    load_in_8bit=True,
+                    **model_args,
+                )
+            else:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    load_in_8bit=True,
+                    **model_args,
+                )
         elif quantization == 4:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                load_in_4bit=True,
-                **model_args,
-            )
+            if model_name == "local":
+                model = ModelClass.from_pretrained(
+                    os.path.join(self.input.get(), "/model"),
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    load_in_4bit=True,
+                    **model_args,
+                )
+            else:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    load_in_4bit=True,
+                    **model_args,
+                )
         else:
-            model = ModelClass.from_pretrained(
-                model_name,
-                revision=model_revision,
-                torch_dtype=torch_dtype,
-                torchscript=torchscript,
-                max_memory=max_memory,
-                device_map=device_map,
-                **model_args,
-            )
+            if model_name == "local":
+                model = ModelClass.from_pretrained(
+                    os.path.join(self.input.get(), "/model"),
+                    torch_dtype=torch_dtype,
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    **model_args,
+                )
+            else:
+                model = ModelClass.from_pretrained(
+                    model_name,
+                    revision=model_revision,
+                    torch_dtype=torch_dtype,
+                    torchscript=torchscript,
+                    max_memory=max_memory,
+                    device_map=device_map,
+                    **model_args,
+                )
 
         if compile and not torchscript:
             model = torch.compile(model)
