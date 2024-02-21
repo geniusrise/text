@@ -27,16 +27,6 @@ from .bulk import TextBulk
 sequential_lock = threading.Lock()
 
 
-def sequential_tool():
-    with sequential_lock:
-        # Yield to signal that the request can proceed
-        yield
-
-
-# Register the custom tool
-cherrypy.tools.sequential = cherrypy.Tool("before_handler", sequential_tool)
-
-
 class TextAPI(TextBulk):
     """
     A class representing a Hugging Face API for generating text using a pre-trained language model.
@@ -160,17 +150,18 @@ class TextAPI(TextBulk):
         compile: bool = False,
         awq_enabled: bool = False,
         flash_attention: bool = False,
+        single_thread_inference: bool = True,
         use_vllm: bool = False,
         # VLLM params
         vllm_tokenizer_mode: str = "auto",
         vllm_download_dir: Optional[str] = None,
         vllm_load_format: str = "auto",
         vllm_seed: int = 42,
-        vllm_max_model_len: int = 0,
+        vllm_max_model_len: int = 1024,
         vllm_enforce_eager: bool = False,
         vllm_max_context_len_to_capture: int = 8192,
-        vllm_block_size: int = 1024,
-        vllm_gpu_memory_utilization: float = 0.8,
+        vllm_block_size: int = 16,
+        vllm_gpu_memory_utilization: float = 0.90,
         vllm_swap_space: int = 4,
         vllm_sliding_window: Optional[int] = None,
         vllm_pipeline_parallel_size: int = 1,
@@ -211,6 +202,7 @@ class TextAPI(TextBulk):
             compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
             awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
             flash_attention (bool): Whether to use flash attention 2. Default is False.
+            single_thread_inference: (bool): Whether the API uses a single thread for inference (usually true for a single GPU system)
             endpoint (str, optional): The endpoint to listen on. Defaults to "*".
             port (int, optional): The port to listen on. Defaults to 3000.
             cors_domain (str, optional): The domain to allow CORS requests from. Defaults to "http://localhost:3000".
@@ -230,6 +222,7 @@ class TextAPI(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.use_vllm = use_vllm
+        self.single_thread_inference = single_thread_inference
 
         self.model_args = model_args
         self.username = username
@@ -309,6 +302,14 @@ class TextAPI(TextBulk):
                 **self.model_args,
             )
 
+        def sequential_locker():
+            if self.single_thread_inference:
+                sequential_lock.acquire()
+
+        def sequential_unlocker():
+            if self.single_thread_inference:
+                sequential_lock.release()
+
         def CORS():
             cherrypy.response.headers["Access-Control-Allow-Origin"] = cors_domain
             cherrypy.response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
@@ -348,6 +349,8 @@ class TextAPI(TextBulk):
             # Configure basic authentication
             conf = {
                 "/": {
+                    "tools.sequential_locker.on": True,
+                    "tools.sequential_unlocker.on": True,
                     "tools.auth_basic.on": True,
                     "tools.auth_basic.realm": "geniusrise",
                     "tools.auth_basic.checkpassword": self.validate_password,
@@ -356,11 +359,19 @@ class TextAPI(TextBulk):
             }
         else:
             # Configuration without authentication
-            conf = {"/": {"tools.CORS.on": True}}
+            conf = {
+                "/": {
+                    "tools.sequential_locker.on": True,
+                    "tools.sequential_unlocker.on": True,
+                    "tools.CORS.on": True,
+                }
+            }
 
+        cherrypy.tools.sequential_locker = cherrypy.Tool("before_handler", sequential_locker)
         cherrypy.tools.CORS = cherrypy.Tool("before_handler", CORS)
         cherrypy.tree.mount(self, "/api/v1/", conf)
         cherrypy.tools.CORS = cherrypy.Tool("before_finalize", CORS)
+        cherrypy.tools.sequential_unlocker = cherrypy.Tool("before_finalize", sequential_unlocker)
         cherrypy.engine.start()
         cherrypy.engine.block()
 
