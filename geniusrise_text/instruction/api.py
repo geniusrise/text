@@ -15,7 +15,9 @@
 
 from typing import Any, Dict, Optional
 
+import asyncio
 import cherrypy
+from concurrent.futures import ThreadPoolExecutor
 from geniusrise_text.base import TextAPI
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
@@ -95,6 +97,8 @@ class InstructionAPI(TextAPI):
         self.log = setup_logger(self)
         self.hf_pipeline = None
         self.vllm_server: Optional[OpenAIServingChat] = None
+        self.event_loop: Any = None
+        self.executor = ThreadPoolExecutor(max_workers=4)
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -192,12 +196,57 @@ class InstructionAPI(TextAPI):
         self.vllm_server = OpenAIServingChat(
             engine=self.model, served_model=self.model_name, response_role=response_role, chat_template=chat_template
         )
+        self.event_loop = asyncio.new_event_loop()
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
-    async def chat_vllm(self, **kwargs: Any) -> Dict[str, Any]:
+    def chat_vllm(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Handles POST requests to generate chat completions using the VLLM (Versatile Language Learning Model) engine.
+        This method accepts various parameters for customizing the chat completion request, including message content,
+        generation settings, and more.
+
+        Parameters:
+        - **kwargs (Any): Arbitrary keyword arguments. Expects data in JSON format containing any of the following keys:
+            - messages (Union[str, List[Dict[str, str]]]): The messages for the chat context.
+            - temperature (float, optional): The sampling temperature. Defaults to 0.7.
+            - top_p (float, optional): The nucleus sampling probability. Defaults to 1.0.
+            - n (int, optional): The number of completions to generate. Defaults to 1.
+            - max_tokens (int, optional): The maximum number of tokens to generate.
+            - stop (Union[str, List[str]], optional): Stop sequence to end generation.
+            - stream (bool, optional): Whether to stream the response. Defaults to False.
+            - presence_penalty (float, optional): The presence penalty. Defaults to 0.0.
+            - frequency_penalty (float, optional): The frequency penalty. Defaults to 0.0.
+            - logit_bias (Dict[str, float], optional): Adjustments to the logits of specified tokens.
+            - user (str, optional): An identifier for the user making the request.
+            - (Additional model-specific parameters)
+
+        Returns:
+        Dict[str, Any]: A dictionary with the chat completion response or an error message.
+
+        Example CURL Request:
+        ```bash
+        curl -X POST "http://localhost:3000/chat_vllm" \
+            -H "Content-Type: application/json" \
+            -d '{
+                "messages": [
+                    {"role": "user", "content": "Whats the weather like in London?"}
+                ],
+                "temperature": 0.7,
+                "top_p": 1.0,
+                "n": 1,
+                "max_tokens": 50,
+                "stream": false,
+                "presence_penalty": 0.0,
+                "frequency_penalty": 0.0,
+                "logit_bias": {},
+                "user": "example_user"
+            }'
+        ```
+        This request asks the VLLM engine to generate a completion for the provided chat context, with specified generation settings.
+        """
         # Extract data from the POST request
         data = cherrypy.request.json
         response_role = data.get("response_role", "assistant")
@@ -238,8 +287,33 @@ class InstructionAPI(TextAPI):
 
         # Generate chat completion using the VLLM engine
         try:
-            chat_completion = await self.vllm_server.create_chat_completion(chat_request, cherrypy.request)  # type: ignore
-            return chat_completion.dict()  # type: ignore
+
+            class DummyObject:
+                async def is_disconnected(self):
+                    return False
+
+            async def async_call():
+                # Replace with the actual asynchronous call to your VLLM engine
+                # This is just a placeholder for demonstration
+                response = await self.vllm_server.create_chat_completion(
+                    request=chat_request, raw_request=DummyObject()
+                )
+                return response
+
+            chat_completion = asyncio.run(async_call())
+
+            # chat_completion = self.run_async(
+            #     self.vllm_server.create_chat_completion(request=chat_request, raw_request=DummyObject())
+            # )
+
+            # with ThreadPoolExecutor() as executor:
+            #     future = executor.submit(
+            #         asyncio.run,
+            #         self.vllm_server.create_chat_completion(request=chat_request, raw_request=DummyObject()),
+            #     )
+            #     chat_completion = future.result()
+
+            return chat_completion.model_dump() if chat_completion else {"error": "Failed to generate chat completion"}
         except Exception as e:
             self.log.exception("Error generating chat completion: %s", str(e))
             raise e
