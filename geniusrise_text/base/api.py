@@ -148,6 +148,7 @@ class TextAPI(TextBulk):
     def listen(
         self,
         model_name: str,
+        # Huggingface params
         model_class: str = "AutoModelForCausalLM",
         tokenizer_class: str = "AutoTokenizer",
         use_cuda: bool = False,
@@ -159,6 +160,34 @@ class TextAPI(TextBulk):
         compile: bool = False,
         awq_enabled: bool = False,
         flash_attention: bool = False,
+        use_vllm: bool = False,
+        # VLLM params
+        vllm_tokenizer_mode: str = "auto",
+        vllm_download_dir: Optional[str] = None,
+        vllm_load_format: str = "auto",
+        vllm_seed: int = 42,
+        vllm_max_model_len: int = 0,
+        vllm_enforce_eager: bool = False,
+        vllm_max_context_len_to_capture: int = 8192,
+        vllm_block_size: int = 1024,
+        vllm_gpu_memory_utilization: float = 0.8,
+        vllm_swap_space: int = 4,
+        vllm_sliding_window: Optional[int] = None,
+        vllm_pipeline_parallel_size: int = 1,
+        vllm_tensor_parallel_size: int = 1,
+        vllm_worker_use_ray: bool = False,
+        vllm_max_parallel_loading_workers: Optional[int] = None,
+        vllm_disable_custom_all_reduce: bool = False,
+        vllm_max_num_batched_tokens: Optional[int] = None,
+        vllm_max_num_seqs: int = 64,
+        vllm_max_paddings: int = 512,
+        vllm_max_lora_rank: Optional[int] = None,
+        vllm_max_loras: Optional[int] = None,
+        vllm_max_cpu_loras: Optional[int] = None,
+        vllm_lora_extra_vocab_size: int = 0,
+        vllm_placement_group: Optional[dict] = None,
+        vllm_log_stats: bool = False,
+        # Server params
         endpoint: str = "*",
         port: int = 3000,
         cors_domain: str = "http://localhost:3000",
@@ -198,8 +227,10 @@ class TextAPI(TextBulk):
         self.device_map = device_map
         self.max_memory = max_memory
         self.torchscript = torchscript
-        self.flash_attention = flash_attention
         self.awq_enabled = awq_enabled
+        self.flash_attention = flash_attention
+        self.use_vllm = use_vllm
+
         self.model_args = model_args
         self.username = username
         self.password = password
@@ -219,24 +250,64 @@ class TextAPI(TextBulk):
         self.tokenizer_name = tokenizer_name
         self.tokenizer_revision = tokenizer_revision
 
-        self.model, self.tokenizer = self.load_models(
-            model_name=self.model_name,
-            tokenizer_name=self.tokenizer_name,
-            model_revision=self.model_revision,
-            tokenizer_revision=self.tokenizer_revision,
-            model_class=self.model_class,
-            tokenizer_class=self.tokenizer_class,
-            use_cuda=self.use_cuda,
-            precision=self.precision,
-            quantization=self.quantization,
-            device_map=self.device_map,
-            max_memory=self.max_memory,
-            torchscript=self.torchscript,
-            awq_enabled=self.awq_enabled,
-            flash_attention=self.flash_attention,
-            compile=compile,
-            **self.model_args,
-        )
+        if use_vllm:
+            self.model = self.load_models_vllm(
+                model=model_name,
+                tokenizer=tokenizer_name,
+                tokenizer_mode=vllm_tokenizer_mode,
+                trust_remote_code=True,
+                download_dir=vllm_download_dir,
+                load_format=vllm_load_format,
+                dtype=self._get_torch_dtype(precision),
+                seed=vllm_seed,
+                revision=model_revision,
+                tokenizer_revision=tokenizer_revision,
+                max_model_len=vllm_max_model_len,
+                quantization=(None if quantization == 0 else f"{quantization}-bit"),
+                enforce_eager=vllm_enforce_eager,
+                max_context_len_to_capture=vllm_max_context_len_to_capture,
+                block_size=vllm_block_size,
+                gpu_memory_utilization=vllm_gpu_memory_utilization,
+                swap_space=vllm_swap_space,
+                cache_dtype="auto",
+                sliding_window=vllm_sliding_window,
+                pipeline_parallel_size=vllm_pipeline_parallel_size,
+                tensor_parallel_size=vllm_tensor_parallel_size,
+                worker_use_ray=vllm_worker_use_ray,
+                max_parallel_loading_workers=vllm_max_parallel_loading_workers,
+                disable_custom_all_reduce=vllm_disable_custom_all_reduce,
+                max_num_batched_tokens=vllm_max_num_batched_tokens,
+                max_num_seqs=vllm_max_num_seqs,
+                max_paddings=vllm_max_paddings,
+                device="cuda" if use_cuda else "cpu",
+                max_lora_rank=vllm_max_lora_rank,
+                max_loras=vllm_max_loras,
+                max_cpu_loras=vllm_max_cpu_loras,
+                lora_dtype=self._get_torch_dtype(precision),
+                lora_extra_vocab_size=vllm_lora_extra_vocab_size,
+                placement_group=vllm_placement_group,  # type: ignore
+                log_stats=vllm_log_stats,
+                batched_inference=False,
+            )
+        else:
+            self.model, self.tokenizer = self.load_models(
+                model_name=self.model_name,
+                tokenizer_name=self.tokenizer_name,
+                model_revision=self.model_revision,
+                tokenizer_revision=self.tokenizer_revision,
+                model_class=self.model_class,
+                tokenizer_class=self.tokenizer_class,
+                use_cuda=self.use_cuda,
+                precision=self.precision,
+                quantization=self.quantization,
+                device_map=self.device_map,
+                max_memory=self.max_memory,
+                torchscript=self.torchscript,
+                awq_enabled=self.awq_enabled,
+                flash_attention=self.flash_attention,
+                compile=compile,
+                **self.model_args,
+            )
 
         def CORS():
             cherrypy.response.headers["Access-Control-Allow-Origin"] = cors_domain
