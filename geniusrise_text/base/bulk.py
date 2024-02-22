@@ -785,7 +785,6 @@ class TextBulk(Bolt):
                 max_loras=max_loras,
                 max_lora_rank=max_lora_rank,
                 lora_extra_vocab_size=lora_extra_vocab_size,
-                lora_dtype=lora_dtype,
                 max_cpu_loras=max_cpu_loras,
                 device=device,
             )
