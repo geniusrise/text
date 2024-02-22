@@ -416,7 +416,50 @@ class InstructionBulk(TextBulk):
         batch_size: int = 32,
         **kwargs: Any,
     ) -> None:
-        """ """
+        """
+        Performs bulk text generation using the Versatile Language Learning Model (VLLM) with specified parameters
+        for fine-tuning model behavior, including quantization and parallel processing settings. This method is designed
+        to process large datasets efficiently by leveraging VLLM capabilities for generating high-quality text completions
+        based on provided prompts.
+
+        Args:
+            model_name (str): The name or path of the VLLM model to use for text generation.
+            use_cuda (bool): Flag indicating whether to use CUDA for GPU acceleration.
+            precision (str): Precision of computations, can be "float16", "bfloat16", etc.
+            quantization (int): Level of quantization for model weights, 0 for none.
+            device_map (str | Dict | None): Specific device(s) to use for model inference.
+            vllm_tokenizer_mode (str): Mode of the tokenizer ("auto", "fast", or "slow").
+            vllm_download_dir (Optional[str]): Directory to download and load the model and tokenizer.
+            vllm_load_format (str): Format to load the model, e.g., "auto", "pt".
+            vllm_seed (int): Seed for random number generation.
+            vllm_max_model_len (int): Maximum sequence length the model can handle.
+            vllm_enforce_eager (bool): Enforce eager execution instead of using optimization techniques.
+            vllm_max_context_len_to_capture (int): Maximum context length for CUDA graph capture.
+            vllm_block_size (int): Block size for caching mechanism.
+            vllm_gpu_memory_utilization (float): Fraction of GPU memory to use.
+            vllm_swap_space (int): Amount of swap space to use in GiB.
+            vllm_sliding_window (Optional[int]): Size of the sliding window for processing.
+            vllm_pipeline_parallel_size (int): Number of pipeline parallel groups.
+            vllm_tensor_parallel_size (int): Number of tensor parallel groups.
+            vllm_worker_use_ray (bool): Whether to use Ray for model workers.
+            vllm_max_parallel_loading_workers (Optional[int]): Maximum number of workers for parallel loading.
+            vllm_disable_custom_all_reduce (bool): Disable custom all-reduce kernel and fall back to NCCL.
+            vllm_max_num_batched_tokens (Optional[int]): Maximum number of tokens to be processed in a single iteration.
+            vllm_max_num_seqs (int): Maximum number of sequences to be processed in a single iteration.
+            vllm_max_paddings (int): Maximum number of paddings to be added to a batch.
+            vllm_max_lora_rank (Optional[int]): Maximum rank for LoRA adjustments.
+            vllm_max_loras (Optional[int]): Maximum number of LoRA adjustments.
+            vllm_max_cpu_loras (Optional[int]): Maximum number of LoRA adjustments stored on CPU.
+            vllm_lora_extra_vocab_size (int): Additional vocabulary size for LoRA.
+            vllm_placement_group (Optional[dict]): Ray placement group for distributed execution.
+            vllm_log_stats (bool): Whether to log statistics during model operation.
+            notification_email (Optional[str]): Email to send notifications upon completion.
+            batch_size (int): Number of prompts to process in each batch for efficient memory usage.
+            **kwargs: Additional keyword arguments for generation settings like temperature, top_p, etc.
+
+        This method automates the loading of large datasets, generation of text completions, and saving results,
+        facilitating efficient and scalable text generation tasks.
+        """
         if ":" in model_name:
             model_revision = model_name.split(":")[1]
             tokenizer_revision = model_name.split(":")[1]
