@@ -71,6 +71,37 @@ class InstructionAPI(TextAPI):
                 username="user" \
                 password="password"
     ```
+
+    Or using VLLM:
+    ```bash
+    genius InstructionAPI rise \
+        batch \
+                --input_folder ./input \
+        batch \
+                --output_folder ./output \
+        none \
+        --id mistralai/Mistral-7B-Instruct-v0.1 \
+        listen \
+            --args \
+                model_name="mistralai/Mistral-7B-Instruct-v0.1" \
+                model_class="AutoModelForCausalLM" \
+                tokenizer_class="AutoTokenizer" \
+                use_cuda=True \
+                precision="bfloat16" \
+                quantization=0 \
+                device_map="auto" \
+                max_memory=None \
+                torchscript=False \
+                use_vllm=True \
+                vllm_enforce_eager=True \
+                vllm_max_model_len=1024 \
+                concurrent_queries=False \
+                endpoint="*" \
+                port=3000 \
+                cors_domain="http://localhost:3000" \
+                username="user" \
+                password="password"
+    ```
     """
 
     model: Any
@@ -293,25 +324,12 @@ class InstructionAPI(TextAPI):
                     return False
 
             async def async_call():
-                # Replace with the actual asynchronous call to your VLLM engine
-                # This is just a placeholder for demonstration
                 response = await self.vllm_server.create_chat_completion(
                     request=chat_request, raw_request=DummyObject()
                 )
                 return response
 
             chat_completion = asyncio.run(async_call())
-
-            # chat_completion = self.run_async(
-            #     self.vllm_server.create_chat_completion(request=chat_request, raw_request=DummyObject())
-            # )
-
-            # with ThreadPoolExecutor() as executor:
-            #     future = executor.submit(
-            #         asyncio.run,
-            #         self.vllm_server.create_chat_completion(request=chat_request, raw_request=DummyObject()),
-            #     )
-            #     chat_completion = future.result()
 
             return chat_completion.model_dump() if chat_completion else {"error": "Failed to generate chat completion"}
         except Exception as e:

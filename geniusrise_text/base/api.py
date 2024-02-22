@@ -150,7 +150,7 @@ class TextAPI(TextBulk):
         compile: bool = False,
         awq_enabled: bool = False,
         flash_attention: bool = False,
-        single_thread_inference: bool = True,
+        concurrent_queries: bool = False,
         use_vllm: bool = False,
         # VLLM params
         vllm_tokenizer_mode: str = "auto",
@@ -202,7 +202,7 @@ class TextAPI(TextBulk):
             compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
             awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
             flash_attention (bool): Whether to use flash attention 2. Default is False.
-            single_thread_inference: (bool): Whether the API uses a single thread for inference (usually true for a single GPU system)
+            concurrent_queries: (bool): Whether the API uses a single thread for inference (usually true for a single GPU system)
             endpoint (str, optional): The endpoint to listen on. Defaults to "*".
             port (int, optional): The port to listen on. Defaults to 3000.
             cors_domain (str, optional): The domain to allow CORS requests from. Defaults to "http://localhost:3000".
@@ -222,7 +222,7 @@ class TextAPI(TextBulk):
         self.awq_enabled = awq_enabled
         self.flash_attention = flash_attention
         self.use_vllm = use_vllm
-        self.single_thread_inference = single_thread_inference
+        self.concurrent_queries = concurrent_queries
 
         self.model_args = model_args
         self.username = username
@@ -303,11 +303,11 @@ class TextAPI(TextBulk):
             )
 
         def sequential_locker():
-            if self.single_thread_inference:
+            if not self.concurrent_queries:
                 sequential_lock.acquire()
 
         def sequential_unlocker():
-            if self.single_thread_inference:
+            if not self.concurrent_queries:
                 sequential_lock.release()
 
         def CORS():
