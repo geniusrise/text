@@ -17,6 +17,7 @@ import logging
 from typing import Any, Dict
 
 import cherrypy
+import numpy as np
 import torch
 from geniusrise import BatchInput, BatchOutput, State
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
@@ -123,8 +124,15 @@ class TextClassificationAPI(TextAPI):
             logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
             if next(self.model.parameters()).is_cuda:
                 logits = logits.cpu()
-            softmax = torch.nn.functional.softmax(logits, dim=-1)
-            scores = softmax.numpy().tolist()  # Convert scores to list
+
+            # Handling a single number output
+            if logits.numel() == 1:
+                logits = outputs.logits.cpu().detach().numpy()
+                scores = 1 / (1 + np.exp(-logits)).flatten()
+                return {"input": text, "label_scores": scores.tolist()}
+            else:
+                softmax = torch.nn.functional.softmax(logits, dim=-1)
+                scores = softmax.numpy().tolist()
 
         id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
         label_scores = {id_to_label[label_id]: score for label_id, score in enumerate(scores[0])}
