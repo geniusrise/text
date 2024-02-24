@@ -15,8 +15,9 @@
 
 import json
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, List
 
+import llama_cpp
 import cherrypy
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
@@ -152,6 +153,7 @@ class TextAPI(TextBulk):
         flash_attention: bool = False,
         concurrent_queries: bool = False,
         use_vllm: bool = False,
+        use_llama_cpp: bool = False,
         # VLLM params
         vllm_tokenizer_mode: str = "auto",
         vllm_download_dir: Optional[str] = None,
@@ -178,6 +180,43 @@ class TextAPI(TextBulk):
         vllm_lora_extra_vocab_size: int = 0,
         vllm_placement_group: Optional[dict] = None,
         vllm_log_stats: bool = False,
+        # llama.cpp params
+        llama_cpp_model: str = "",
+        llama_cpp_filename: Optional[str] = None,
+        llama_cpp_n_gpu_layers: int = 0,
+        llama_cpp_split_mode: int = llama_cpp.LLAMA_SPLIT_LAYER,
+        llama_cpp_main_gpu: int = 0,
+        llama_cpp_tensor_split: Optional[List[float]] = None,
+        llama_cpp_vocab_only: bool = False,
+        llama_cpp_use_mmap: bool = True,
+        llama_cpp_use_mlock: bool = False,
+        llama_cpp_kv_overrides: Optional[Dict[str, Union[bool, int, float]]] = None,
+        llama_cpp_seed: int = llama_cpp.LLAMA_DEFAULT_SEED,
+        llama_cpp_n_ctx: int = 512,
+        llama_cpp_n_batch: int = 512,
+        llama_cpp_n_threads: Optional[int] = None,
+        llama_cpp_n_threads_batch: Optional[int] = None,
+        llama_cpp_rope_scaling_type: Optional[int] = llama_cpp.LLAMA_ROPE_SCALING_UNSPECIFIED,
+        llama_cpp_rope_freq_base: float = 0.0,
+        llama_cpp_rope_freq_scale: float = 0.0,
+        llama_cpp_yarn_ext_factor: float = -1.0,
+        llama_cpp_yarn_attn_factor: float = 1.0,
+        llama_cpp_yarn_beta_fast: float = 32.0,
+        llama_cpp_yarn_beta_slow: float = 1.0,
+        llama_cpp_yarn_orig_ctx: int = 0,
+        llama_cpp_mul_mat_q: bool = True,
+        llama_cpp_logits_all: bool = False,
+        llama_cpp_embedding: bool = False,
+        llama_cpp_offload_kqv: bool = True,
+        llama_cpp_last_n_tokens_size: int = 64,
+        llama_cpp_lora_base: Optional[str] = None,
+        llama_cpp_lora_scale: float = 1.0,
+        llama_cpp_lora_path: Optional[str] = None,
+        llama_cpp_numa: Union[bool, int] = False,
+        llama_cpp_chat_format: Optional[str] = None,
+        llama_cpp_draft_model: Optional[llama_cpp.LlamaDraftModel] = None,
+        # llama_cpp_tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        llama_cpp_verbose: bool = True,
         # Server params
         endpoint: str = "*",
         port: int = 3000,
@@ -190,25 +229,61 @@ class TextAPI(TextBulk):
         Starts a CherryPy server to listen for requests to generate text.
 
         Args:
-            model_name (str): The name of the pre-trained language model.
-            model_class (str, optional): The name of the class of the pre-trained language model. Defaults to "AutoModelForCausalLM".
-            tokenizer_class (str, optional): The name of the class of the tokenizer used to preprocess input text. Defaults to "AutoTokenizer".
-            use_cuda (bool, optional): Whether to use a GPU for inference. Defaults to False.
-            precision (str, optional): The precision to use for the pre-trained language model. Defaults to "float16".
-            quantization (int, optional): The level of quantization to use for the pre-trained language model. Defaults to 0.
-            device_map (str | Dict | None, optional): The mapping of devices to use for inference. Defaults to "auto".
-            max_memory (Dict[int, str], optional): The maximum memory to use for inference. Defaults to {0: "24GB"}.
-            torchscript (bool, optional): Whether to use a TorchScript-optimized version of the pre-trained language model. Defaults to False.
-            compile (bool, optional): Whether to compile the model before fine-tuning. Defaults to True.
-            awq_enabled (bool): Whether to use AWQ for model optimization. Default is False.
-            flash_attention (bool): Whether to use flash attention 2. Default is False.
-            concurrent_queries: (bool): Whether the API uses a single thread for inference (usually true for a single GPU system)
-            endpoint (str, optional): The endpoint to listen on. Defaults to "*".
-            port (int, optional): The port to listen on. Defaults to 3000.
-            cors_domain (str, optional): The domain to allow CORS requests from. Defaults to "http://localhost:3000".
-            username (Optional[str], optional): The username to use for authentication. Defaults to None.
-            password (Optional[str], optional): The password to use for authentication. Defaults to None.
-            **model_args (Any): Additional arguments to pass to the pre-trained language model.
+            model_name (str): Name or identifier of the pre-trained model to be used.
+            model_class (str): Class name of the model to be used from the transformers library.
+            tokenizer_class (str): Class name of the tokenizer to be used from the transformers library.
+            use_cuda (bool): Flag to enable CUDA for GPU acceleration.
+            precision (str): Specifies the precision configuration for PyTorch tensors, e.g., "float16".
+            quantization (int): Level of model quantization to reduce model size and inference time.
+            device_map (Union[str, Dict, None]): Maps model layers to specific devices for distributed inference.
+            max_memory (Dict[int, str]): Maximum memory allocation for the model on each device.
+            torchscript (bool): Enables the use of TorchScript for model optimization.
+            compile (bool): Enables model compilation for further optimization.
+            awq_enabled (bool): Enables Adaptive Weight Quantization (AWQ) for model optimization.
+            flash_attention (bool): Utilizes Flash Attention optimizations for faster processing.
+            concurrent_queries (bool): Allows the server to handle multiple requests concurrently if True.
+            use_vllm (bool): Flag to use Very Large Language Models (VLLM) integration.
+            use_llama_cpp (bool): Flag to use llama.cpp integration for language model inference.
+            llama_cpp_model (str): Specifies the model to be used with llama.cpp.
+            llama_cpp_filename (Optional[str]): The filename of the model file for llama.cpp.
+            llama_cpp_n_gpu_layers (int): Number of layers to offload to GPU in llama.cpp configuration.
+            llama_cpp_split_mode (int): Defines how the model is split across multiple GPUs in llama.cpp.
+            llama_cpp_main_gpu (int): Main GPU index for llama.cpp model operations.
+            llama_cpp_tensor_split (Optional[List[float]]): Custom tensor split configuration for llama.cpp.
+            llama_cpp_vocab_only (bool): Loads only the vocabulary part of the model in llama.cpp.
+            llama_cpp_use_mmap (bool): Enables memory-mapped files for model loading in llama.cpp.
+            llama_cpp_use_mlock (bool): Locks the model in RAM to prevent swapping in llama.cpp.
+            llama_cpp_kv_overrides (Optional[Dict[str, Union[bool, int, float]]]): Key-value pairs for overriding default llama.cpp model parameters.
+            llama_cpp_seed (int): Seed for random number generation in llama.cpp.
+            llama_cpp_n_ctx (int): The number of context tokens for the model in llama.cpp.
+            llama_cpp_n_batch (int): Batch size for processing prompts in llama.cpp.
+            llama_cpp_n_threads (Optional[int]): Number of threads for generation in llama.cpp.
+            llama_cpp_n_threads_batch (Optional[int]): Number of threads for batch processing in llama.cpp.
+            llama_cpp_rope_scaling_type (Optional[int]): Specifies the RoPE (Rotary Positional Embeddings) scaling type in llama.cpp.
+            llama_cpp_rope_freq_base (float): Base frequency for RoPE in llama.cpp.
+            llama_cpp_rope_freq_scale (float): Frequency scaling factor for RoPE in llama.cpp.
+            llama_cpp_yarn_ext_factor (float): Extrapolation mix factor for YaRN in llama.cpp.
+            llama_cpp_yarn_attn_factor (float): Attention factor for YaRN in llama.cpp.
+            llama_cpp_yarn_beta_fast (float): Beta fast parameter for YaRN in llama.cpp.
+            llama_cpp_yarn_beta_slow (float): Beta slow parameter for YaRN in llama.cpp.
+            llama_cpp_yarn_orig_ctx (int): Original context size for YaRN in llama.cpp.
+            llama_cpp_mul_mat_q (bool): Flag to enable matrix multiplication for queries in llama.cpp.
+            llama_cpp_logits_all (bool): Returns logits for all tokens when set to True in llama.cpp.
+            llama_cpp_embedding (bool): Enables embedding mode only in llama.cpp.
+            llama_cpp_offload_kqv (bool): Offloads K, Q, V matrices to GPU in llama.cpp.
+            llama_cpp_last_n_tokens_size (int): Size for the last_n_tokens buffer in llama.cpp.
+            llama_cpp_lora_base (Optional[str]): Base model path for LoRA adjustments in llama.cpp.
+            llama_cpp_lora_scale (float): Scale factor for LoRA adjustments in llama.cpp.
+            llama_cpp_lora_path (Optional[str]): Path to LoRA adjustments file in llama.cpp.
+            llama_cpp_numa (Union[bool, int]): NUMA configuration for llama.cpp.
+            llama_cpp_chat_format (Optional[str]): Specifies the chat format for llama.cpp.
+            llama_cpp_draft_model (Optional[llama_cpp.LlamaDraftModel]): Draft model for speculative decoding in llama.cpp.
+            endpoint (str): Network interface to bind the server to.
+            port (int): Port number to listen on for incoming requests.
+            cors_domain (str): Specifies the domain to allow for Cross-Origin Resource Sharing (CORS).
+            username (Optional[str]): Username for basic authentication, if required.
+            password (Optional[str]): Password for basic authentication, if required.
+            **model_args (Any): Additional arguments to pass to the pre-trained language model or llama.cpp configuration.
         """
         self.model_name = model_name
         self.model_class = model_class
@@ -281,6 +356,47 @@ class TextAPI(TextBulk):
                 placement_group=vllm_placement_group,  # type: ignore
                 log_stats=vllm_log_stats,
                 batched_inference=False,
+            )
+        elif use_llama_cpp:
+            self.model, self.tokenizer = self.load_models_llama_cpp(
+                model=llama_cpp_model,
+                filename=llama_cpp_filename,
+                local_dir=self.output.output_folder,
+                n_gpu_layers=llama_cpp_n_gpu_layers,
+                split_mode=llama_cpp_split_mode,
+                main_gpu=llama_cpp_main_gpu,
+                tensor_split=llama_cpp_tensor_split,
+                vocab_only=llama_cpp_vocab_only,
+                use_mmap=llama_cpp_use_mmap,
+                use_mlock=llama_cpp_use_mlock,
+                kv_overrides=llama_cpp_kv_overrides,
+                seed=llama_cpp_seed,
+                n_ctx=llama_cpp_n_ctx,
+                n_batch=llama_cpp_n_batch,
+                n_threads=llama_cpp_n_threads,
+                n_threads_batch=llama_cpp_n_threads_batch,
+                rope_scaling_type=llama_cpp_rope_scaling_type,
+                rope_freq_base=llama_cpp_rope_freq_base,
+                rope_freq_scale=llama_cpp_rope_freq_scale,
+                yarn_ext_factor=llama_cpp_yarn_ext_factor,
+                yarn_attn_factor=llama_cpp_yarn_attn_factor,
+                yarn_beta_fast=llama_cpp_yarn_beta_fast,
+                yarn_beta_slow=llama_cpp_yarn_beta_slow,
+                yarn_orig_ctx=llama_cpp_yarn_orig_ctx,
+                mul_mat_q=llama_cpp_mul_mat_q,
+                logits_all=llama_cpp_logits_all,
+                embedding=llama_cpp_embedding,
+                offload_kqv=llama_cpp_offload_kqv,
+                last_n_tokens_size=llama_cpp_last_n_tokens_size,
+                lora_base=llama_cpp_lora_base,
+                lora_scale=llama_cpp_lora_scale,
+                lora_path=llama_cpp_lora_path,
+                numa=llama_cpp_numa,
+                chat_format=llama_cpp_chat_format,
+                draft_model=llama_cpp_draft_model,
+                # tokenizer=llama_cpp_tokenizer, # TODO: support custom tokenizers for llama.cpp
+                verbose=llama_cpp_verbose,
+                **model_args,
             )
         else:
             self.model, self.tokenizer = self.load_models(
