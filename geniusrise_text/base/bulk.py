@@ -27,6 +27,17 @@ from transformers import (
     MinLengthLogitsProcessor,
 )
 from optimum.bettertransformer import BetterTransformer
+from vllm.config import (
+    ModelConfig as VLLMModelConfig,
+    CacheConfig,
+    ParallelConfig,
+    SchedulerConfig,
+    DeviceConfig,
+    LoRAConfig,
+)
+
+from vllm import LLM, AsyncLLMEngine
+from ray.util.placement_group import PlacementGroup
 
 from geniusrise_text.base.communication import send_email
 
@@ -586,6 +597,200 @@ class TextBulk(Bolt):
 
         self.log.debug("Text model and tokenizer loaded successfully.")
         return model, tokenizer
+
+    def load_models_vllm(
+        self,
+        model: str,
+        tokenizer: str,
+        tokenizer_mode: str = "auto",
+        trust_remote_code: bool = True,
+        download_dir: Optional[str] = None,
+        load_format: str = "auto",
+        dtype: Union[str, torch.dtype] = "auto",
+        seed: int = 42,
+        revision: Optional[str] = None,
+        # code_revision: Optional[str] = None,
+        tokenizer_revision: Optional[str] = None,
+        max_model_len: int = 1024,
+        quantization: Optional[str] = None,
+        enforce_eager: bool = False,
+        max_context_len_to_capture: int = 8192,
+        block_size: int = 16,
+        gpu_memory_utilization: float = 0.90,
+        swap_space: int = 4,
+        cache_dtype: str = "auto",
+        sliding_window: Optional[int] = None,
+        pipeline_parallel_size: int = 1,
+        tensor_parallel_size: int = 1,
+        worker_use_ray: bool = False,
+        max_parallel_loading_workers: Optional[int] = None,
+        disable_custom_all_reduce: bool = False,
+        max_num_batched_tokens: Optional[int] = None,
+        max_num_seqs: int = 64,
+        max_paddings: int = 512,
+        device: str = "cuda",
+        max_lora_rank: Optional[int] = None,
+        max_loras: Optional[int] = None,
+        max_cpu_loras: Optional[int] = None,
+        lora_dtype: Optional[torch.dtype] = None,
+        lora_extra_vocab_size: int = 0,
+        placement_group: Optional[PlacementGroup] = None,
+        log_stats: bool = False,
+        batched_inference: bool = False,
+    ) -> AsyncLLMEngine | LLM:
+        """
+        Initializes and loads models using VLLM configurations with specific parameters.
+
+        Args:
+            model (str): Name or path of the Hugging Face model to use.
+            tokenizer (str): Name or path of the Hugging Face tokenizer to use.
+            tokenizer_mode (str): Tokenizer mode. "auto" will use the fast tokenizer if available, "slow" will always use the slow tokenizer.
+            trust_remote_code (bool): Trust remote code (e.g., from Hugging Face) when downloading the model and tokenizer.
+            download_dir (Optional[str]): Directory to download and load the weights, default to the default cache directory of Hugging Face.
+            load_format (str): The format of the model weights to load. Options include "auto", "pt", "safetensors", "npcache", "dummy".
+            dtype (Union[str, torch.dtype]): Data type for model weights and activations. Options include "auto", torch.float32, torch.float16, etc.
+            seed (int): Random seed for reproducibility.
+            revision (Optional[str]): The specific model version to use. Can be a branch name, a tag name, or a commit id.
+            code_revision (Optional[str]): The specific revision to use for the model code on Hugging Face Hub.
+            tokenizer_revision (Optional[str]): The specific tokenizer version to use.
+            max_model_len (Optional[int]): Maximum length of a sequence (including prompt and output). If None, will be derived from the model.
+            quantization (Optional[str]): Quantization method that was used to quantize the model weights. If None, we assume the model weights are not quantized.
+            enforce_eager (bool): Whether to enforce eager execution. If True, disables CUDA graph and always execute the model in eager mode.
+            max_context_len_to_capture (Optional[int]): Maximum context length covered by CUDA graphs. When larger, falls back to eager mode.
+            block_size (int): Size of a cache block in number of tokens.
+            gpu_memory_utilization (float): Fraction of GPU memory to use for the VLLM execution.
+            swap_space (int): Size of the CPU swap space per GPU (in GiB).
+            cache_dtype (str): Data type for KV cache storage.
+            sliding_window (Optional[int]): Configuration for sliding window if applicable.
+            pipeline_parallel_size (int): Number of pipeline parallel groups.
+            tensor_parallel_size (int): Number of tensor parallel groups.
+            worker_use_ray (bool): Whether to use Ray for model workers. Required if either pipeline_parallel_size or tensor_parallel_size is greater than 1.
+            max_parallel_loading_workers (Optional[int]): Maximum number of workers for loading the model in parallel to avoid RAM OOM.
+            disable_custom_all_reduce (bool): Disable custom all-reduce kernel and fall back to NCCL.
+            max_num_batched_tokens (Optional[int]): Maximum number of tokens to be processed in a single iteration.
+            max_num_seqs (int): Maximum number of sequences to be processed in a single iteration.
+            max_paddings (int): Maximum number of paddings to be added to a batch.
+            device (str): Device configuration, typically "cuda" or "cpu".
+            max_lora_rank (Optional[int]): Maximum rank for LoRA adjustments.
+            max_loras (Optional[int]): Maximum number of LoRA adjustments.
+            max_cpu_loras (Optional[int]): Maximum number of LoRA adjustments stored on CPU.
+            lora_dtype (Optional[torch.dtype]): Data type for LoRA parameters.
+            lora_extra_vocab_size (Optional[int]): Additional vocabulary size for LoRA.
+            placement_group (Optional["PlacementGroup"]): Ray placement group for distributed execution. Required for distributed execution.
+            log_stats (bool): Whether to log statistics during model operation.
+
+        Returns:
+            LLMEngine: An instance of the LLMEngine class initialized with the given configurations.
+        """
+
+        vllm_model_config = VLLMModelConfig(
+            model=model,
+            tokenizer=tokenizer,
+            tokenizer_mode=tokenizer_mode,
+            trust_remote_code=trust_remote_code,
+            download_dir=download_dir,
+            load_format=load_format,
+            dtype=dtype,
+            seed=seed,
+            revision=revision,
+            # code_revision=code_revision,
+            tokenizer_revision=tokenizer_revision,
+            max_model_len=max_model_len,
+            quantization=quantization,
+            enforce_eager=enforce_eager,
+            max_context_len_to_capture=max_context_len_to_capture,
+        )
+
+        vllm_cache_config = CacheConfig(
+            block_size=block_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+            swap_space=swap_space,
+            cache_dtype=cache_dtype,
+            sliding_window=sliding_window,
+        )
+
+        vllm_parallel_config = ParallelConfig(
+            pipeline_parallel_size=pipeline_parallel_size,
+            tensor_parallel_size=tensor_parallel_size,
+            worker_use_ray=worker_use_ray,
+            max_parallel_loading_workers=max_parallel_loading_workers,
+            disable_custom_all_reduce=disable_custom_all_reduce,
+        )
+
+        vllm_scheduler_config = SchedulerConfig(
+            max_num_batched_tokens=max_num_batched_tokens,
+            max_num_seqs=max_num_seqs,
+            max_model_len=max_model_len,  # type: ignore
+            max_paddings=max_paddings,
+        )
+
+        vllm_device_config = DeviceConfig(device=device)
+
+        vllm_lora_config = None
+        if max_lora_rank is not None and max_loras is not None:
+            vllm_lora_config = LoRAConfig(
+                max_lora_rank=max_lora_rank,
+                max_loras=max_loras,
+                max_cpu_loras=max_cpu_loras,
+                lora_dtype=lora_dtype,
+                lora_extra_vocab_size=lora_extra_vocab_size,
+            )
+
+        engine: AsyncLLMEngine | LLM
+        if not batched_inference:
+            engine = AsyncLLMEngine(
+                worker_use_ray=worker_use_ray,
+                engine_use_ray=placement_group is not None,
+                log_requests=True,
+                start_engine_loop=True,
+                model_config=vllm_model_config,
+                cache_config=vllm_cache_config,
+                parallel_config=vllm_parallel_config,
+                scheduler_config=vllm_scheduler_config,
+                device_config=vllm_device_config,
+                lora_config=vllm_lora_config,
+                placement_group=placement_group,
+                log_stats=log_stats,
+            )
+        else:
+            engine = LLM(
+                model=model,
+                tokenizer=tokenizer,
+                tokenizer_mode=tokenizer_mode,
+                trust_remote_code=trust_remote_code,
+                download_dir=download_dir,
+                load_format=load_format,
+                dtype=dtype,  # type: ignore
+                kv_cache_dtype=cache_dtype,
+                seed=seed,
+                max_model_len=max_model_len,
+                pipeline_parallel_size=pipeline_parallel_size,
+                tensor_parallel_size=tensor_parallel_size,
+                worker_use_ray=worker_use_ray,
+                max_parallel_loading_workers=max_parallel_loading_workers,
+                block_size=block_size,
+                gpu_memory_utilization=gpu_memory_utilization,
+                swap_space=swap_space,
+                max_num_batched_tokens=max_num_batched_tokens,
+                max_num_seqs=max_num_seqs,
+                max_paddings=max_paddings,
+                revision=revision,
+                # code_revision=code_revision,
+                tokenizer_revision=tokenizer_revision,
+                quantization=quantization,
+                enforce_eager=enforce_eager,
+                max_context_len_to_capture=max_context_len_to_capture,
+                disable_custom_all_reduce=disable_custom_all_reduce,
+                enable_lora=max_lora_rank is not None,
+                max_loras=max_loras,
+                max_lora_rank=max_lora_rank,
+                lora_extra_vocab_size=lora_extra_vocab_size,
+                max_cpu_loras=max_cpu_loras,
+                device=device,
+            )
+
+        self.log.info("VLLM model loaded successfully.")
+        return engine
 
     def done(self):
         if self.notification_email:
