@@ -303,11 +303,11 @@ class TextAPI(TextBulk):
             )
 
         def sequential_locker():
-            if not self.concurrent_queries:
+            if self.concurrent_queries:
                 sequential_lock.acquire()
 
         def sequential_unlocker():
-            if not self.concurrent_queries:
+            if self.concurrent_queries:
                 sequential_lock.release()
 
         def CORS():
