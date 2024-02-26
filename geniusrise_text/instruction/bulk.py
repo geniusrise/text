@@ -608,6 +608,7 @@ class InstructionBulk(TextBulk):
         draft_model: Optional[llama_cpp.LlamaDraftModel] = None,
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         verbose: bool = True,
+        notification_email: Optional[str] = None,
         **kwargs,
     ) -> None:
         """
@@ -653,8 +654,11 @@ class InstructionBulk(TextBulk):
             draft_model: Draft model for speculative decoding.
             tokenizer: Custom tokenizer instance.
             verbose: Enable verbose logging.
+            notification_email (Optional[str]): Email to send notifications upon completion.
             **kwargs: Additional arguments for model loading and text generation.
         """
+        self.notification_email = notification_email
+
         # Loading the LLaMA model with llama.cpp
         llama_model, custom_tokenizer = self.load_models_llama_cpp(
             model=model,
@@ -746,7 +750,7 @@ class InstructionBulk(TextBulk):
                 top_logprobs=generation_args.get("top_logprobs"),
             )
 
-            self._save_completions([c.choices[0].message.content for c in completions], batch, output_path)  # type: ignore
+            self._save_completions(completions["choices"][0]["message"]["content"], batch, output_path)  # type: ignore
         self.done()
 
     def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
