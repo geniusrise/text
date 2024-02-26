@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Iterator
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import cherrypy
@@ -21,6 +21,7 @@ from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.protocol import CompletionRequest
+import llama_cpp
 
 from geniusrise_text.base import TextAPI
 
@@ -125,16 +126,16 @@ class LanguageModelAPI(TextAPI):
         prompt = data.get("prompt")
         decoding_strategy = data.get("decoding_strategy", "generate")
 
-        generation_params = data
-        if "decoding_strategy" in generation_params:
-            del generation_params["decoding_strategy"]
-        if "prompt" in generation_params:
-            del generation_params["prompt"]
+        data = data
+        if "decoding_strategy" in data:
+            del data["decoding_strategy"]
+        if "prompt" in data:
+            del data["prompt"]
 
         return {
             "prompt": prompt,
             "args": data,
-            "completion": self.generate(prompt=prompt, decoding_strategy=decoding_strategy, **generation_params),
+            "completion": self.generate(prompt=prompt, decoding_strategy=decoding_strategy, **data),
         }
 
     def initialize_vllm(self):
@@ -171,12 +172,11 @@ class LanguageModelAPI(TextAPI):
 
         Example CURL Request:
         ```bash
-        curl -X POST "http://localhost:3000/complete_vllm" \
+        curl -v -X POST "http://localhost:3000/api/v1/complete_vllm" \
             -H "Content-Type: application/json" \
+            -u "user:password" \
             -d '{
-                "messages": [
-                    {"role": "user", "content": "Whats the weather like in London?"}
-                ],
+                "messages": ["Whats the weather like in London?"],
                 "temperature": 0.7,
                 "top_p": 1.0,
                 "n": 1,
@@ -243,3 +243,101 @@ class LanguageModelAPI(TextAPI):
         except Exception as e:
             self.log.exception("Error generating chat completion: %s", str(e))
             raise e
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.allow(methods=["POST"])
+    def complete_llama_cpp(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Handles POST requests to generate chat completions using the llama.cpp engine. This method accepts various
+        parameters for customizing the chat completion request, including messages, sampling settings, and more.
+
+        Args:
+            prompt: The prompt to generate text from.
+            suffix: A suffix to append to the generated text. If None, no suffix is appended.
+            max_tokens: The maximum number of tokens to generate. If max_tokens <= 0 or None, the maximum number of tokens to generate is unlimited and depends on n_ctx.
+            temperature: The temperature to use for sampling.
+            top_p: The top-p value to use for nucleus sampling. Nucleus sampling described in academic paper "The Curious Case of Neural Text Degeneration" https://arxiv.org/abs/1904.09751
+            min_p: The min-p value to use for minimum p sampling. Minimum P sampling as described in https://github.com/ggerganov/llama.cpp/pull/3841
+            typical_p: The typical-p value to use for sampling. Locally Typical Sampling implementation described in the paper https://arxiv.org/abs/2202.00666.
+            logprobs: The number of logprobs to return. If None, no logprobs are returned.
+            echo: Whether to echo the prompt.
+            stop: A list of strings to stop generation when encountered.
+            frequency_penalty: The penalty to apply to tokens based on their frequency in the prompt.
+            presence_penalty: The penalty to apply to tokens based on their presence in the prompt.
+            repeat_penalty: The penalty to apply to repeated tokens.
+            top_k: The top-k value to use for sampling. Top-K sampling described in academic paper "The Curious Case of Neural Text Degeneration" https://arxiv.org/abs/1904.09751
+            stream: Whether to stream the results.
+            seed: The seed to use for sampling.
+            tfs_z: The tail-free sampling parameter. Tail Free Sampling described in https://www.trentonbricken.com/Tail-Free-Sampling/.
+            mirostat_mode: The mirostat sampling mode.
+            mirostat_tau: The target cross-entropy (or surprise) value you want to achieve for the generated text. A higher value corresponds to more surprising or less predictable text, while a lower value corresponds to less surprising or more predictable text.
+            mirostat_eta: The learning rate used to update `mu` based on the error between the target and observed surprisal of the sampled word. A larger learning rate will cause `mu` to be updated more quickly, while a smaller learning rate will result in slower updates.
+            model: The name to use for the model in the completion object.
+            stopping_criteria: A list of stopping criteria to use.
+            logits_processor: A list of logits processors to use.
+            grammar: A grammar to use for constrained sampling.
+            logit_bias: A logit bias to use.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the chat completion response or an error message.
+
+        Example CURL Request:
+        ```bash
+        curl -X POST "http://localhost:3001/api/v1/complete_llama_cpp" \
+            -H "Content-Type: application/json" \
+            -d '{
+                "prompt": "Whats the weather like in London?",
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_tokens": 50,
+                "repeat_penalty": 1.1
+            }'
+        ```
+        """
+        # Ensure llama.cpp model and necessary configurations are loaded and initialized
+        if not self.model or not isinstance(self.model, llama_cpp.Llama):
+            raise ValueError(
+                "llama.cpp model is not initialized. Please initialize the model before using chat_llama_cpp."
+            )
+
+        # Extract data from the POST request
+        data = cherrypy.request.json
+
+        # Convert the request data to the format expected by llama.cpp's create_chat_completion method
+        try:
+            response = self.model.create_completion(
+                prompt=data.get("prompt"),
+                suffix=data.get("suffix", None),
+                max_tokens=data.get("max_tokens", 16),
+                temperature=data.get("temperature", 0.8),
+                top_p=data.get("top_p", 0.95),
+                min_p=data.get("min_p", 0.05),
+                typical_p=data.get("typical_p", 1.0),
+                logprobs=data.get("logprobs", None),
+                echo=data.get("echo", False),
+                stop=data.get("stop", []),
+                frequency_penalty=data.get("frequency_penalty", 0.0),
+                presence_penalty=data.get("presence_penalty", 0.0),
+                repeat_penalty=data.get("repeat_penalty", 1.1),
+                top_k=data.get("top_k", 40),
+                # stream=data.get("stream", False),
+                seed=data.get("seed", None),
+                tfs_z=data.get("tfs_z", 1.0),
+                mirostat_mode=data.get("mirostat_mode", 0),
+                mirostat_tau=data.get("mirostat_tau", 5.0),
+                mirostat_eta=data.get("mirostat_eta", 0.1),
+                model=data.get("model", None),
+                stopping_criteria=data.get("stopping_criteria", None),
+                logits_processor=data.get("logits_processor", None),
+                grammar=data.get("grammar", None),
+                logit_bias=data.get("logit_bias", None),
+            )
+        except Exception as e:
+            self.log.exception("Error generating chat completion using llama.cpp: %s", str(e))
+            return {"error": str(e)}
+
+        # Return the generated chat completion or stream of completions
+        return response if not isinstance(response, Iterator) else list(response)

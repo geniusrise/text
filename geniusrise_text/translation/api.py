@@ -166,7 +166,8 @@ class TranslationAPI(TextAPI):
             del generation_params["text"]
 
         # Tokenize the text
-        self.tokenizer.src_lang = src_lang
+        if src_lang:
+            self.tokenizer.src_lang = src_lang
         if target_lang != "en":
             generation_params = {
                 **generation_params,
@@ -177,7 +178,7 @@ class TranslationAPI(TextAPI):
 
         return {
             "text": text,
-            "target_language": src_lang,
+            "target_language": target_lang,
             "translated_text": translated_text,
         }
 

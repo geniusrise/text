@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from typing import Any, Dict, List
-
+import numpy as np
 import cherrypy
 import torch
 from geniusrise import BatchInput, BatchOutput, State
@@ -171,7 +171,6 @@ class NLIAPI(TextAPI):
                 "candidate_labels": ["entertainment", "politics", "business"]
             }'
         ```
-        ```
         """
         data = cherrypy.request.json
         text = data.get("text", "")
@@ -198,7 +197,10 @@ class NLIAPI(TextAPI):
 
             # Consider 'entailment' score as the label score
             entailment_idx = self.model.config.label2id.get("entailment", 0)
-            label_scores[label] = scores[0][entailment_idx]
+            contradiction_idx = self.model.config.label2id.get("contradiction", 0)
+            label_scores[label] = np.exp(scores[0][entailment_idx]) / np.exp(
+                scores[0][entailment_idx] + scores[0][contradiction_idx]
+            )
 
         sum_scores = sum(label_scores.values())
         label_scores = {k: v / sum_scores for k, v in label_scores.items()}
@@ -362,7 +364,10 @@ class NLIAPI(TextAPI):
                 scores = softmax.cpu().numpy().tolist()
 
             entailment_idx = self.model.config.label2id.get("entailment", 0)
-            label_scores[hypothesis] = scores[0][entailment_idx]
+            contradiction_idx = self.model.config.label2id.get("contradiction", 0)
+            label_scores[hypothesis] = np.exp(scores[0][entailment_idx]) / np.exp(
+                scores[0][entailment_idx] + scores[0][contradiction_idx]
+            )
 
         return label_scores
 
