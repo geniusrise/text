@@ -271,7 +271,7 @@ class InstructionAPI(TextAPI):
 
         Example CURL Request:
         ```bash
-        curl -X POST "http://localhost:3000/chat_vllm" \
+        curl -X POST "http://localhost:3000/api/v1/chat_vllm" \
             -H "Content-Type: application/json" \
             -d '{
                 "messages": [
@@ -392,7 +392,7 @@ class InstructionAPI(TextAPI):
 
         Example CURL Request:
         ```bash
-        curl -X POST "http://localhost:3001/chat_llama_cpp" \
+        curl -X POST "http://localhost:3000/api/v1/chat_llama_cpp" \
             -H "Content-Type: application/json" \
             -d '{
                 "messages": [

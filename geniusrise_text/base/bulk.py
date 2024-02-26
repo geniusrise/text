@@ -884,9 +884,6 @@ class TextBulk(Bolt):
         Returns:
             Tuple[LlamaCPP, Optional[PreTrainedTokenizerBase]]: The loaded LLaMA model and tokenizer.
         """
-        if not os.path.exists(model):
-            raise ValueError(f"Model path {model} does not exist.")
-
         self.log.info(f"Loading LLaMA model from {model} with llama.cpp backend.")
 
         llama_model = LlamaCPP.from_pretrained(

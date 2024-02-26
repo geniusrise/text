@@ -181,18 +181,16 @@ class TextAPI(TextBulk):
         vllm_placement_group: Optional[dict] = None,
         vllm_log_stats: bool = False,
         # llama.cpp params
-        llama_cpp_model: str = "",
         llama_cpp_filename: Optional[str] = None,
         llama_cpp_n_gpu_layers: int = 0,
         llama_cpp_split_mode: int = llama_cpp.LLAMA_SPLIT_LAYER,
-        llama_cpp_main_gpu: int = 0,
         llama_cpp_tensor_split: Optional[List[float]] = None,
         llama_cpp_vocab_only: bool = False,
         llama_cpp_use_mmap: bool = True,
         llama_cpp_use_mlock: bool = False,
         llama_cpp_kv_overrides: Optional[Dict[str, Union[bool, int, float]]] = None,
         llama_cpp_seed: int = llama_cpp.LLAMA_DEFAULT_SEED,
-        llama_cpp_n_ctx: int = 512,
+        llama_cpp_n_ctx: int = 2048,
         llama_cpp_n_batch: int = 512,
         llama_cpp_n_threads: Optional[int] = None,
         llama_cpp_n_threads_batch: Optional[int] = None,
@@ -244,11 +242,9 @@ class TextAPI(TextBulk):
             concurrent_queries (bool): Allows the server to handle multiple requests concurrently if True.
             use_vllm (bool): Flag to use Very Large Language Models (VLLM) integration.
             use_llama_cpp (bool): Flag to use llama.cpp integration for language model inference.
-            llama_cpp_model (str): Specifies the model to be used with llama.cpp.
             llama_cpp_filename (Optional[str]): The filename of the model file for llama.cpp.
             llama_cpp_n_gpu_layers (int): Number of layers to offload to GPU in llama.cpp configuration.
             llama_cpp_split_mode (int): Defines how the model is split across multiple GPUs in llama.cpp.
-            llama_cpp_main_gpu (int): Main GPU index for llama.cpp model operations.
             llama_cpp_tensor_split (Optional[List[float]]): Custom tensor split configuration for llama.cpp.
             llama_cpp_vocab_only (bool): Loads only the vocabulary part of the model in llama.cpp.
             llama_cpp_use_mmap (bool): Enables memory-mapped files for model loading in llama.cpp.
@@ -359,12 +355,12 @@ class TextAPI(TextBulk):
             )
         elif use_llama_cpp:
             self.model, self.tokenizer = self.load_models_llama_cpp(
-                model=llama_cpp_model,
+                model=self.model_name,
                 filename=llama_cpp_filename,
                 local_dir=self.output.output_folder,
                 n_gpu_layers=llama_cpp_n_gpu_layers,
                 split_mode=llama_cpp_split_mode,
-                main_gpu=llama_cpp_main_gpu,
+                main_gpu=0 if self.use_cuda else -1,
                 tensor_split=llama_cpp_tensor_split,
                 vocab_only=llama_cpp_vocab_only,
                 use_mmap=llama_cpp_use_mmap,
