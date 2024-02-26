@@ -288,11 +288,12 @@ class LanguageModelAPI(TextAPI):
         curl -X POST "http://localhost:3001/api/v1/complete_llama_cpp" \
             -H "Content-Type: application/json" \
             -d '{
-                "messages": [{"content": "Whats the weather like in London?", "role": "user"}],
-                "temperature": 0.2,
+                "prompt": "Whats the weather like in London?",
+                "temperature": 0.7,
                 "top_p": 0.95,
                 "top_k": 40,
-                "max_tokens": 50
+                "max_tokens": 50,
+                "repeat_penalty": 1.1
             }'
         ```
         """
