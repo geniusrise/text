@@ -174,7 +174,8 @@ class TranslationBulk(TextBulk):
         self.max_length = max_length
         self.origin = origin
         self.target = target
-        self.tokenizer.src_lang = self.origin
+        if self.origin:
+            self.tokenizer.src_lang = self.origin
 
         try:
             if os.path.isfile(os.path.join(dataset_path, "dataset_info.json")):

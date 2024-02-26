@@ -19,8 +19,8 @@ import os
 import sqlite3
 import uuid
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Union
+import llama_cpp
 import pandas as pd
 import yaml  # type: ignore
 from datasets import Dataset, load_from_disk
@@ -28,6 +28,7 @@ from geniusrise import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq
 from vllm import LLM, SamplingParams
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from geniusrise_text.base import TextBulk
 
@@ -537,6 +538,190 @@ class LanguageModelBulk(TextBulk):
             )
             completions = [" ".join(t.text for t in o.outputs) for o in outputs]
             self._save_completions(completions, batch, output_path)
+        self.done()
+
+    def complete_llama_cpp(
+        self,
+        model: str,
+        filename: Optional[str] = None,
+        local_dir: Optional[Union[str, os.PathLike[str]]] = None,
+        n_gpu_layers: int = 0,
+        split_mode: int = llama_cpp.LLAMA_SPLIT_LAYER,
+        main_gpu: int = 0,
+        tensor_split: Optional[List[float]] = None,
+        vocab_only: bool = False,
+        use_mmap: bool = True,
+        use_mlock: bool = False,
+        kv_overrides: Optional[Dict[str, Union[bool, int, float]]] = None,
+        seed: int = llama_cpp.LLAMA_DEFAULT_SEED,
+        n_ctx: int = 512,
+        n_batch: int = 512,
+        n_threads: Optional[int] = None,
+        n_threads_batch: Optional[int] = None,
+        rope_scaling_type: Optional[int] = llama_cpp.LLAMA_ROPE_SCALING_UNSPECIFIED,
+        rope_freq_base: float = 0.0,
+        rope_freq_scale: float = 0.0,
+        yarn_ext_factor: float = -1.0,
+        yarn_attn_factor: float = 1.0,
+        yarn_beta_fast: float = 32.0,
+        yarn_beta_slow: float = 1.0,
+        yarn_orig_ctx: int = 0,
+        mul_mat_q: bool = True,
+        logits_all: bool = False,
+        embedding: bool = False,
+        offload_kqv: bool = True,
+        last_n_tokens_size: int = 64,
+        lora_base: Optional[str] = None,
+        lora_scale: float = 1.0,
+        lora_path: Optional[str] = None,
+        numa: Union[bool, int] = False,
+        chat_format: Optional[str] = None,
+        chat_handler: Optional[llama_cpp.llama_chat_format.LlamaChatCompletionHandler] = None,
+        draft_model: Optional[llama_cpp.LlamaDraftModel] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        verbose: bool = True,
+        notification_email: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Performs bulk text generation using the LLaMA model with llama.cpp backend. This method handles the entire
+        process, including model loading, prompt processing, text generation, and saving the results.
+
+        Args:
+            model: Path or identifier for the LLaMA model.
+            filename: Optional filename or glob pattern to match the model file.
+            local_dir: Local directory to save the model files.
+            n_gpu_layers: Number of layers to offload to GPU.
+            split_mode: Split mode for distributing model across GPUs.
+            main_gpu: Main GPU index.
+            tensor_split: Configuration for tensor splitting across GPUs.
+            vocab_only: Whether to load only the vocabulary.
+            use_mmap: Use memory-mapped files for model loading.
+            use_mlock: Lock model data in RAM to prevent swapping.
+            kv_overrides: Key-value pairs for overriding model config.
+            seed: Seed for random number generation.
+            n_ctx: Number of context tokens for generation.
+            n_batch: Batch size for processing.
+            n_threads: Number of threads for generation.
+            n_threads_batch: Number of threads for batch processing.
+            rope_scaling_type: Scaling type for RoPE.
+            rope_freq_base: Base frequency for RoPE.
+            rope_freq_scale: Frequency scaling for RoPE.
+            yarn_ext_factor: YaRN extrapolation factor.
+            yarn_attn_factor: YaRN attention factor.
+            yarn_beta_fast: YaRN beta fast parameter.
+            yarn_beta_slow: YaRN beta slow parameter.
+            yarn_orig_ctx: Original context size for YaRN.
+            mul_mat_q: Multiply matrices for queries.
+            logits_all: Return logits for all tokens.
+            embedding: Enable embedding mode.
+            offload_kqv: Offload K, Q, V matrices to GPU.
+            last_n_tokens_size: Size for the last_n_tokens buffer.
+            lora_base: Base model path for LoRA.
+            lora_scale: Scale factor for LoRA adjustments.
+            lora_path: Path for LoRA adjustments.
+            numa: NUMA configuration.
+            chat_format: Chat format configuration.
+            chat_handler: Handler for chat completions.
+            draft_model: Draft model for speculative decoding.
+            tokenizer: Custom tokenizer instance.
+            verbose: Enable verbose logging.
+            notification_email (Optional[str]): Email to send notifications upon completion.
+            **kwargs: Additional arguments for model loading and text generation.
+        """
+        self.notification_email = notification_email
+
+        # Loading the LLaMA model with llama.cpp
+        llama_model, custom_tokenizer = self.load_models_llama_cpp(
+            model=model,
+            filename=filename,
+            local_dir=local_dir,
+            n_gpu_layers=n_gpu_layers,
+            split_mode=split_mode,
+            main_gpu=main_gpu,
+            tensor_split=tensor_split,
+            vocab_only=vocab_only,
+            use_mmap=use_mmap,
+            use_mlock=use_mlock,
+            kv_overrides=kv_overrides,
+            seed=seed,
+            n_ctx=n_ctx,
+            n_batch=n_batch,
+            n_threads=n_threads,
+            n_threads_batch=n_threads_batch,
+            rope_scaling_type=rope_scaling_type,
+            rope_freq_base=rope_freq_base,
+            rope_freq_scale=rope_freq_scale,
+            yarn_ext_factor=yarn_ext_factor,
+            yarn_attn_factor=yarn_attn_factor,
+            yarn_beta_fast=yarn_beta_fast,
+            yarn_beta_slow=yarn_beta_slow,
+            yarn_orig_ctx=yarn_orig_ctx,
+            mul_mat_q=mul_mat_q,
+            logits_all=logits_all,
+            embedding=embedding,
+            offload_kqv=offload_kqv,
+            last_n_tokens_size=last_n_tokens_size,
+            lora_base=lora_base,
+            lora_scale=lora_scale,
+            lora_path=lora_path,
+            numa=numa,
+            chat_format=chat_format,
+            chat_handler=chat_handler,
+            draft_model=draft_model,
+            tokenizer=tokenizer,
+            verbose=verbose,
+            **kwargs,
+        )
+
+        generation_args = {k.replace("generation_", ""): v for k, v in kwargs.items() if "generation_" in k}
+        self.generation_args = generation_args
+
+        dataset_path = self.input.input_folder
+        output_path = self.output.output_folder
+
+        # Load dataset
+        _dataset = self.load_dataset(dataset_path)
+        if _dataset is None:
+            self.log.error("Failed to load dataset.")
+            return
+        dataset = _dataset["instruction"]
+
+        for i in range(0, len(dataset), n_batch):
+            batch = dataset[i : i + n_batch]
+            completions = []
+
+            for prompt in batch:
+                # Generate completion for each prompt using llama_model
+                completion = llama_model.create_completion(
+                    prompt=prompt,
+                    suffix=generation_args.get("suffix", None),
+                    max_tokens=generation_args.get("max_tokens", 16),
+                    temperature=generation_args.get("temperature", 0.8),
+                    top_p=generation_args.get("top_p", 0.95),
+                    min_p=generation_args.get("min_p", 0.05),
+                    typical_p=generation_args.get("typical_p", 1.0),
+                    logprobs=generation_args.get("logprobs", None),
+                    echo=generation_args.get("echo", False),
+                    stop=generation_args.get("stop", []),
+                    frequency_penalty=generation_args.get("frequency_penalty", 0.0),
+                    presence_penalty=generation_args.get("presence_penalty", 0.0),
+                    repeat_penalty=generation_args.get("repeat_penalty", 1.1),
+                    top_k=generation_args.get("top_k", 40),
+                    seed=generation_args.get("seed", None),
+                    tfs_z=generation_args.get("tfs_z", 1.0),
+                    mirostat_mode=generation_args.get("mirostat_mode", 0),
+                    mirostat_tau=generation_args.get("mirostat_tau", 5.0),
+                    mirostat_eta=generation_args.get("mirostat_eta", 0.1),
+                    model=generation_args.get("model", None),
+                    stopping_criteria=generation_args.get("stopping_criteria", None),
+                    logits_processor=generation_args.get("logits_processor", None),
+                    grammar=generation_args.get("grammar", None),
+                    logit_bias=generation_args.get("logit_bias", None),
+                )
+                completions.append(completion)
+
+            self._save_completions([c["choices"][0]["text"] for c in completions], batch, output_path)  # type: ignore
         self.done()
 
     def _save_completions(self, completions: List[str], prompts: List[str], output_path: str) -> None:
