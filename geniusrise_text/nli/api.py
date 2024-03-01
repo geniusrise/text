@@ -14,8 +14,9 @@
 # limitations under the License.
 
 from typing import Any, Dict, List
-import numpy as np
+
 import cherrypy
+import numpy as np
 import torch
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger

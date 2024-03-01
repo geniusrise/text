@@ -24,7 +24,7 @@ import pandas as pd
 import pyarrow.feather as feather
 import pyarrow.parquet as pq
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_metric, load_dataset
+from datasets import Dataset, load_dataset, load_from_disk, load_metric
 from nltk.translate.bleu_score import corpus_bleu
 from transformers import DataCollatorForLanguageModeling, EvalPrediction
 

@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import torch
 import yaml  # type: ignore
-from datasets import Dataset, load_from_disk, load_dataset, load_metric
+from datasets import Dataset, load_dataset, load_from_disk, load_metric
 from geniusrise import BatchInput, BatchOutput, State
 from pyarrow import feather
 from pyarrow import parquet as pq

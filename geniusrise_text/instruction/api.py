@@ -13,18 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional, Iterator
-
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, Iterator, Optional
+
 import cherrypy
 import llama_cpp
-from concurrent.futures import ThreadPoolExecutor
-from geniusrise_text.base import TextAPI
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.protocol import ChatCompletionRequest
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+
+from geniusrise_text.base import TextAPI
 
 
 class InstructionAPI(TextAPI):
