@@ -16,12 +16,14 @@
 import os
 import subprocess
 import sys
-from jinja2 import Environment, FileSystemLoader, Template
-from nbformat import v4 as nbf
+from typing import Any, Dict, List, Optional
+
 import nbformat
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
-from typing import Any, Dict, List, Optional
+from jinja2 import Environment, FileSystemLoader, Template
+from nbformat import v4 as nbf
+
 from geniusrise_text.base.communication import send_email
 
 

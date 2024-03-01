@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, List, Optional, Tuple, Union
 import os
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import llama_cpp
 import torch
 import transformers
 from geniusrise import BatchInput, BatchOutput, Bolt, State
 from geniusrise.logging import setup_logger
+from llama_cpp import Llama as LlamaCPP
+from optimum.bettertransformer import BetterTransformer
+from ray.util.placement_group import PlacementGroup
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -26,21 +31,11 @@ from transformers import (
     LogitsProcessorList,
     MinLengthLogitsProcessor,
 )
-from optimum.bettertransformer import BetterTransformer
-from vllm.config import (
-    ModelConfig as VLLMModelConfig,
-    CacheConfig,
-    ParallelConfig,
-    SchedulerConfig,
-    DeviceConfig,
-    LoRAConfig,
-)
-
-from vllm import LLM, AsyncLLMEngine
-from ray.util.placement_group import PlacementGroup
-import llama_cpp
-from llama_cpp import Llama as LlamaCPP
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from vllm import LLM, AsyncLLMEngine
+from vllm.config import CacheConfig, DeviceConfig, LoRAConfig
+from vllm.config import ModelConfig as VLLMModelConfig
+from vllm.config import ParallelConfig, SchedulerConfig
 
 from geniusrise_text.base.communication import send_email
 
