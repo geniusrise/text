@@ -15,10 +15,10 @@
 
 import json
 import threading
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, List, Optional, Union
 
-import llama_cpp
 import cherrypy
+import llama_cpp
 from geniusrise import BatchInput, BatchOutput, State
 from geniusrise.logging import setup_logger
 

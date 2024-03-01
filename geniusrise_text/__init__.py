@@ -19,7 +19,7 @@ from .instruction import InstructionAPI, InstructionBulk, InstructionFineTuner
 from .language_model import LanguageModelAPI, LanguageModelBulk, LanguageModelFineTuner
 from .ner import NamedEntityRecognitionAPI, NamedEntityRecognitionBulk, NamedEntityRecognitionFineTuner
 from .nli import NLIAPI, NLIBulk, NLIFineTuner
+from .notebook import TextJupyterNotebook
 from .qa import QAAPI, QABulk, QAFineTuner
 from .summarization import SummarizationAPI, SummarizationBulk, SummarizationFineTuner
 from .translation import TranslationAPI, TranslationBulk, TranslationFineTuner
-from .notebook import TextJupyterNotebook
