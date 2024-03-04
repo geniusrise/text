@@ -159,7 +159,6 @@ class InstructionAPI(TextAPI):
         self.event_loop: Any = None
         self.executor = ThreadPoolExecutor(max_workers=4)
 
-    @cherrypy.expose
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
@@ -257,7 +256,7 @@ class InstructionAPI(TextAPI):
         )
         self.event_loop = asyncio.new_event_loop()
 
-    @cherrypy.expose
+    @cherrypy.expose(["completions"])
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
@@ -335,7 +334,7 @@ class InstructionAPI(TextAPI):
             n=data.get("n", 1),
             max_tokens=data.get("max_tokens"),
             stop=data.get("stop", []),
-            stream=data.get("stream", False),
+            # stream=data.get("stream", False),
             presence_penalty=data.get("presence_penalty", 0.0),
             frequency_penalty=data.get("frequency_penalty", 0.0),
             logit_bias=data.get("logit_bias", {}),
@@ -375,7 +374,7 @@ class InstructionAPI(TextAPI):
             self.log.exception("Error generating chat completion: %s", str(e))
             raise e
 
-    @cherrypy.expose
+    @cherrypy.expose(["completion"])
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
     @cherrypy.tools.allow(methods=["POST"])
@@ -444,35 +443,67 @@ class InstructionAPI(TextAPI):
 
         # Convert the request data to the format expected by llama.cpp's create_chat_completion method
         try:
-            response = self.model.create_chat_completion(
-                messages=data.get("messages", []),
-                functions=data.get("functions"),
-                function_call=data.get("function_call"),
-                tools=data.get("tools"),
-                tool_choice=data.get("tool_choice"),
-                temperature=data.get("temperature", 0.2),
-                top_p=data.get("top_p", 0.95),
-                top_k=data.get("top_k", 40),
-                min_p=data.get("min_p", 0.05),
-                typical_p=data.get("typical_p", 1.0),
-                stream=data.get("stream", False),
-                stop=data.get("stop", []),
-                seed=data.get("seed"),
-                response_format=data.get("response_format"),
-                max_tokens=data.get("max_tokens"),
-                presence_penalty=data.get("presence_penalty", 0.0),
-                frequency_penalty=data.get("frequency_penalty", 0.0),
-                repeat_penalty=data.get("repeat_penalty", 1.1),
-                tfs_z=data.get("tfs_z", 1.0),
-                mirostat_mode=data.get("mirostat_mode", 0),
-                mirostat_tau=data.get("mirostat_tau", 5.0),
-                mirostat_eta=data.get("mirostat_eta", 0.1),
-                model=data.get("model"),
-                logits_processor=data.get("logits_processor"),
-                grammar=data.get("grammar"),
-                logit_bias=data.get("logit_bias"),
-                logprobs=data.get("logprobs"),
-                top_logprobs=data.get("top_logprobs"),
+            handler = self.model.create_chat_completion
+
+            response = (
+                self.model.create_chat_completion(
+                    messages=data.get("messages", []),
+                    functions=data.get("functions"),
+                    function_call=data.get("function_call"),
+                    tools=data.get("tools"),
+                    tool_choice=data.get("tool_choice"),
+                    temperature=data.get("temperature", 0.2),
+                    top_p=data.get("top_p", 0.95),
+                    top_k=data.get("top_k", 40),
+                    min_p=data.get("min_p", 0.05),
+                    typical_p=data.get("typical_p", 1.0),
+                    # stream=data.get("stream", False),
+                    stop=data.get("stop", []),
+                    seed=data.get("seed"),
+                    response_format=data.get("response_format"),
+                    max_tokens=data.get("max_tokens"),
+                    presence_penalty=data.get("presence_penalty", 0.0),
+                    frequency_penalty=data.get("frequency_penalty", 0.0),
+                    repeat_penalty=data.get("repeat_penalty", 1.1),
+                    tfs_z=data.get("tfs_z", 1.0),
+                    mirostat_mode=data.get("mirostat_mode", 0),
+                    mirostat_tau=data.get("mirostat_tau", 5.0),
+                    mirostat_eta=data.get("mirostat_eta", 0.1),
+                    model=data.get("model"),
+                    logits_processor=data.get("logits_processor"),
+                    grammar=data.get("grammar"),
+                    logit_bias=data.get("logit_bias"),
+                    logprobs=data.get("logprobs"),
+                    top_logprobs=data.get("top_logprobs"),
+                )
+                if "messages" in data
+                else self.model.create_completion(
+                    prompt=data.get("prompt"),
+                    suffix=data.get("suffix", None),
+                    max_tokens=data.get("max_tokens", 16),
+                    temperature=data.get("temperature", 0.8),
+                    top_p=data.get("top_p", 0.95),
+                    min_p=data.get("min_p", 0.05),
+                    typical_p=data.get("typical_p", 1.0),
+                    logprobs=data.get("logprobs", None),
+                    echo=data.get("echo", False),
+                    stop=data.get("stop", []),
+                    frequency_penalty=data.get("frequency_penalty", 0.0),
+                    presence_penalty=data.get("presence_penalty", 0.0),
+                    repeat_penalty=data.get("repeat_penalty", 1.1),
+                    top_k=data.get("top_k", 40),
+                    # stream=data.get("stream", False),
+                    seed=data.get("seed", None),
+                    tfs_z=data.get("tfs_z", 1.0),
+                    mirostat_mode=data.get("mirostat_mode", 0),
+                    mirostat_tau=data.get("mirostat_tau", 5.0),
+                    mirostat_eta=data.get("mirostat_eta", 0.1),
+                    model=data.get("model", None),
+                    stopping_criteria=data.get("stopping_criteria", None),
+                    logits_processor=data.get("logits_processor", None),
+                    grammar=data.get("grammar", None),
+                    logit_bias=data.get("logit_bias", None),
+                )
             )
         except Exception as e:
             self.log.exception("Error generating chat completion using llama.cpp: %s", str(e))
