@@ -25,23 +25,159 @@ paths:
                   description: The prompt to generate text for.
                 decoding_strategy:
                   type: string
-                  description: The decoding strategy to use, e.g., "generate".
+                  description: Strategy to use for decoding the generated text. Defaults to "generate".
+                  enum:
+                    [generate, greedy_search, beam_search, sample, top_k, top_p]
                   default: "generate"
+                max_length:
+                  type: integer
+                  description: Maximum length the generated tokens can have.
                 max_new_tokens:
                   type: integer
-                  description: Maximum number of new tokens to generate.
+                  description: Maximum number of tokens to generate, ignoring prompt tokens.
+                min_length:
+                  type: integer
+                  description: Minimum length of the sequence to be generated.
+                min_new_tokens:
+                  type: integer
+                  description: Minimum number of tokens to generate, ignoring prompt tokens.
+                early_stopping:
+                  type: boolean
+                  description: Stopping condition for beam-based methods.
+                max_time:
+                  type: number
+                  description: Maximum time allowed for computation in seconds.
                 do_sample:
                   type: boolean
                   description: Whether to use sampling for generation.
+                num_beams:
+                  type: integer
+                  description: Number of beams for beam search.
+                num_beam_groups:
+                  type: integer
+                  description: Number of groups for beam search to ensure diversity.
+                penalty_alpha:
+                  type: number
+                  description: Balances model confidence and degeneration penalty in contrastive search.
+                use_cache:
+                  type: boolean
+                  description: Whether the model should use past key/values attentions to speed up decoding.
                 temperature:
                   type: number
-                  description: Temperature for sampling.
+                  description: Modulates next token probabilities.
                 top_k:
                   type: integer
                   description: Number of highest probability tokens to keep for top-k-filtering.
                 top_p:
                   type: number
-                  description: Cumulative probability for top-p-filtering.
+                  description: Smallest set of most probable tokens with cumulative probability >= top_p.
+                typical_p:
+                  type: number
+                  description: Conditional probability of predicting a target token next.
+                epsilon_cutoff:
+                  type: number
+                  description: Tokens with a conditional probability > epsilon_cutoff will be sampled.
+                eta_cutoff:
+                  type: number
+                  description: Eta sampling, a hybrid of locally typical sampling and epsilon sampling.
+                diversity_penalty:
+                  type: number
+                  description: Penalty subtracted from a beam's score if it generates a token same as any other group.
+                repetition_penalty:
+                  type: number
+                  description: Penalty for repetition of ngrams.
+                encoder_repetition_penalty:
+                  type: number
+                  description: Penalty on sequences not in the original input.
+                length_penalty:
+                  type: number
+                  description: Exponential penalty to the length for beam-based generation.
+                no_repeat_ngram_size:
+                  type: integer
+                  description: All ngrams of this size can only occur once.
+                bad_words_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: List of token ids that are not allowed to be generated.
+                force_words_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: List of token ids that must be generated.
+                renormalize_logits:
+                  type: boolean
+                  description: Renormalize the logits after applying all logits processors.
+                constraints:
+                  type: array
+                  items:
+                    type: object
+                  description: Custom constraints for generation.
+                forced_bos_token_id:
+                  type: integer
+                  description: Token ID to force as the first generated token.
+                forced_eos_token_id:
+                  type: integer
+                  description: Token ID to force as the last generated token.
+                remove_invalid_values:
+                  type: boolean
+                  description: Remove possible NaN and inf outputs.
+                exponential_decay_length_penalty:
+                  type: number
+                  description: Exponentially increasing length penalty after a certain number of tokens.
+                suppress_tokens:
+                  type: array
+                  items:
+                    type: integer
+                  description: Tokens that will be suppressed during generation.
+                begin_suppress_tokens:
+                  type: array
+                  items:
+                    type: integer
+                  description: Tokens that will be suppressed at the beginning of generation.
+                forced_decoder_ids:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Mapping from generation indices to token indices that will be forced.
+                sequence_bias:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Maps a sequence of tokens to its bias term.
+                guidance_scale:
+                  type: number
+                  description: Guidance scale for classifier free guidance (CFG).
+                low_memory:
+                  type: boolean
+                  description: Switch to sequential topk for contrastive search to reduce peak memory.
+                num_return_sequences:
+                  type: integer
+                  description: Number of independently computed returned sequences for each batch element.
+                output_attentions:
+                  type: boolean
+                  description: Whether to return the attentions tensors of all layers.
+                output_hidden_states:
+                  type: boolean
+                  description: Whether to return the hidden states of all layers.
+                output_scores:
+                  type: boolean
+                  description: Whether to return the prediction scores.
+                return_dict_in_generate:
+                  type: boolean
+                  description: Whether to return a ModelOutput instead of a plain tuple.
+                pad_token_id:
+                  type: integer
+                  description: The id of the padding token.
+                bos_token_id:
+                  type: integer
+                  description: The id of the beginning-of-sequence token.
+                eos_token_id:
+                  type: integer
+                  description: The id of the end-of-sequence token.
+                synced_gpus:
+                  type: boolean
+                  description: Continue running the while loop until max_length for ZeRO stage 3.
               required:
                 - prompt
       responses:
@@ -111,3 +247,423 @@ paths:
           description: Invalid request
         500:
           description: Error during chat interaction
+
+  /chat_vllm:
+    post:
+      summary: Generate chat completions using the VLLM (Versatile Language Learning Model) engine.
+      operationId: chatVLLM
+      tags:
+        - VLLM Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        description: The role of the message, either 'user' or 'system'.
+                      content:
+                        type: string
+                        description: The content of the message.
+                  description: Chat messages for generating a response.
+                temperature:
+                  type: number
+                  description: Sampling temperature for more random completions.
+                top_p:
+                  type: number
+                  description: Nucleus sampling probability for diversity.
+                n:
+                  type: integer
+                  description: Number of completions to generate.
+                max_tokens:
+                  type: integer
+                  description: Maximum number of tokens to generate.
+                stop:
+                  type: array
+                  items:
+                    type: string
+                  description: Sequences where the generation should stop.
+                stream:
+                  type: boolean
+                  description: Whether to stream the response.
+                presence_penalty:
+                  type: number
+                  description: Penalty for token presence to discourage repetition.
+                frequency_penalty:
+                  type: number
+                  description: Penalty for token frequency to discourage common tokens.
+                logit_bias:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Adjustments to the logits of specified tokens.
+                user:
+                  type: string
+                  description: An identifier for the user making the request.
+                best_of:
+                  type: integer
+                  description: Generates 'n' completions server-side and returns the best one.
+                top_k:
+                  type: integer
+                  description: Filters the generated tokens to the top-k tokens with the highest probabilities.
+                ignore_eos:
+                  type: boolean
+                  description: Whether to ignore the end-of-sentence token in generation.
+                use_beam_search:
+                  type: boolean
+                  description: Whether to use beam search instead of sampling for generation.
+                stop_token_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: List of token IDs that should cause generation to stop.
+                skip_special_tokens:
+                  type: boolean
+                  description: Whether to skip special tokens in the output.
+                spaces_between_special_tokens:
+                  type: boolean
+                  description: Whether to insert spaces between special tokens in the output.
+                add_generation_prompt:
+                  type: boolean
+                  description: Whether to prepend the generation prompt to the output.
+                echo:
+                  type: boolean
+                  description: Whether to include the input prompt in the output.
+                repetition_penalty:
+                  type: number
+                  description: Penalty applied to tokens that have been generated previously.
+                min_p:
+                  type: number
+                  description: Sets a minimum threshold for token probabilities.
+                include_stop_str_in_output:
+                  type: boolean
+                  description: Whether to include the stop string(s) in the output.
+                length_penalty:
+                  type: number
+                  description: Exponential penalty to the length for beam search.
+              required:
+                - messages
+      responses:
+        200:
+          description: Successfully generated chat completion
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        400:
+          description: Invalid request
+        500:
+          description: Error during chat completion generation
+
+  /chat_llama_cpp:
+    post:
+      summary: Generate chat completions using the llama.cpp engine.
+      operationId: chatLlamaCpp
+      tags:
+        - Llama.cpp Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        description: The role of the message, either 'user' or 'system'.
+                      content:
+                        type: string
+                        description: The content of the message.
+                  description: Chat messages for generating a response.
+                temperature:
+                  type: number
+                  description: Temperature to use for sampling, controlling randomness.
+                top_p:
+                  type: number
+                  description: Nucleus sampling's top-p parameter, controlling diversity.
+                top_k:
+                  type: integer
+                  description: Top-k sampling parameter, limiting the token selection pool.
+                max_tokens:
+                  type: integer
+                  description: Maximum number of tokens to generate.
+                presence_penalty:
+                  type: number
+                  description: Penalty for token presence to discourage repetition.
+                frequency_penalty:
+                  type: number
+                  description: Penalty for token frequency to discourage common tokens.
+                repeat_penalty:
+                  type: number
+                  description: Penalty applied to tokens that are repeated.
+                tfs_z:
+                  type: number
+                  description: Tail-free sampling parameter to adjust the likelihood of tail tokens.
+                mirostat_mode:
+                  type: integer
+                  description: Mirostat sampling mode for dynamic adjustments.
+                mirostat_tau:
+                  type: number
+                  description: Tau parameter for mirostat sampling, controlling deviation.
+                mirostat_eta:
+                  type: number
+                  description: Eta parameter for mirostat sampling, controlling adjustment speed.
+                model:
+                  type: string
+                  description: Specifies the model to use for generation.
+                logits_processor:
+                  type: array
+                  items:
+                    type: object
+                  description: List of logits processors for advanced generation control.
+                grammar:
+                  type: object
+                  description: Specifies grammar rules for the generated text.
+                logit_bias:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Adjustments to the logits of specified tokens.
+                logprobs:
+                  type: boolean
+                  description: Whether to include log probabilities in the output.
+                top_logprobs:
+                  type: integer
+                  description: Number of top log probabilities to include.
+              required:
+                - messages
+      responses:
+        200:
+          description: Successfully generated chat completion
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        400:
+          description: Invalid request
+        500:
+          description: Error during chat completion generation
+
+  /completions:
+    post:
+      summary: Generate chat completions using the VLLM (Versatile Language Learning Model) engine.
+      operationId: chatVLLM
+      tags:
+        - VLLM Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        description: The role of the message, either 'user' or 'system'.
+                      content:
+                        type: string
+                        description: The content of the message.
+                  description: Chat messages for generating a response.
+                temperature:
+                  type: number
+                  description: Sampling temperature for more random completions.
+                top_p:
+                  type: number
+                  description: Nucleus sampling probability for diversity.
+                n:
+                  type: integer
+                  description: Number of completions to generate.
+                max_tokens:
+                  type: integer
+                  description: Maximum number of tokens to generate.
+                stop:
+                  type: array
+                  items:
+                    type: string
+                  description: Sequences where the generation should stop.
+                stream:
+                  type: boolean
+                  description: Whether to stream the response.
+                presence_penalty:
+                  type: number
+                  description: Penalty for token presence to discourage repetition.
+                frequency_penalty:
+                  type: number
+                  description: Penalty for token frequency to discourage common tokens.
+                logit_bias:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Adjustments to the logits of specified tokens.
+                user:
+                  type: string
+                  description: An identifier for the user making the request.
+                best_of:
+                  type: integer
+                  description: Generates 'n' completions server-side and returns the best one.
+                top_k:
+                  type: integer
+                  description: Filters the generated tokens to the top-k tokens with the highest probabilities.
+                ignore_eos:
+                  type: boolean
+                  description: Whether to ignore the end-of-sentence token in generation.
+                use_beam_search:
+                  type: boolean
+                  description: Whether to use beam search instead of sampling for generation.
+                stop_token_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: List of token IDs that should cause generation to stop.
+                skip_special_tokens:
+                  type: boolean
+                  description: Whether to skip special tokens in the output.
+                spaces_between_special_tokens:
+                  type: boolean
+                  description: Whether to insert spaces between special tokens in the output.
+                add_generation_prompt:
+                  type: boolean
+                  description: Whether to prepend the generation prompt to the output.
+                echo:
+                  type: boolean
+                  description: Whether to include the input prompt in the output.
+                repetition_penalty:
+                  type: number
+                  description: Penalty applied to tokens that have been generated previously.
+                min_p:
+                  type: number
+                  description: Sets a minimum threshold for token probabilities.
+                include_stop_str_in_output:
+                  type: boolean
+                  description: Whether to include the stop string(s) in the output.
+                length_penalty:
+                  type: number
+                  description: Exponential penalty to the length for beam search.
+              required:
+                - messages
+      responses:
+        200:
+          description: Successfully generated chat completion
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        400:
+          description: Invalid request
+        500:
+          description: Error during chat completion generation
+
+  /completion:
+    post:
+      summary: Generate chat completions using the llama.cpp engine.
+      operationId: chatLlamaCpp
+      tags:
+        - Llama.cpp Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        description: The role of the message, either 'user' or 'system'.
+                      content:
+                        type: string
+                        description: The content of the message.
+                  description: Chat messages for generating a response.
+                temperature:
+                  type: number
+                  description: Temperature to use for sampling, controlling randomness.
+                top_p:
+                  type: number
+                  description: Nucleus sampling's top-p parameter, controlling diversity.
+                top_k:
+                  type: integer
+                  description: Top-k sampling parameter, limiting the token selection pool.
+                max_tokens:
+                  type: integer
+                  description: Maximum number of tokens to generate.
+                presence_penalty:
+                  type: number
+                  description: Penalty for token presence to discourage repetition.
+                frequency_penalty:
+                  type: number
+                  description: Penalty for token frequency to discourage common tokens.
+                repeat_penalty:
+                  type: number
+                  description: Penalty applied to tokens that are repeated.
+                tfs_z:
+                  type: number
+                  description: Tail-free sampling parameter to adjust the likelihood of tail tokens.
+                mirostat_mode:
+                  type: integer
+                  description: Mirostat sampling mode for dynamic adjustments.
+                mirostat_tau:
+                  type: number
+                  description: Tau parameter for mirostat sampling, controlling deviation.
+                mirostat_eta:
+                  type: number
+                  description: Eta parameter for mirostat sampling, controlling adjustment speed.
+                model:
+                  type: string
+                  description: Specifies the model to use for generation.
+                logits_processor:
+                  type: array
+                  items:
+                    type: object
+                  description: List of logits processors for advanced generation control.
+                grammar:
+                  type: object
+                  description: Specifies grammar rules for the generated text.
+                logit_bias:
+                  type: object
+                  additionalProperties:
+                    type: number
+                  description: Adjustments to the logits of specified tokens.
+                logprobs:
+                  type: boolean
+                  description: Whether to include log probabilities in the output.
+                top_logprobs:
+                  type: integer
+                  description: Number of top log probabilities to include.
+              required:
+                - messages
+      responses:
+        200:
+          description: Successfully generated chat completion
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        400:
+          description: Invalid request
+        500:
+          description: Error during chat completion generation
