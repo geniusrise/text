@@ -30,9 +30,10 @@ from pyarrow import feather
 from pyarrow import parquet as pq
 
 from geniusrise_text.base import TextBulk
+from geniusrise_text.classification.base import TextClassificationInference
 
 
-class TextClassificationBulk(TextBulk):
+class TextClassificationBulk(TextBulk, TextClassificationInference):
     r"""
     TextClassificationBulk is designed to handle bulk text classification tasks using Hugging Face models efficiently and
     effectively. It allows for processing large datasets, utilizing state-of-the-art machine learning models to provide
@@ -320,14 +321,7 @@ class TextClassificationBulk(TextBulk):
         # Process data in batches
         for i in range(0, len(dataset), batch_size):
             batch = dataset[i : i + batch_size]
-            inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
-
-            if next(self.model.parameters()).is_cuda:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-
-            predictions = self.model(**inputs)
-            predictions = predictions[0] if isinstance(predictions, tuple) else predictions.logits
-            predictions = torch.argmax(predictions, dim=-1).cpu().numpy()
+            predictions = self.classify_text_batch(batch)
 
             self._save_predictions(predictions, batch, output_path, i)
         self.done()
