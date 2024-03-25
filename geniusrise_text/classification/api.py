@@ -17,17 +17,16 @@ import logging
 from typing import Any, Dict
 
 import cherrypy
-import numpy as np
-import torch
 from geniusrise import BatchInput, BatchOutput, State
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 from geniusrise_text.base import TextAPI
+from geniusrise_text.classification.base import TextClassificationInference
 
 log = logging.getLogger(__file__)
 
 
-class TextClassificationAPI(TextAPI):
+class TextClassificationAPI(TextAPI, TextClassificationInference):
     r"""
     TextClassificationAPI leveraging Hugging Face's transformers for text classification tasks.
     This API provides an interface to classify text into various categories like sentiment, topic, intent, etc.
@@ -114,30 +113,11 @@ class TextClassificationAPI(TextAPI):
         data: Dict[str, str] = cherrypy.request.json
         text = data.get("text", "")
 
-        inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+        generation_params = data
+        if "text" in generation_params:
+            del generation_params["text"]
 
-        if next(self.model.parameters()).is_cuda:
-            inputs = {k: v.cuda() for k, v in inputs.items()}
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
-            if next(self.model.parameters()).is_cuda:
-                logits = logits.cpu()
-
-            # Handling a single number output
-            if logits.numel() == 1:
-                logits = outputs.logits.cpu().detach().numpy()
-                scores = 1 / (1 + np.exp(-logits)).flatten()
-                return {"input": text, "label_scores": scores.tolist()}
-            else:
-                softmax = torch.nn.functional.softmax(logits, dim=-1)
-                scores = softmax.numpy().tolist()
-
-        id_to_label = dict(enumerate(self.model.config.id2label.values()))  # type: ignore
-        label_scores = {id_to_label[label_id]: score for label_id, score in enumerate(scores[0])}
-
-        return {"input": text, "label_scores": label_scores}
+        return self.classify_text(text, generation_params)
 
     def initialize_pipeline(self):
         """

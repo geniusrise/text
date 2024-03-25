@@ -15,4 +15,5 @@
 
 from .api import TextAPI
 from .bulk import TextBulk
+from .stream import TextStream
 from .fine_tune import TextFineTuner
